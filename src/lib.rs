@@ -155,8 +155,20 @@ mod tests {
     #[test]
     fn infer_example2() {
         use std::fs;
-        let path = "tests/dictionary/addons/dictionary/";
-        let case = fs::read_to_string(format!("{path}/fnc__copy.sqf")).unwrap();
-        analyzer::analyze(parser::parse(&case), path.into());
+        use std::path::PathBuf;
+        let directory: PathBuf = "tests/dictionary/addons/dictionary/".into();
+
+        let paths = fs::read_dir(directory.clone()).unwrap();
+        for path in paths {
+            let path = path.unwrap().path();
+            if path.extension().is_none() {
+                continue;
+            }
+            if !path.extension().unwrap().to_str().unwrap().contains(".sqf") {
+                continue;
+            }
+            let case = fs::read_to_string(directory.clone().join(path)).unwrap();
+            analyzer::analyze(parser::parse(&case), directory.clone());
+        }
     }
 }

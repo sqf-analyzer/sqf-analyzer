@@ -1,5 +1,5 @@
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
@@ -22,12 +22,12 @@ fn infer_unary(name: &str, rhs: Option<Type>) -> Option<Type> {
 
     match rhs {
         None => {
-            let mut options = data
+            let options = data
                 .into_iter()
                 .filter_map(|((x, _), type_)| (x == name).then_some(type_))
-                .collect::<Vec<_>>();
+                .collect::<HashSet<_>>();
             if options.len() == 1 {
-                Some(options.pop().unwrap())
+                Some(*options.iter().next().unwrap())
             } else {
                 None
             }
@@ -52,34 +52,34 @@ fn infer_binary(lhs: Option<Type>, name: &str, rhs: Option<Type>) -> Option<Type
 
     match (lhs, rhs) {
         (None, None) => {
-            let mut options = data
+            let options = data
                 .into_iter()
                 .filter_map(|((_, x, _), type_)| (x == name).then_some(type_))
-                .collect::<Vec<_>>();
+                .collect::<HashSet<_>>();
             if options.len() == 1 {
-                Some(options.pop().unwrap())
+                Some(*options.iter().next().unwrap())
             } else {
                 None
             }
         }
         (None, Some(rhs)) => {
-            let mut options = data
+            let options = data
                 .into_iter()
                 .filter_map(|((_, x, x_rhs), type_)| (x == name && x_rhs == rhs).then_some(type_))
-                .collect::<Vec<_>>();
+                .collect::<HashSet<_>>();
             if options.len() == 1 {
-                Some(options.pop().unwrap())
+                Some(*options.iter().next().unwrap())
             } else {
                 None
             }
         }
         (Some(lhs), None) => {
-            let mut options = data
+            let options = data
                 .into_iter()
                 .filter_map(|((x_lhs, x, _), type_)| (x == name && x_lhs == lhs).then_some(type_))
-                .collect::<Vec<_>>();
+                .collect::<HashSet<_>>();
             if options.len() == 1 {
-                Some(options.pop().unwrap())
+                Some(*options.iter().next().unwrap())
             } else {
                 None
             }
