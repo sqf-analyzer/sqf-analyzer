@@ -1,0 +1,105 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT    = _{ "//" ~ (!"\n" ~ ANY)* }
+
+define           =  ${
+    "#define" ~ " " ~ define_name ~ " "* ~ define_arguments? ~ " "* ~ define_body? ~ " "* ~ "\n"
+}
+
+define_arguments = _{ "(" ~ define_argument ~ ("," ~ define_argument)* ~ ")" }
+define_argument  =  @{ (ASCII_ALPHA | "_") ~ (ASCII_DIGIT | ASCII_ALPHA | "_")* }
+define_name      =  @{ (ASCII_ALPHA | "_") ~ (ASCII_DIGIT | ASCII_ALPHA | "_")* }
+define_body      = @{(!"\n" ~ ANY)*}
+
+include = { "#include" ~ string }
+macro_  = { variable ~ "(" ~ variable ~ ")" }
+
+program = _{ SOI ~ (define | include | expr)* ~ EOI }
+expr    =  { prefix* ~ primary ~ postfix* ~ (infix ~ prefix* ~ primary ~ postfix*)* }
+infix   = _{ binary_op }
+prefix  = _{ unary_operator }
+postfix = _{ ";" }
+primary = _{ for_ | assignment | macro_ | value }
+
+for_ = {
+    "for" ~ string ~ "from" ~ expr ~ "to" ~ expr ~ ("step" ~ expr)? ~ "do" ~ code
+}
+
+value = _{ array | string | number | boolean | variable | code | "(" ~ expr ~ ")" }
+
+number   = @{ (ASCII_DIGIT | ".")+ }
+string   = @{ "\"" ~ ("\"\"" | (!"\"" ~ ANY))* ~ "\"" }
+boolean  = @{ "true" | "false" }
+variable = @{ (ASCII_ALPHA | "_")+ }
+array    =  {
+    "[" ~ "]"
+  | "[" ~ expr ~ ("," ~ expr)* ~ "]"
+}
+code     =  {
+    "{" ~ (expr ~ ";"?)* ~ "}"
+}
+
+add              = { "+" }
+subtract         = { "-" }
+min_max          = { "max" | "min" }
+multiply         = { "*" }
+divide           = { "/" }
+modulos          = { "%" }
+mod_             = { "mod" }
+or               = { "||" | "or" }
+and              = { "&&" | "and" }
+else_            = { "else" }
+exp              = { "^" }
+logical_operator = {
+    "=="
+  | "!="
+  | "<="
+  | ">="
+  | ">"
+  | "<"
+}
+binary_operator  = {
+    "floor"
+  | "isequalto"
+  | "select"
+  | "setVariable"
+  | "then"
+  | "exitWith"
+  | "call"
+  | "in"
+}
+
+binary_op = _{
+    add
+  | subtract
+  | multiply
+  | divide
+  | modulos
+  | mod_
+  | or
+  | and
+  | min_max
+  | exp
+  | binary_operator
+  | logical_operator
+  | else_
+}
+
+unary_operator = {
+    "!"
+  | "+"
+  | "-"
+  | "if"
+  | "not"
+  | "params"
+  | "diag_log"
+  | "format"
+  | "count"
+  | "isNil"
+  | "toLower"
+  | "typeName"
+  | "call"
+}
+
+assignment = {
+    "private"? ~ variable ~ "=" ~ expr
+}
