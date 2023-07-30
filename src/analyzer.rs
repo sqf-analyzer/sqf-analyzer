@@ -143,6 +143,17 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
         Expr::UnaryOp { op, rhs } => {
             let name = op.as_str();
             let rhs_type = infer_type(&rhs.inner, state);
+            if name == "for" {
+                if let Expr::Value(Value::String(x)) = &rhs.inner {
+                    state.types.insert(
+                        Span {
+                            inner: x.clone(),
+                            span: rhs.span,
+                        },
+                        Some(Type::Number),
+                    );
+                }
+            }
             infer_unary(name, rhs_type)
         }
         Expr::Assignment {
@@ -156,18 +167,6 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
                 .namespace
                 .insert(variable.inner.clone(), type_, *is_private);
             type_
-        }
-        Expr::For { variable, do_, .. } => {
-            state.types.insert(variable.clone(), Some(Type::Number));
-            state.namespace.push_stack();
-            state
-                .namespace
-                .insert(variable.inner.clone(), Some(Type::Number), true);
-            for expr in do_ {
-                infer_type(&expr.inner, state);
-            }
-            state.namespace.pop_stack();
-            Some(Type::ForType)
         }
         Expr::Macro(name, argument) => {
             let a: &Define = state.defines.get(&name.inner).expect("defined macro");

@@ -15,17 +15,12 @@ include_keyword = _{ "#include" }
 include = { include_keyword ~ string }
 macro_  = { variable ~ "(" ~ variable ~ ")" }
 
+// _arguments select _i
 program = _{ SOI ~ (define | include | (expr ~ ";"))* ~ (expr ~ ";"?)? ~ EOI }
-expr    =  { prefix* ~ primary ~ (infix ~ prefix* ~ primary)* }
-infix   = _{ binary_op }
-prefix  = _{ unary_operator }
-primary = _{ for_ | assignment | macro_ | value }
+expr    =  { assignment | primary+ }
+primary = _{ macro_ | value | op | "(" ~ expr ~ ")" }
 
-for_ = {
-    "for" ~ string ~ "from" ~ expr ~ "to" ~ expr ~ ("step" ~ expr)? ~ "do" ~ code
-}
-
-value = _{ array | string | number | boolean | variable | code | "(" ~ expr ~ ")" }
+value = _{ array | string | number | boolean | variable | code }
 
 number   = @{ (ASCII_DIGIT | ".")+ }
 string   = @{ "\"" ~ ("\"\"" | (!"\"" ~ ANY))* ~ "\"" }
@@ -37,81 +32,25 @@ array    =  {
 code     =  {
     "{" ~ (expr ~ ";"?)* ~ "}"
 }
-keyword  = _{
-    "for"
-  | "from"
-  | "to"
-  | "step"
-  | "if"
-  | "while"
-  | "true"
-  | "false"
-  | "or"
-  | "and"
-  | "private"
-}
-variable = @{ (!keyword ~ (ASCII_ALPHA | "_"))+ }
 
-add              = { "+" }
-subtract         = { "-" }
-min_max          = { "max" | "min" }
-multiply         = { "*" }
-divide           = { "/" }
-modulos          = { "%" }
-mod_             = { "mod" }
-or               = { "||" | "or" }
-and              = { "&&" | "and" }
-else_            = { "else" }
-exp              = { "^" }
-logical_operator = {
-    "=="
+variable = @{ (ASCII_ALPHA | "_")+ }
+
+op = {
+  "=="
+  | "+"
+  | "-"
+  | "*"
+  | "/"
+  | "&"
   | "!="
   | "<="
   | ">="
   | ">"
   | "<"
-}
-binary_operator  = {
-    "floor"
-  | "isequalto"
-  | "select"
-  | "setVariable"
-  | "then"
-  | "exitWith"
-  | "call"
-  | "in"
-}
-
-binary_op = _{
-    add
-  | subtract
-  | multiply
-  | divide
-  | modulos
-  | mod_
-  | or
-  | and
-  | min_max
-  | exp
-  | binary_operator
-  | logical_operator
-  | else_
-}
-
-unary_operator = {
-    "!"
-  | "+"
-  | "-"
-  | "if"
-  | "not"
-  | "params"
-  | "diag_log"
-  | "format"
-  | "count"
-  | "isNil"
-  | "toLower"
-  | "typeName"
-  | "call"
+  | "||"
+  | "&&"
+  | "^"
+  | "!"
 }
 
 assignment = {

@@ -80,6 +80,9 @@ fn infer_binary() {
     )]);
 
     check_infer(case, expected);
+
+    let case = "_a select _i";
+    check_infer(case, HashMap::new());
 }
 
 #[test]

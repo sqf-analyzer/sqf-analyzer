@@ -43,8 +43,70 @@ fn parse_macros_call() {
 }
 
 #[test]
-fn error_1() {
-    let e = tokens("for \"_i\" do {}").unwrap_err();
-    assert_eq!(e.span, (0, 0));
-    assert_eq!(e.inner, "expected [define, include, expr]");
+fn two_signatures() {
+    parse(tokens("call A; [] call A;").unwrap());
+}
+
+#[test]
+fn assignment() {
+    let cases = [
+        "private _dictionary = _arguments select 0",
+        "private _key = _arguments select (count _arguments - 2)",
+    ];
+
+    for case in cases {
+        let r = tokens(case);
+        if let Err(r) = r {
+            println!("{r:?}");
+            panic!();
+        }
+    }
+}
+
+#[test]
+fn expr() {
+    let cases = [
+        "1",
+        "(1)",
+        // binary
+        "1 + 1",
+        "a + 1",
+        "a + a",
+        "1 + 1",
+        "(1 + 1)",
+        "a select 1",
+        "1 select a",
+        "1 select 1",
+        "a select a",
+        "(a select a)",
+        "params []",
+        "(params [])",
+        "if _a",
+        "if (_a > 1)",
+        "params 1",
+        "_dictionary setVariable [_key, _value, _isGlobal]",
+        "not a && b",
+    ];
+
+    for case in cases {
+        let r = tokens(case);
+        if let Err(r) = r {
+            println!("{r:?}");
+            panic!("{case}");
+        }
+    }
+}
+
+#[test]
+fn f() {
+    let e = r#"if _a then {
+diag_log format ["a", _arguments];
+};"#;
+    tokens(e).unwrap();
+}
+
+#[test]
+fn for_() {
+    let case = "for \"_i\" from 1 to 10 do { 1+1; }";
+    tokens(case).unwrap();
 }

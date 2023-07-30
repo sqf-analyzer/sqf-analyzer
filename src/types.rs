@@ -74,13 +74,6 @@ pub enum Expr {
     Include(Span<String>),
     Macro(Span<String>, Span<String>),
     Define(Define),
-    For {
-        variable: Span<String>,
-        from: Box<Span<Expr>>,
-        to: Box<Span<Expr>>,
-        step: Option<Box<Span<Expr>>>,
-        do_: Vec<Span<Expr>>,
-    },
     BinaryOp {
         lhs: Box<Span<Expr>>,
         op: String,
