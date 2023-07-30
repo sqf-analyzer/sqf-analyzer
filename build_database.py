@@ -75,6 +75,8 @@ def _parse_type_names(type_names):
 
 def _parse_return_type_names(return_type_names):
     return_type_names = _parse_type_names(return_type_names)
+    if len(return_type_names) > 1:
+        return_type_name = 'any'
 
     if len(return_type_names) > 1 and 'nothing' in return_type_names:
         return_type_names.remove('nothing')
@@ -87,17 +89,72 @@ def _parse_return_type_names(return_type_names):
     return STRING_TO_TYPE_RETURN[return_type_name]
 
 
-url = 'https://raw.githubusercontent.com/intercept/intercept/master/src/' \
-      'client/headers/client/sqf_pointers_declaration.hpp'
+url = 'https://raw.githubusercontent.com/intercept/intercept/master/src/client/headers/client/sqf_pointers_declaration.hpp'
 data = urllib.request.urlopen(url).read().decode('utf-8').split('\n')
 
+nullaries = []
+unaries = [
+    ("!", "Boolean", "Boolean"),
+    ("+", "Number", "Number"),
+    ("+", "Array", "Array"),
+    ("-", "Number", "Number"),
+]
+binaries = [
+    ("Array", "#", "Number", "Anything"),
+    ("Number", "!=", "Number", "Boolean"),
+    ("String", "!=", "String", "Boolean"),
+    ("Object", "!=", "Object", "Boolean"),
+    ("Group", "!=", "Group", "Boolean"),
+    ("Side", "!=", "Side", "Boolean"),
+    ("String", "!=", "String", "Boolean"),
+    ("Config", "!=", "Config", "Boolean"),
+    ("Display", "!=", "Display", "Boolean"),
+    ("Control", "!=", "Control", "Boolean"),
+    ("TeamMember", "!=", "TeamMember", "Boolean"),
+    ("NetObject", "!=", "NetObject", "Boolean"),
+    ("Task", "!=", "Task", "Boolean"),
+    ("Location", "!=", "Location", "Boolean"),
+    ("Number", "%", "Number", "Number"),
+    ("Boolean", "&&", "Boolean", "Boolean"),
+    ("Boolean", "&&", "Code", "Boolean"),
+    ("Number", "*", "Number", "Number"),
+    ("Number", "+", "Number", "Number"),
+    ("String", "+", "String", "String"),
+    ("Array", "+", "Array", "Array"),
+    ("Number", "-", "Number", "Number"),
+    ("Array", "-", "Array", "Array"),
+    ("Number", "/", "Number", "Number"),
+    ("Config", "/", "String", "Config"),
+    ("SwitchType", ":", "Code", "Nothing"),
+    ("Number", "<", "Number", "Boolean"),
+    ("Number", "<=", "Number", "Boolean"),
+    ("Number", "==", "Number", "Boolean"),
+    ("String", "==", "String", "Boolean"),
+    ("Object", "==", "Object", "Boolean"),
+    ("Group", "==", "Group", "Boolean"),
+    ("Side", "==", "Side", "Boolean"),
+    ("String", "==", "String", "Boolean"),
+    ("Config", "==", "Config", "Boolean"),
+    ("Display", "==", "Display", "Boolean"),
+    ("Control", "==", "Control", "Boolean"),
+    ("TeamMember", "==", "TeamMember", "Boolean"),
+    ("NetObject", "==", "NetObject", "Boolean"),
+    ("Task", "==", "Task", "Boolean"),
+    ("Location", "==", "Location", "Boolean"),
+    ("Number", ">", "Number", "Boolean"),
+    ("Number", ">=", "Number", "Boolean"),
+    ("Config", ">>", "String", "Config"),
+    ("Number", "^", "Number", "Number"),
+    ("Boolean", "||", "Boolean", "Boolean"),
+    ("Boolean", "||", "Code", "Boolean"),
+]
 
 expressions = []
 for line in data:
     if not line.startswith('static '):
         continue
 
-    sections = line.split('__')
+    sections = line[:-1].split(" ")[-1].split('__')
     num_sections = len(sections)
 
     if num_sections not in [4, 5, 6]:
@@ -105,118 +162,93 @@ for line in data:
         continue
 
     # Name always comes first
+    op_type = sections[0]
     op_name = sections[1]
 
-    # Return type always comes last (some operators have incorrect values for whatever reason)
+    # fix some return types
     if op_name in WRONG_RETURN_TYPES:
         return_type = WRONG_RETURN_TYPES[op_name]
     else:
-        return_type = _parse_return_type_names(sections[num_sections-1][:-1])
+        return_type = _parse_return_type_names(sections[num_sections-1])
 
-    # Adds any relevant initialization argument for the return type
-    init_code = ''
+    if op_type == "nular":
+        nullaries.append((op_name, return_type))
+    if op_type == "binary":
+        for lhs in _parse_type_names(sections[2]):
+            for rhs in _parse_type_names(sections[3]):
+                binaries.append((STRING_TO_TYPE[lhs], op_name, STRING_TO_TYPE[rhs], return_type))
+    if op_type == "unary":
+        for argument in _parse_type_names(sections[2]):
+            unaries.append((op_name, STRING_TO_TYPE[argument], return_type))
 
-    # Number of sections allows us to classify the operation
-    if num_sections == 6:
-        for lhs_type_name in _parse_type_names(sections[2]):
-            lhs_type = STRING_TO_TYPE[lhs_type_name]
-            for rhs_type_name in _parse_type_names(sections[3]):
-                rhs_type = STRING_TO_TYPE[rhs_type_name]
-                expression = 'Binary(' \
-                             '{lhs_type}, ' \
-                             '"{keyword}", ' \
-                             '{rhs_type}, {return_type})'.format(
-                    lhs_type=lhs_type,
-                    keyword=op_name,
-                    rhs_type=rhs_type,
-                    return_type=return_type,
-                )
-                expressions.append(expression)
-    elif num_sections == 5:
-        for rhs_type_name in _parse_type_names(sections[2]):
-            rhs_type = STRING_TO_TYPE[rhs_type_name]
-            expression = 'Unary(' \
-                         '"{keyword}", ' \
-                         '{rhs_type}, {return_type})'.format(
-                keyword=op_name,
-                rhs_type=rhs_type,
-                return_type=return_type,
-            )
-            expressions.append(expression)
-    else:
+
+def _write_rs():
+    expressions = []
+    for exp in nullaries:
+        op_name, return_type = exp
         expression = 'Nullary(' \
-                     '"{keyword}", ' \
-                     '{return_type})'.format(
-                keyword=op_name,
-                return_type=return_type
-            )
+                '"{keyword}", ' \
+                '{return_type})'.format(
+        keyword=op_name,
+        return_type=return_type
+        )
         expressions.append(expression)
 
-preamble = r'''// This file is generated automatically by `build_database.py`. Change it there.
-use crate::types::Signature::*;
-use crate::types::Type::*;
-use crate::types::*;'''
+
+    for exp in unaries:
+        op_name, rhs_type, return_type = exp
+        expression = 'Unary(' \
+                        '"{keyword}", ' \
+                        '{rhs_type}, {return_type})'.format(
+            keyword=op_name,
+            rhs_type=rhs_type,
+            return_type=return_type,
+        )
+        expressions.append(expression)
 
 
-# Expressions that use symbols are hardcoded since they aren't present in the parsed file
-symbols = r'''
-pub const SIGNATURES: [Signature; 3150] = [
-    Binary(Array, "#", Number, Anything),
-    Binary(Number, "!=", Number, Boolean),
-    Binary(String, "!=", String, Boolean),
-    Binary(Object, "!=", Object, Boolean),
-    Binary(Group, "!=", Group, Boolean),
-    Binary(Side, "!=", Side, Boolean),
-    Binary(String, "!=", String, Boolean),
-    Binary(Config, "!=", Config, Boolean),
-    Binary(Display, "!=", Display, Boolean),
-    Binary(Control, "!=", Control, Boolean),
-    Binary(TeamMember, "!=", TeamMember, Boolean),
-    Binary(NetObject, "!=", NetObject, Boolean),
-    Binary(Task, "!=", Task, Boolean),
-    Binary(Location, "!=", Location, Boolean),
-    Binary(Number, "%", Number, Number),
-    Binary(Boolean, "&&", Boolean, Boolean),
-    Binary(Boolean, "&&", Code, Boolean),
-    Binary(Number, "*", Number, Number),
-    Binary(Number, "+", Number, Number),
-    Binary(String, "+", String, String),
-    Binary(Array, "+", Array, Array),
-    Binary(Number, "-", Number, Number),
-    Binary(Array, "-", Array, Array),
-    Binary(Number, "/", Number, Number),
-    Binary(Config, "/", String, Config),
-    Binary(SwitchType, ":", Code, Nothing),
-    Binary(Number, "<", Number, Boolean),
-    Binary(Number, "<=", Number, Boolean),
-    Binary(Number, "==", Number, Boolean),
-    Binary(String, "==", String, Boolean),
-    Binary(Object, "==", Object, Boolean),
-    Binary(Group, "==", Group, Boolean),
-    Binary(Side, "==", Side, Boolean),
-    Binary(String, "==", String, Boolean),
-    Binary(Config, "==", Config, Boolean),
-    Binary(Display, "==", Display, Boolean),
-    Binary(Control, "==", Control, Boolean),
-    Binary(TeamMember, "==", TeamMember, Boolean),
-    Binary(NetObject, "==", NetObject, Boolean),
-    Binary(Task, "==", Task, Boolean),
-    Binary(Location, "==", Location, Boolean),
-    Binary(Number, ">", Number, Boolean),
-    Binary(Number, ">=", Number, Boolean),
-    Binary(Config, ">>", String, Config),
-    Binary(Number, "^", Number, Number),
-    Binary(Boolean, "||", Boolean, Boolean),
-    Binary(Boolean, "||", Code, Boolean),
-    Unary("!", Boolean, Boolean),
-    Unary("+", Number, Number),
-    Unary("+", Array, Array),
-    Unary("-", Number, Number),
+    for exp in binaries:
+        lhs_type, op_name, rhs_type, return_type = exp
+        expression = 'Binary(' \
+                        '{lhs_type}, ' \
+                        '"{keyword}", ' \
+                        '{rhs_type}, {return_type})'.format(
+            lhs_type=lhs_type,
+            keyword=op_name,
+            rhs_type=rhs_type,
+            return_type=return_type,
+        )
+        expressions.append(expression)
+
+    preamble = r'''// This file is generated automatically by `build_database.py`. Change it there.
+    use crate::types::Signature::*;
+    use crate::types::Type::*;
+    use crate::types::*;'''
+
+
+    # Expressions that use symbols are hardcoded since they aren't present in the parsed file
+    symbols = r'''pub const SIGNATURES: [Signature; 3150] = [
+    '''
+
+
+    with open('src/database.rs', 'w') as f:
+        f.write(preamble + '\n')
+        f.write(symbols + '    ')
+        f.write(',\n    '.join(expressions))
+        f.write('\n];\n')
+
+
+def _write_pest():
+    unique = sorted(set(x[0] for x in unaries))
+
+    exps = "\n    | ".join([f'"{k}"' for k in unique])
+    data = f'''unary_operator = {{
+    {exps}
+}}
 '''
+    with open('src/unary.pest', 'w') as f:
+        f.write(data)
 
 
-with open('src/database.rs', 'w') as f:
-    f.write(preamble + '\n')
-    f.write(symbols + '    ')
-    f.write(',\n    '.join(expressions))
-    f.write('\n];\n')
+_write_rs()
+_write_pest()
