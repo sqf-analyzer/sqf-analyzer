@@ -71,7 +71,7 @@ pub struct Define {
 pub enum Expr {
     Value(Value),
     Variable(Span<String>),
-    Include(String),
+    Include(Span<String>),
     Macro(Span<String>, Span<String>),
     Define(Define),
     For {

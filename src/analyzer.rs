@@ -4,7 +4,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::database::SIGNATURES;
-use crate::parser::parse;
+use crate::error::Error;
+use crate::parser::{parse, tokens};
 use crate::types::*;
 
 /// infers the type of a bynary expression by considering all possible options
@@ -27,7 +28,7 @@ fn infer_unary(name: &str, rhs: Option<Type>) -> Option<Type> {
                 .filter_map(|((x, _), type_)| (x == name).then_some(type_))
                 .collect::<HashSet<_>>();
             if options.len() == 1 {
-                Some(*options.iter().next().unwrap())
+                Some(*options.iter().next().expect("by definition"))
             } else {
                 None
             }
@@ -57,7 +58,7 @@ fn infer_binary(lhs: Option<Type>, name: &str, rhs: Option<Type>) -> Option<Type
                 .filter_map(|((_, x, _), type_)| (x == name).then_some(type_))
                 .collect::<HashSet<_>>();
             if options.len() == 1 {
-                Some(*options.iter().next().unwrap())
+                Some(*options.iter().next().expect("by definition"))
             } else {
                 None
             }
@@ -68,7 +69,7 @@ fn infer_binary(lhs: Option<Type>, name: &str, rhs: Option<Type>) -> Option<Type
                 .filter_map(|((_, x, x_rhs), type_)| (x == name && x_rhs == rhs).then_some(type_))
                 .collect::<HashSet<_>>();
             if options.len() == 1 {
-                Some(*options.iter().next().unwrap())
+                Some(*options.iter().next().expect("by definition"))
             } else {
                 None
             }
@@ -79,7 +80,7 @@ fn infer_binary(lhs: Option<Type>, name: &str, rhs: Option<Type>) -> Option<Type
                 .filter_map(|((x_lhs, x, _), type_)| (x == name && x_lhs == lhs).then_some(type_))
                 .collect::<HashSet<_>>();
             if options.len() == 1 {
-                Some(*options.iter().next().unwrap())
+                Some(*options.iter().next().expect("by definition"))
             } else {
                 None
             }
@@ -89,15 +90,15 @@ fn infer_binary(lhs: Option<Type>, name: &str, rhs: Option<Type>) -> Option<Type
     }
 }
 
-fn infer_code(code: Vec<Span<Expr>>, state: &mut State) {
+fn infer_code(code: &[Span<Expr>], state: &mut State) {
     state.namespace.push_stack();
     for expr in code {
-        infer_type(expr.inner, state);
+        infer_type(&expr.inner, state);
     }
     state.namespace.pop_stack();
 }
 
-fn infer_type(expr: Expr, state: &mut State) -> Option<Type> {
+fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
     match expr {
         Expr::Value(value) => Some(match value {
             Value::Number(_) => Type::Number,
@@ -135,13 +136,13 @@ fn infer_type(expr: Expr, state: &mut State) -> Option<Type> {
         }
         Expr::BinaryOp { lhs, op, rhs } => {
             let name = op.as_str();
-            let lhs_type = infer_type(lhs.inner, state);
-            let rhs_type = infer_type(rhs.inner, state);
+            let lhs_type = infer_type(&lhs.inner, state);
+            let rhs_type = infer_type(&rhs.inner, state);
             infer_binary(lhs_type, name, rhs_type)
         }
         Expr::UnaryOp { op, rhs } => {
             let name = op.as_str();
-            let rhs_type = infer_type(rhs.inner, state);
+            let rhs_type = infer_type(&rhs.inner, state);
             infer_unary(name, rhs_type)
         }
         Expr::Assignment {
@@ -149,9 +150,11 @@ fn infer_type(expr: Expr, state: &mut State) -> Option<Type> {
             variable,
             expr,
         } => {
-            let type_ = infer_type(expr.inner, state);
+            let type_ = infer_type(&expr.inner, state);
             state.types.insert(variable.clone(), type_);
-            state.namespace.insert(variable.inner, type_, is_private);
+            state
+                .namespace
+                .insert(variable.inner.clone(), type_, *is_private);
             type_
         }
         Expr::For { variable, do_, .. } => {
@@ -159,33 +162,32 @@ fn infer_type(expr: Expr, state: &mut State) -> Option<Type> {
             state.namespace.push_stack();
             state
                 .namespace
-                .insert(variable.inner, Some(Type::Number), true);
+                .insert(variable.inner.clone(), Some(Type::Number), true);
             for expr in do_ {
-                infer_type(expr.inner, state);
+                infer_type(&expr.inner, state);
             }
             state.namespace.pop_stack();
             Some(Type::ForType)
         }
         Expr::Macro(name, argument) => {
-            let a = state.defines.get(&name.inner).expect("defined macro");
+            let a: &Define = state.defines.get(&name.inner).expect("defined macro");
             let _compiled = a
                 .body
                 .as_ref()
-                .unwrap()
-                .replace(&a.arguments[0], &argument.inner);
+                .map(|x| x.replace(&a.arguments[0], &argument.inner));
             // todo: parse and process "compiled"
             None
         }
         Expr::Include(name) => {
             // copy all expressions and process them
-            let a = state.files.get(&name).unwrap().clone();
+            let a = state.files.get(&name.inner).unwrap().clone();
             for expr in a {
-                infer_type(expr.inner, state);
+                infer_type(&expr.inner, state);
             }
             Some(Type::Nothing)
         }
         Expr::Define(define) => {
-            state.defines.insert(define.name.clone(), define);
+            state.defines.insert(define.name.clone(), define.clone());
             Some(Type::Nothing)
         }
     }
@@ -236,28 +238,34 @@ pub struct Configuration {
     pub directory: PathBuf,
 }
 
-pub fn analyze(
-    program: Vec<Span<Expr>>,
-    directory: PathBuf,
-) -> HashMap<Span<String>, Option<Type>> {
+pub type Types = HashMap<Span<String>, Option<Type>>;
+
+pub fn analyze(program: &[Span<Expr>], mut path: PathBuf) -> Result<Types, Error> {
+    path.pop();
+    let directory = path;
+
     let mut state = State::default();
 
-    for expr in program.iter() {
+    // process includes
+    for expr in program {
         if let Expr::Include(name) = &expr.inner {
-            match state.files.entry(name.clone()) {
+            match state.files.entry(name.inner.clone()) {
                 Entry::Occupied(_) => {}
                 Entry::Vacant(v) => {
-                    println!("{:?}", directory.join(name));
-                    let data = fs::read_to_string(directory.join(name)).unwrap();
-                    v.insert(parse(&data));
+                    let path = directory.join(name.inner.clone());
+                    let data = fs::read_to_string(path.clone());
+                    let data = data.map_err(|_| Error {
+                        span: name.span,
+                        inner: format!("File \"{path:?}\""),
+                    })?;
+                    v.insert(parse(tokens(&data)?));
                 }
             }
         }
     }
-    //let mut configuration = Configuration { directory };
     state.namespace.push_stack();
     for expr in program {
-        infer_type(expr.inner, &mut state);
+        infer_type(&expr.inner, &mut state);
     }
-    state.types
+    Ok(state.types)
 }

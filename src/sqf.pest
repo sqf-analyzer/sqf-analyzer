@@ -1,23 +1,24 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 COMMENT    = _{ "//" ~ (!"\n" ~ ANY)* }
 
-define           =  ${
-    "#define" ~ " " ~ define_name ~ " "* ~ define_arguments? ~ " "* ~ define_body? ~ " "* ~ "\n"
+define = ${
+    define_keyword ~ " " ~ define_name ~ " "* ~ define_arguments? ~ " "* ~ define_body? ~ " "* ~ "\n"
 }
 
+define_keyword = _{ "#define" }
 define_arguments = _{ "(" ~ define_argument ~ ("," ~ define_argument)* ~ ")" }
-define_argument  =  @{ (ASCII_ALPHA | "_") ~ (ASCII_DIGIT | ASCII_ALPHA | "_")* }
-define_name      =  @{ (ASCII_ALPHA | "_") ~ (ASCII_DIGIT | ASCII_ALPHA | "_")* }
-define_body      = @{(!"\n" ~ ANY)*}
+define_argument  = @{ (ASCII_ALPHA | "_") ~ (ASCII_DIGIT | ASCII_ALPHA | "_")* }
+define_name      = @{ (ASCII_ALPHA | "_") ~ (ASCII_DIGIT | ASCII_ALPHA | "_")* }
+define_body      = @{ (!"\n" ~ ANY)* }
 
-include = { "#include" ~ string }
+include_keyword = _{ "#include" }
+include = { include_keyword ~ string }
 macro_  = { variable ~ "(" ~ variable ~ ")" }
 
-program = _{ SOI ~ (define | include | expr)* ~ EOI }
-expr    =  { prefix* ~ primary ~ postfix* ~ (infix ~ prefix* ~ primary ~ postfix*)* }
+program = _{ SOI ~ (define | include | (expr ~ ";"))* ~ (expr ~ ";"?)? ~ EOI }
+expr    =  { prefix* ~ primary ~ (infix ~ prefix* ~ primary)* }
 infix   = _{ binary_op }
 prefix  = _{ unary_operator }
-postfix = _{ ";" }
 primary = _{ for_ | assignment | macro_ | value }
 
 for_ = {
@@ -29,7 +30,6 @@ value = _{ array | string | number | boolean | variable | code | "(" ~ expr ~ ")
 number   = @{ (ASCII_DIGIT | ".")+ }
 string   = @{ "\"" ~ ("\"\"" | (!"\"" ~ ANY))* ~ "\"" }
 boolean  = @{ "true" | "false" }
-variable = @{ (ASCII_ALPHA | "_")+ }
 array    =  {
     "[" ~ "]"
   | "[" ~ expr ~ ("," ~ expr)* ~ "]"
@@ -37,6 +37,20 @@ array    =  {
 code     =  {
     "{" ~ (expr ~ ";"?)* ~ "}"
 }
+keyword  = _{
+    "for"
+  | "from"
+  | "to"
+  | "step"
+  | "if"
+  | "while"
+  | "true"
+  | "false"
+  | "or"
+  | "and"
+  | "private"
+}
+variable = @{ (!keyword ~ (ASCII_ALPHA | "_"))+ }
 
 add              = { "+" }
 subtract         = { "-" }

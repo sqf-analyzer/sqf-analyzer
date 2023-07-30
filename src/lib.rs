@@ -1,7 +1,9 @@
 pub mod analyzer;
 pub mod database;
+pub mod error;
 pub mod parser;
 pub mod types;
+pub use pest;
 
 #[cfg(test)]
 mod tests {
@@ -9,10 +11,12 @@ mod tests {
 
     use super::*;
 
+    use parser::*;
     use types::*;
 
     fn check_infer(case: &str, expected: HashMap<Span<String>, Option<Type>>) {
-        let a = analyzer::analyze(parser::parse(case), "tests/dictionary/".into());
+        let a =
+            analyzer::analyze(&parse(tokens(case).unwrap()), "tests/dictionary/".into()).unwrap();
         assert_eq!(a, expected);
     }
 
@@ -148,7 +152,7 @@ mod tests {
             ),
         ]);
 
-        let r = analyzer::analyze(parser::parse(&case), path.into());
+        let r = analyzer::analyze(&parse(tokens(&case).unwrap()), path.into()).unwrap();
         assert_eq!(r, expected);
     }
 
@@ -168,7 +172,7 @@ mod tests {
                 continue;
             }
             let case = fs::read_to_string(directory.clone().join(path)).unwrap();
-            analyzer::analyze(parser::parse(&case), directory.clone());
+            analyzer::analyze(&parse(tokens(&case).unwrap()), directory.clone()).unwrap();
         }
     }
 }

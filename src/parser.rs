@@ -1,8 +1,9 @@
-use pest::iterators::{Pair, Pairs};
+pub use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::PrattParser;
 use pest::Parser;
 use pest_derive::Parser;
 
+use crate::error::Error;
 use crate::types::*;
 
 #[derive(Parser)]
@@ -44,8 +45,8 @@ impl From<Pair<'_, Rule>> for Span<String> {
 
 fn parse_assignment(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Expr {
     let mut a = pairs.collect::<Vec<_>>();
-    let expr = a.pop().unwrap();
-    let variable = a.pop().unwrap();
+    let expr = a.pop().expect("by pest definition");
+    let variable = a.pop().expect("by pest definition");
     let is_private = !a.is_empty();
     Expr::Assignment {
         is_private,
@@ -63,17 +64,17 @@ fn parse_for(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Expr {
     let variable;
     if a.len() == 5 {
         // variable, from, to, step, do
-        do_ = a.pop().unwrap();
-        step = Some(a.pop().unwrap());
-        to = a.pop().unwrap();
-        from = a.pop().unwrap();
-        variable = a.pop().unwrap();
+        do_ = a.pop().expect("by definition");
+        step = Some(a.pop().expect("by definition"));
+        to = a.pop().expect("by definition");
+        from = a.pop().expect("by definition");
+        variable = a.pop().expect("by definition");
     } else {
         // variable, from, to, do
-        do_ = a.pop().unwrap();
-        to = a.pop().unwrap();
-        from = a.pop().unwrap();
-        variable = a.pop().unwrap();
+        do_ = a.pop().expect("by definition");
+        to = a.pop().expect("by definition");
+        from = a.pop().expect("by definition");
+        variable = a.pop().expect("by definition");
         step = None;
     }
 
@@ -82,10 +83,7 @@ fn parse_for(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Expr {
         .map(|pair| parse_expr(pair, pratt))
         .collect::<Vec<_>>();
 
-    let variable = Span {
-        inner: no_quotes(variable.as_str()).to_string(),
-        span: to_span(&variable),
-    };
+    let variable = quoted_span(variable);
 
     Expr::For {
         variable,
@@ -98,13 +96,20 @@ fn parse_for(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Expr {
 
 fn parse_macro(pairs: Pairs<Rule>) -> Expr {
     let mut a = pairs.collect::<Vec<_>>();
-    let content = a.pop().unwrap();
-    let name = a.pop().unwrap();
+    let content = a.pop().expect("by pest definition");
+    let name = a.pop().expect("by pest definition");
     Expr::Macro(name.into(), content.into())
 }
 
 fn no_quotes(v: &str) -> &str {
     &v[1..v.len() - 1]
+}
+
+fn quoted_span(pair: Pair<'_, Rule>) -> Span<String> {
+    Span {
+        inner: no_quotes(pair.as_str()).to_string(),
+        span: to_span(&pair),
+    }
 }
 
 pub fn parse_expr(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Span<Expr> {
@@ -114,10 +119,7 @@ pub fn parse_expr(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Span<Expr> {
                 inner: Expr::Value(Value::Number(primary.as_str().to_string())),
                 span: to_span(&primary),
             },
-            Rule::string => Span {
-                inner: Expr::Value(Value::String(no_quotes(primary.as_str()).to_string())),
-                span: to_span(&primary),
-            },
+            Rule::string => quoted_span(primary).map(Value::String).map(Expr::Value),
             Rule::boolean => Span {
                 inner: Expr::Value(Value::Boolean(primary.as_str().to_string())),
                 span: to_span(&primary),
@@ -188,57 +190,52 @@ pub fn parse_expr(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Span<Expr> {
         .parse(pair.into_inner())
 }
 
-pub fn parse(data: &str) -> Vec<Span<Expr>> {
-    let a = SQFParser::parse(Rule::program, data).unwrap();
+pub fn tokens(data: &str) -> Result<Pairs<'_, Rule>, Error> {
+    Ok(SQFParser::parse(Rule::program, data)?)
+}
 
-    let mut result = vec![];
-    for pair in a {
-        if pair.as_str().is_empty() {
-            break;
-        };
-        match pair.as_rule() {
-            Rule::include => {
-                let pair = pair.into_inner().next().unwrap();
+fn to_span_expr(pair: Pair<Rule>) -> Span<Expr> {
+    match pair.as_rule() {
+        Rule::include => {
+            let pair = pair.into_inner().next().expect("by pest definition");
 
-                let span = Span {
-                    span: to_span(&pair),
-                    inner: Expr::Include(no_quotes(pair.as_str()).to_string()),
-                };
-
-                result.push(span);
-            }
-            Rule::define => {
-                let mut pairs = pair.into_inner();
-                let name: Pair<'_, Rule> = pairs.next().unwrap();
-
-                let mut arguments = vec![];
-                let mut body = None;
-
-                for pair in pairs {
-                    match pair.as_rule() {
-                        Rule::define_argument => arguments.push(pair.as_str().to_string()),
-                        Rule::define_body => body = Some(pair.as_str().to_string()),
-                        _ => unreachable!(),
-                    }
-                }
-
-                let span = Span {
-                    span: to_span(&name),
-                    inner: Expr::Define(Define {
-                        name: name.as_str().to_string(),
-                        arguments,
-                        body,
-                    }),
-                };
-                result.push(span);
-            }
-            _ => {
-                let a = parse_expr(pair, &PRATT_PARSER);
-                result.push(a);
+            Span {
+                span: to_span(&pair),
+                inner: Expr::Include(quoted_span(pair)),
             }
         }
+        Rule::define => {
+            let mut pairs = pair.into_inner();
+            let name: Pair<'_, Rule> = pairs.next().expect("by pest definition");
+
+            let mut arguments = vec![];
+            let mut body = None;
+
+            for pair in pairs {
+                match pair.as_rule() {
+                    Rule::define_argument => arguments.push(pair.as_str().to_string()),
+                    Rule::define_body => body = Some(pair.as_str().to_string()),
+                    _ => unreachable!(),
+                }
+            }
+
+            Span {
+                span: to_span(&name),
+                inner: Expr::Define(Define {
+                    name: name.as_str().to_string(),
+                    arguments,
+                    body,
+                }),
+            }
+        }
+        _ => parse_expr(pair, &PRATT_PARSER),
     }
-    result
+}
+
+pub fn parse<'a, I: Iterator<Item = Pair<'a, Rule>>>(iter: I) -> Vec<Span<Expr>> {
+    iter.filter(|pair| !pair.as_str().is_empty())
+        .map(to_span_expr)
+        .collect()
 }
 
 #[cfg(test)]
@@ -381,16 +378,28 @@ _dictionary setVariable [toLower _key, _value, _isGlobal];
 
     #[test]
     fn parse_for() {
-        parse("for \"_i\" from 1 to (count _arguments - 3) do {}");
+        parse(tokens("for \"_i\" from 1 to (count _arguments - 3) do {}").unwrap());
     }
 
     #[test]
     fn parse_macros() {
-        parse("#include \"macros.hpp\"\na = AA(a)");
+        parse(tokens("#include \"macros.hpp\"\na = AA(a)").unwrap());
     }
 
     #[test]
     fn parse_macros_call() {
-        parse("a = (call AA(a))");
+        parse(tokens("a = (call AA(a))").unwrap());
+    }
+
+    #[test]
+    fn code_assign() {
+        parse(tokens("a = {}").unwrap());
+    }
+
+    #[test]
+    fn error_1() {
+        let e = tokens("for \"_i\" do {}").unwrap_err();
+        assert_eq!(e.span, (0, 0));
+        assert_eq!(e.inner, "expected [define, include, expr]");
     }
 }
