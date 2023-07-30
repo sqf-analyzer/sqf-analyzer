@@ -256,7 +256,7 @@ pub fn analyze(program: &[Span<Expr>], mut path: PathBuf) -> Result<Types, Error
                     let data = fs::read_to_string(path.clone());
                     let data = data.map_err(|_| Error {
                         span: name.span,
-                        inner: format!("File \"{path:?}\""),
+                        inner: format!("File \"{path:?}\" not found"),
                     })?;
                     v.insert(parse(tokens(&data)?));
                 }
