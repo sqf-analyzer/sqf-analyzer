@@ -141,6 +141,10 @@ pub fn quoted_span(pair: Pair<'_, Rule>) -> Span<String> {
     }
 }
 
+fn not_comment(pair: &Pair<'_, Rule>) -> bool {
+    !matches!(pair.as_rule(), Rule::COMMENT)
+}
+
 pub fn parse_expr(pair: Pair<Rule>) -> Span<Expr> {
     PrattParser::new()
         .map_primary::<Pre, _, _>(|primary: _| match primary.as_rule() {
@@ -155,7 +159,11 @@ pub fn parse_expr(pair: Pair<Rule>) -> Span<Expr> {
             },
             Rule::array => {
                 let span = to_span(&primary);
-                let inner = primary.into_inner().map(parse_expr).collect::<Vec<_>>();
+                let inner = primary
+                    .into_inner()
+                    .filter(not_comment)
+                    .map(parse_expr)
+                    .collect::<Vec<_>>();
                 Span {
                     inner: Expr::Value(Value::Array(inner)),
                     span,
@@ -172,7 +180,11 @@ pub fn parse_expr(pair: Pair<Rule>) -> Span<Expr> {
             },
             Rule::code => {
                 let span = to_span(&primary);
-                let inner = primary.into_inner().map(parse_expr).collect::<Vec<_>>();
+                let inner = primary
+                    .into_inner()
+                    .filter(not_comment)
+                    .map(parse_expr)
+                    .collect::<Vec<_>>();
                 Span {
                     inner: Expr::Value(Value::Code(inner)),
                     span,
@@ -253,6 +265,7 @@ fn to_span_expr(pair: Pair<Rule>) -> Span<Expr> {
 
 pub fn parse<'a, I: Iterator<Item = Pair<'a, Rule>>>(iter: I) -> Vec<Span<Expr>> {
     iter.filter(|pair| !pair.as_str().is_empty())
+        .filter(not_comment)
         .map(to_span_expr)
         .collect()
 }

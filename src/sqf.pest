@@ -1,5 +1,5 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
-COMMENT    = _{ "//" ~ (!"\n" ~ ANY)* }
+COMMENT    = { "//" ~ (!"\n" ~ ANY)* }
 
 define = ${
     define_keyword ~ " " ~ define_name ~ " "* ~ define_arguments? ~ " "* ~ define_body? ~ " "* ~ "\n"
