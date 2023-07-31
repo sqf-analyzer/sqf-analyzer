@@ -1,6 +1,6 @@
-use crate::{parser::Rule, types::Span};
+use crate::{parser::Rule, types::Spanned};
 
-pub type Error = Span<String>;
+pub type Error = Spanned<String>;
 
 impl From<pest::error::Error<Rule>> for Error {
     fn from(value: pest::error::Error<Rule>) -> Self {
@@ -19,7 +19,7 @@ impl From<pest::error::Error<Rule>> for Error {
             pest::error::ErrorVariant::CustomError { message } => message,
         };
 
-        Span {
+        Spanned {
             span,
             inner: message,
         }

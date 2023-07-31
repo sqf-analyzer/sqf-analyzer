@@ -102,7 +102,7 @@ fn to_span(pair: &Pair<'_, Rule>) -> (usize, usize) {
     (pair.as_span().start(), pair.as_span().end())
 }
 
-impl From<Pair<'_, Rule>> for Span<String> {
+impl From<Pair<'_, Rule>> for Spanned<String> {
     fn from(value: Pair<'_, Rule>) -> Self {
         Self {
             span: to_span(&value),
@@ -134,8 +134,8 @@ fn no_quotes(v: &str) -> &str {
     &v[1..v.len() - 1]
 }
 
-pub fn quoted_span(pair: Pair<'_, Rule>) -> Span<String> {
-    Span {
+pub fn quoted_span(pair: Pair<'_, Rule>) -> Spanned<String> {
+    Spanned {
         inner: no_quotes(pair.as_str()).to_string(),
         span: to_span(&pair),
     }
@@ -145,15 +145,15 @@ fn not_comment(pair: &Pair<'_, Rule>) -> bool {
     !matches!(pair.as_rule(), Rule::COMMENT)
 }
 
-pub fn parse_expr(pair: Pair<Rule>) -> Span<Expr> {
+pub fn parse_expr(pair: Pair<Rule>) -> Spanned<Expr> {
     PrattParser::new()
         .map_primary::<Pre, _, _>(|primary: _| match primary.as_rule() {
-            Rule::number => Span {
+            Rule::number => Spanned {
                 inner: Expr::Value(Value::Number(primary.as_str().to_string())),
                 span: to_span(&primary),
             },
             Rule::string => quoted_span(primary).map(Value::String).map(Expr::Value),
-            Rule::boolean => Span {
+            Rule::boolean => Spanned {
                 inner: Expr::Value(Value::Boolean(primary.as_str().to_string())),
                 span: to_span(&primary),
             },
@@ -164,17 +164,17 @@ pub fn parse_expr(pair: Pair<Rule>) -> Span<Expr> {
                     .filter(not_comment)
                     .map(parse_expr)
                     .collect::<Vec<_>>();
-                Span {
+                Spanned {
                     inner: Expr::Value(Value::Array(inner)),
                     span,
                 }
             }
             Rule::expr => parse_expr(primary),
-            Rule::variable => Span {
+            Rule::variable => Spanned {
                 span: to_span(&primary),
                 inner: Expr::Variable(primary.into()),
             },
-            Rule::assignment => Span {
+            Rule::assignment => Spanned {
                 span: to_span(&primary),
                 inner: parse_assignment(primary.into_inner()),
             },
@@ -185,12 +185,12 @@ pub fn parse_expr(pair: Pair<Rule>) -> Span<Expr> {
                     .filter(not_comment)
                     .map(parse_expr)
                     .collect::<Vec<_>>();
-                Span {
+                Spanned {
                     inner: Expr::Value(Value::Code(inner)),
                     span,
                 }
             }
-            Rule::macro_ => Span {
+            Rule::macro_ => Spanned {
                 span: to_span(&primary),
                 inner: parse_macro(primary.into_inner()),
             },
@@ -199,7 +199,7 @@ pub fn parse_expr(pair: Pair<Rule>) -> Span<Expr> {
         .map_prefix(|op, rhs| {
             let span = (to_span(&op).0, rhs.span.1);
 
-            Span {
+            Spanned {
                 inner: Expr::UnaryOp {
                     op: op.into(),
                     rhs: Box::new(rhs),
@@ -209,7 +209,7 @@ pub fn parse_expr(pair: Pair<Rule>) -> Span<Expr> {
         })
         .map_infix(|lhs, op, rhs| {
             let span = (lhs.span.0, rhs.span.1);
-            Span {
+            Spanned {
                 inner: Expr::BinaryOp {
                     lhs: Box::new(lhs),
                     op: op.into(),
@@ -225,14 +225,14 @@ pub fn tokens(data: &str) -> Result<Pairs<'_, Rule>, Error> {
     Ok(SQFParser::parse(Rule::program, data)?)
 }
 
-fn to_span_expr(pair: Pair<Rule>) -> Span<Expr> {
+fn to_span_expr(pair: Pair<Rule>) -> Spanned<Expr> {
     match pair.as_rule() {
         Rule::include => {
             let mut pairs = pair.into_inner();
             let _ = pairs.next();
             let pair = pairs.next().expect("by pest definition");
 
-            Span {
+            Spanned {
                 span: to_span(&pair),
                 inner: Expr::Include(quoted_span(pair)),
             }
@@ -253,7 +253,7 @@ fn to_span_expr(pair: Pair<Rule>) -> Span<Expr> {
                 }
             }
 
-            Span {
+            Spanned {
                 span: to_span(&name),
                 inner: Expr::Define(Define {
                     name: name.as_str().to_string(),
@@ -266,7 +266,7 @@ fn to_span_expr(pair: Pair<Rule>) -> Span<Expr> {
     }
 }
 
-pub fn parse<'a, I: Iterator<Item = Pair<'a, Rule>>>(iter: I) -> Vec<Span<Expr>> {
+pub fn parse<'a, I: Iterator<Item = Pair<'a, Rule>>>(iter: I) -> Vec<Spanned<Expr>> {
     iter.filter(|pair| !pair.as_str().is_empty())
         .filter(not_comment)
         .map(to_span_expr)

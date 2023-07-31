@@ -37,14 +37,14 @@ pub enum Signature {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Span<T> {
+pub struct Spanned<T> {
     pub inner: T,
     pub span: (usize, usize),
 }
 
-impl<T> Span<T> {
-    pub fn map<R, F: FnOnce(T) -> R>(self, f: F) -> Span<R> {
-        Span::<R> {
+impl<T> Spanned<T> {
+    pub fn map<R, F: FnOnce(T) -> R>(self, f: F) -> Spanned<R> {
+        Spanned::<R> {
             inner: f(self.inner),
             span: self.span,
         }
@@ -55,9 +55,9 @@ impl<T> Span<T> {
 pub enum Value {
     Number(String),
     String(String),
-    Array(Vec<Span<Expr>>),
+    Array(Vec<Spanned<Expr>>),
     Boolean(String),
-    Code(Vec<Span<Expr>>),
+    Code(Vec<Spanned<Expr>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -70,22 +70,22 @@ pub struct Define {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Value(Value),
-    Variable(Span<String>),
-    Include(Span<String>),
-    Macro(Span<String>, Span<String>),
+    Variable(Spanned<String>),
+    Include(Spanned<String>),
+    Macro(Spanned<String>, Spanned<String>),
     Define(Define),
     BinaryOp {
-        lhs: Box<Span<Expr>>,
-        op: Span<String>,
-        rhs: Box<Span<Expr>>,
+        lhs: Box<Spanned<Expr>>,
+        op: Spanned<String>,
+        rhs: Box<Spanned<Expr>>,
     },
     UnaryOp {
-        op: Span<String>,
-        rhs: Box<Span<Expr>>,
+        op: Spanned<String>,
+        rhs: Box<Spanned<Expr>>,
     },
     Assignment {
         is_private: bool,
-        variable: Span<String>,
-        expr: Box<Span<Expr>>,
+        variable: Spanned<String>,
+        expr: Box<Spanned<Expr>>,
     },
 }

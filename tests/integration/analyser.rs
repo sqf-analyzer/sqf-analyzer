@@ -4,7 +4,7 @@ use sqf::analyzer::*;
 use sqf::parser::*;
 use sqf::types::*;
 
-fn check_infer(case: &str, expected: HashMap<Span<String>, Option<Type>>) {
+fn check_infer(case: &str, expected: HashMap<Spanned<String>, Option<Type>>) {
     let a = analyze(&parse(tokens(case).unwrap()), "tests/dictionary/".into()).unwrap();
     assert_eq!(a, expected);
 }
@@ -14,7 +14,7 @@ fn infer_number() {
     let case = "private _a = 1";
 
     let expected = HashMap::from([(
-        Span {
+        Spanned {
             inner: "_a".to_string(),
             span: (8, 10),
         },
@@ -28,7 +28,7 @@ fn infer_string() {
     let case = "private _a = \"1\"";
 
     let expected = HashMap::from([(
-        Span {
+        Spanned {
             inner: "_a".to_string(),
             span: (8, 10),
         },
@@ -42,7 +42,7 @@ fn infer_variable() {
     let case = "private _a = 1";
 
     let expected = HashMap::from([(
-        Span {
+        Spanned {
             inner: "_a".to_string(),
             span: (8, 10),
         },
@@ -57,7 +57,7 @@ fn infer_unary() {
     let case = "private _a = params [\"_a\"]";
 
     let expected = HashMap::from([(
-        Span {
+        Spanned {
             inner: "_a".to_string(),
             span: (8, 10),
         },
@@ -72,7 +72,7 @@ fn infer_binary() {
     let case = "private _a = 1 + 1";
 
     let expected = HashMap::from([(
-        Span {
+        Spanned {
             inner: "_a".to_string(),
             span: (8, 10),
         },
@@ -90,7 +90,7 @@ fn infer_nullary() {
     let case = "private _a = west";
 
     let expected = HashMap::from([(
-        Span {
+        Spanned {
             inner: "_a".to_string(),
             span: (8, 10),
         },
@@ -108,35 +108,35 @@ fn infer_example1() {
 
     let expected = HashMap::from([
         (
-            Span {
+            Spanned {
                 inner: "_dictionary".to_string(),
                 span: (274, 285),
             },
             None,
         ),
         (
-            Span {
+            Spanned {
                 inner: "_dictionary".to_string(),
                 span: (477, 488),
             },
             None,
         ),
         (
-            Span {
+            Spanned {
                 inner: "_key".to_string(),
                 span: (317, 321),
             },
             None,
         ),
         (
-            Span {
+            Spanned {
                 inner: "_value".to_string(),
                 span: (374, 380),
             },
             None,
         ),
         (
-            Span {
+            Spanned {
                 inner: "_i".to_string(),
                 span: (430, 434),
             },

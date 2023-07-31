@@ -90,7 +90,7 @@ fn infer_binary(lhs: Option<Type>, name: &str, rhs: Option<Type>) -> Option<Type
     }
 }
 
-fn infer_code(code: &[Span<Expr>], state: &mut State) {
+fn infer_code(code: &[Spanned<Expr>], state: &mut State) {
     state.namespace.push_stack();
     for expr in code {
         infer_type(&expr.inner, state);
@@ -145,7 +145,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
             if name == "for" {
                 if let Expr::Value(Value::String(x)) = &rhs.inner {
                     state.types.insert(
-                        Span {
+                        Spanned {
                             inner: x.clone(),
                             span: rhs.span,
                         },
@@ -226,9 +226,9 @@ impl Namespace {
 
 #[derive(Debug, Default)]
 struct State {
-    pub types: HashMap<Span<String>, Option<Type>>,
+    pub types: HashMap<Spanned<String>, Option<Type>>,
     pub namespace: Namespace,
-    pub files: HashMap<String, Vec<Span<Expr>>>,
+    pub files: HashMap<String, Vec<Spanned<Expr>>>,
     pub defines: HashMap<String, Define>,
 }
 
@@ -237,9 +237,9 @@ pub struct Configuration {
     pub directory: PathBuf,
 }
 
-pub type Types = HashMap<Span<String>, Option<Type>>;
+pub type Types = HashMap<Spanned<String>, Option<Type>>;
 
-pub fn analyze(program: &[Span<Expr>], mut path: PathBuf) -> Result<Types, Error> {
+pub fn analyze(program: &[Spanned<Expr>], mut path: PathBuf) -> Result<Types, Error> {
     path.pop();
     let directory = path;
 
