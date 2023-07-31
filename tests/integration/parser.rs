@@ -90,7 +90,8 @@ fn expr() {
         "not a && b",
         "-1",
         "private _key = _arguments select (count _arguments - 2);",
-        "private _dict2 = 1;", // variable with digit
+        "private _dict2 = 1;",               // variable with digit
+        "private _results = +DICT_results;", // + as unary
     ];
 
     for case in cases {
@@ -119,11 +120,5 @@ fn for_() {
 #[test]
 fn macros_() {
     let case = "if not ISOBJECT(_dictionary) exitWith {}";
-    parse(tokens(case).unwrap());
-}
-
-#[test]
-fn other___() {
-    let case = "private _results = +DICT_results;";
     parse(tokens(case).unwrap());
 }

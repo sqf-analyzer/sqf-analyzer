@@ -228,7 +228,9 @@ pub fn tokens(data: &str) -> Result<Pairs<'_, Rule>, Error> {
 fn to_span_expr(pair: Pair<Rule>) -> Span<Expr> {
     match pair.as_rule() {
         Rule::include => {
-            let pair = pair.into_inner().next().expect("by pest definition");
+            let mut pairs = pair.into_inner();
+            let _ = pairs.next();
+            let pair = pairs.next().expect("by pest definition");
 
             Span {
                 span: to_span(&pair),
@@ -237,7 +239,8 @@ fn to_span_expr(pair: Pair<Rule>) -> Span<Expr> {
         }
         Rule::define => {
             let mut pairs = pair.into_inner();
-            let name: Pair<'_, Rule> = pairs.next().expect("by pest definition");
+            let _ = pairs.next().expect("by pest definition");
+            let name = pairs.next().expect("by pest definition");
 
             let mut arguments = vec![];
             let mut body = None;

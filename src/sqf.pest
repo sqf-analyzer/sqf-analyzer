@@ -5,13 +5,13 @@ define = ${
     define_keyword ~ " " ~ define_name ~ " "* ~ define_arguments? ~ " "* ~ define_body? ~ " "* ~ "\n"
 }
 
-define_keyword = _{ "#define" }
+define_keyword = { "#define" }
 define_arguments = _{ "(" ~ define_argument ~ ("," ~ define_argument)* ~ ")" }
 define_argument  = @{ (ASCII_ALPHA | "_") ~ (ASCII_DIGIT | ASCII_ALPHA | "_")* }
 define_name      = @{ (ASCII_ALPHA | "_") ~ (ASCII_DIGIT | ASCII_ALPHA | "_")* }
 define_body      = @{ (!"\n" ~ ANY)* }
 
-include_keyword = _{ "#include" }
+include_keyword = { "#include" }
 include = { include_keyword ~ string }
 macro_content = @{ (!(")" | ",") ~ ANY)* }
 macro_  = ${ variable ~ "(" ~ macro_content ~ ("," ~ macro_content)* ~ ")" }
@@ -53,6 +53,7 @@ op = {
   | "!"
 }
 
+private_keyword = { "private" }
 assignment = {
-    "private"? ~ variable ~ "=" ~ expr
+  private_keyword? ~ variable ~ "=" ~ expr
 }
