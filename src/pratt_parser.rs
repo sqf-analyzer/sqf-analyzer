@@ -10,6 +10,7 @@ pub enum Assoc {
     /// Left operator associativity. Evaluate expressions from left-to-right.
     Left,
     /// Right operator associativity. Evaluate expressions from right-to-left.
+    #[allow(dead_code)]
     Right,
 }
 
@@ -17,6 +18,7 @@ type Prec = u32;
 
 pub enum Affix {
     Prefix,
+    #[allow(dead_code)]
     Postfix,
     Infix(Assoc),
 }
@@ -90,6 +92,7 @@ where
     }
 
     /// Maps postfix operators with closure `postfix`.
+    #[allow(dead_code)]
     pub fn map_postfix<X>(mut self, postfix: X) -> Self
     where
         X: FnMut(T, R::Item) -> T + 'a,

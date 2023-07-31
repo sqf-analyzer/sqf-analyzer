@@ -13,16 +13,16 @@ define_body      = @{ (!"\n" ~ ANY)* }
 
 include_keyword = _{ "#include" }
 include = { include_keyword ~ string }
-macro_  = { variable ~ "(" ~ variable ~ ")" }
+macro_content = @{ (!(")" | ",") ~ ANY)* }
+macro_  = ${ variable ~ "(" ~ macro_content ~ ("," ~ macro_content)* ~ ")" }
 
-// _arguments select _i
 program = _{ SOI ~ (define | include | (expr ~ ";"))* ~ (expr ~ ";"?)? ~ EOI }
 expr    =  { assignment | primary+ }
 primary = _{ macro_ | value | op | "(" ~ expr ~ ")" }
 
 value = _{ array | string | number | boolean | variable | code }
 
-number   = @{ (ASCII_DIGIT | ".")+ }
+number   = @{ "-"? ~ (ASCII_DIGIT | ".")+ }
 string   = @{ "\"" ~ ("\"\"" | (!"\"" ~ ANY))* ~ "\"" }
 boolean  = @{ "true" | "false" }
 array    =  {
@@ -33,7 +33,7 @@ code     =  {
     "{" ~ (expr ~ ";"?)* ~ "}"
 }
 
-variable = @{ (ASCII_ALPHA | "_")+ }
+variable = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHA | ASCII_DIGIT | "_")* }
 
 op = {
   "=="

@@ -50,6 +50,8 @@ fn two_signatures() {
 #[test]
 fn assignment() {
     let cases = [
+        "_dictionary = 1",
+        "private _dictionary = 1",
         "private _dictionary = _arguments select 0",
         "private _key = _arguments select (count _arguments - 2)",
     ];
@@ -86,6 +88,9 @@ fn expr() {
         "params 1",
         "_dictionary setVariable [_key, _value, _isGlobal]",
         "not a && b",
+        "-1",
+        "private _key = _arguments select (count _arguments - 2);",
+        "private _dict2 = 1;", // variable with digit
     ];
 
     for case in cases {
@@ -109,4 +114,16 @@ diag_log format ["a", _arguments];
 fn for_() {
     let case = "for \"_i\" from 1 to 10 do { 1+1; }";
     tokens(case).unwrap();
+}
+
+#[test]
+fn macros_() {
+    let case = "if not ISOBJECT(_dictionary) exitWith {}";
+    parse(tokens(case).unwrap());
+}
+
+#[test]
+fn other___() {
+    let case = "private _results = +DICT_results;";
+    parse(tokens(case).unwrap());
 }

@@ -16,7 +16,7 @@ pub struct SQFParser;
 
 lazy_static::lazy_static! {
 
-    static ref BINARY: HashSet<&'static str> = SIGNATURES
+    pub static ref BINARY: HashSet<&'static str> = SIGNATURES
         .iter()
         .filter_map(|x| {
             if let Signature::Binary(_, name, _, _) = x {
@@ -27,10 +27,21 @@ lazy_static::lazy_static! {
         })
         .collect::<HashSet<_, _>>();
 
-    static ref UNARY: HashSet<&'static str> = SIGNATURES
+    pub static ref UNARY: HashSet<&'static str> = SIGNATURES
         .iter()
         .filter_map(|x| {
             if let Signature::Unary(name, _, _) = x {
+                Some(*name)
+            } else {
+                None
+            }
+        })
+        .collect::<HashSet<_, _>>();
+
+    pub static ref NULLARY: HashSet<&'static str> = SIGNATURES
+        .iter()
+        .filter_map(|x| {
+            if let Signature::Nullary(name, _) = x {
                 Some(*name)
             } else {
                 None
@@ -77,15 +88,13 @@ impl<'i> Precedence for Pre<'i> {
     fn prefix_weight(item: &Self::Item) -> Option<(Affix, u32)> {
         let token = item.as_str().to_lowercase(); // SQF is case insensitive
         let token = token.as_ref();
-        common_weight(token).or_else(|| {
-            if UNARY.contains(token) {
-                Some((Affix::Prefix, 9))
-            } else if BINARY.contains(token) {
-                Some((Affix::Infix(Assoc::Left), 4))
-            } else {
-                None
-            }
-        })
+        if UNARY.contains(token) {
+            Some((Affix::Prefix, 9))
+        } else if BINARY.contains(token) {
+            Some((Affix::Infix(Assoc::Left), 4))
+        } else {
+            common_weight(token)
+        }
     }
 }
 
