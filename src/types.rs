@@ -76,11 +76,11 @@ pub enum Expr {
     Define(Define),
     BinaryOp {
         lhs: Box<Span<Expr>>,
-        op: String,
+        op: Span<String>,
         rhs: Box<Span<Expr>>,
     },
     UnaryOp {
-        op: String,
+        op: Span<String>,
         rhs: Box<Span<Expr>>,
     },
     Assignment {

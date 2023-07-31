@@ -135,14 +135,13 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
             })
         }
         Expr::BinaryOp { lhs, op, rhs } => {
-            let name = op.as_str();
+            let name = op.inner.as_str();
             let lhs_type = infer_type(&lhs.inner, state);
             let rhs_type = infer_type(&rhs.inner, state);
             infer_binary(lhs_type, name, rhs_type)
         }
         Expr::UnaryOp { op, rhs } => {
-            let name = op.as_str();
-            let rhs_type = infer_type(&rhs.inner, state);
+            let name = op.inner.as_str();
             if name == "for" {
                 if let Expr::Value(Value::String(x)) = &rhs.inner {
                     state.types.insert(
@@ -154,6 +153,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
                     );
                 }
             }
+            let rhs_type = infer_type(&rhs.inner, state);
             infer_unary(name, rhs_type)
         }
         Expr::Assignment {

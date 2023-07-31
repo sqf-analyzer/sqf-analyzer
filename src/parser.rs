@@ -196,23 +196,23 @@ pub fn parse_expr(pair: Pair<Rule>) -> Span<Expr> {
             },
             rule => unreachable!("Expr::parse expected atom, found {:?}", rule),
         })
-        .map_prefix(|op: Pair<'_, Rule>, rhs| {
+        .map_prefix(|op, rhs| {
             let span = (to_span(&op).0, rhs.span.1);
 
             Span {
                 inner: Expr::UnaryOp {
-                    op: op.as_str().to_string(),
+                    op: op.into(),
                     rhs: Box::new(rhs),
                 },
                 span,
             }
         })
-        .map_infix(|lhs: Span<Expr>, op, rhs| {
+        .map_infix(|lhs, op, rhs| {
             let span = (lhs.span.0, rhs.span.1);
             Span {
                 inner: Expr::BinaryOp {
                     lhs: Box::new(lhs),
-                    op: op.as_str().to_string(),
+                    op: op.into(),
                     rhs: Box::new(rhs),
                 },
                 span,
