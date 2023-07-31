@@ -98,7 +98,7 @@ impl<'i> Precedence for Pre<'i> {
     }
 }
 
-fn to_span(pair: &Pair<'_, Rule>) -> (usize, usize) {
+fn to_span(pair: &Pair<'_, Rule>) -> Span {
     (pair.as_span().start(), pair.as_span().end())
 }
 

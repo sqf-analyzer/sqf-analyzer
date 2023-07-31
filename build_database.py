@@ -35,7 +35,7 @@ STRING_TO_TYPE = {
     'nan': "Number",
     'nothing': "Nothing",
     'netobject': "NetObject",
-    'any': "Type",
+    'any': "Anything",
     'diary': "DiaryReport",  # diary_record gets split
 }
 
@@ -237,18 +237,4 @@ def _write_rs():
         f.write(',\n    '.join(expressions))
         f.write('\n];\n')
 
-
-def _write_pest():
-    unique = sorted(set(x[0] for x in unaries))
-
-    exps = "\n    | ".join([f'"{k}"' for k in unique])
-    data = f'''unary_operator = {{
-    {exps}
-}}
-'''
-    with open('src/unary.pest', 'w') as f:
-        f.write(data)
-
-
 _write_rs()
-_write_pest()

@@ -2,7 +2,6 @@
 pub enum Type {
     Boolean,
     String,
-    Type,
     Nothing,
     Anything,
     Namespace,
@@ -30,16 +29,27 @@ pub enum Type {
     WithType,
 }
 
+impl Type {
+    #[inline]
+    pub fn consistent(self, other: Self) -> bool {
+        match (self, other) {
+            (_, Type::Anything) | (Type::Anything, _) => true,
+            (lhs, rhs) => lhs == rhs,
+        }
+    }
+}
 pub enum Signature {
     Binary(Type, &'static str, Type, Type),
     Unary(&'static str, Type, Type),
     Nullary(&'static str, Type),
 }
 
+pub type Span = (usize, usize);
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Spanned<T> {
     pub inner: T,
-    pub span: (usize, usize),
+    pub span: Span,
 }
 
 impl<T> Spanned<T> {
