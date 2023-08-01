@@ -2,6 +2,17 @@ use core::iter::Peekable;
 use core::marker::PhantomData;
 use std::fmt::Debug;
 
+use crate::error::Error;
+use crate::types::Span;
+
+pub trait ToSpan {
+    fn to_span(&self) -> Span;
+}
+
+pub trait AsStr {
+    fn as_str(&self) -> &str;
+}
+
 /// Associativity of an infix binary operator, used by [`Op::infix(Assoc)`].
 ///
 /// [`Op::infix(Assoc)`]: struct.Op.html
@@ -24,7 +35,7 @@ pub enum Affix {
 }
 
 pub trait Precedence {
-    type Item: Debug;
+    type Item: ToSpan + AsStr;
     /// weight when symbol is evaluated as an inflix op
     fn inflix_weight(item: &Self::Item) -> Option<(Affix, Prec)>;
     /// weight when symbol is evaluated as an prefix op
@@ -118,34 +129,40 @@ where
     /// [`map_prefix`]: struct.PrattParserMap.html#method.map_prefix
     /// [`map_postfix`]: struct.PrattParserMap.html#method.map_postfix
     /// [`map_infix`]: struct.PrattParserMap.html#method.map_infix
-    pub fn parse<P: Iterator<Item = R::Item>>(&mut self, pairs: P) -> T {
+    pub fn parse<P: Iterator<Item = R::Item>>(&mut self, pairs: P) -> Result<T, Error> {
         self.expr(&mut pairs.peekable(), 0)
     }
 
-    fn expr<P: Iterator<Item = R::Item>>(&mut self, pairs: &mut Peekable<P>, rbp: Prec) -> T {
-        let mut lhs = self.nud(pairs);
-        while rbp < self.lbp(pairs) {
-            lhs = self.led(pairs, lhs);
+    fn expr<P: Iterator<Item = R::Item>>(
+        &mut self,
+        pairs: &mut Peekable<P>,
+        rbp: Prec,
+    ) -> Result<T, Error> {
+        let mut lhs = self.nud(pairs)?;
+        while rbp < self.lbp(pairs)? {
+            lhs = self.led(pairs, lhs)?;
         }
-        lhs
+        Ok(lhs)
     }
 
     /// Null-Denotation
     ///
     /// "the action that should happen when the symbol is encountered
     ///  as start of an expression (most notably, prefix operators)
-    fn nud<P: Iterator<Item = R::Item>>(&mut self, pairs: &mut Peekable<P>) -> T {
+    fn nud<P: Iterator<Item = R::Item>>(&mut self, pairs: &mut Peekable<P>) -> Result<T, Error> {
         let pair = pairs.next().expect("Pratt parsing expects non-empty Pairs");
         match self.prefix_weight(&pair) {
             Some((Affix::Prefix, prec)) => {
-                let rhs = self.expr(pairs, prec - 1);
-                match self.prefix.as_mut() {
-                    Some(prefix) => prefix(pair, rhs),
-                    None => panic!("Could not map {:?}, no `.map_prefix(...)` specified", pair),
-                }
+                let rhs = self.expr(pairs, prec - 1)?;
+                Ok(self.prefix.as_mut().expect("`.map_prefix(...)` specified")(
+                    pair, rhs,
+                ))
             }
-            None => (self.primary)(pair),
-            _ => panic!("Expected prefix or primary expression, found {:?}", pair),
+            None => Ok((self.primary)(pair)),
+            _ => panic!(
+                "Expected prefix or primary expression, found {}",
+                pair.as_str()
+            ),
         }
     }
 
@@ -153,37 +170,48 @@ where
     ///
     /// "the action that should happen when the symbol is encountered
     /// after the start of an expression (most notably, infix and postfix operators)"
-    fn led<P: Iterator<Item = R::Item>>(&mut self, pairs: &mut Peekable<P>, lhs: T) -> T {
-        let pair = pairs.next().unwrap();
+    fn led<P: Iterator<Item = R::Item>>(
+        &mut self,
+        pairs: &mut Peekable<P>,
+        lhs: T,
+    ) -> Result<T, Error> {
+        let pair = pairs.next().expect("Pratt parsing expects non-empty Pairs");
         match self.inflix_weight(&pair) {
             Some((Affix::Infix(assoc), prec)) => {
                 let rhs = match assoc {
                     Assoc::Left => self.expr(pairs, prec),
                     Assoc::Right => self.expr(pairs, prec - 1),
-                };
-                match self.infix.as_mut() {
-                    Some(infix) => infix(lhs, pair, rhs),
-                    None => panic!("Could not map {:?}, no `.map_infix(...)` specified", pair),
-                }
+                }?;
+                Ok(self.infix.as_mut().expect("`.map_infix(...)` specified")(
+                    lhs, pair, rhs,
+                ))
             }
-            Some((Affix::Postfix, _)) => match self.postfix.as_mut() {
-                Some(postfix) => postfix(lhs, pair),
-                None => panic!("Could not map {:?}, no `.map_postfix(...)` specified", pair),
-            },
-            _ => panic!("Expected postfix or infix expression, found {:?}", pair),
+            Some((Affix::Postfix, _)) => Ok(self
+                .postfix
+                .as_mut()
+                .expect("`.map_postfix(...)` specified")(
+                lhs, pair
+            )),
+            _ => Err(Error {
+                inner: format!("\"{}\" is not a binary operator", pair.as_str()),
+                span: pair.to_span(),
+            }),
         }
     }
 
     /// Left-Binding-Power
     ///
     /// "describes the symbol's precedence in infix form (most notably, operator precedence)"
-    fn lbp<P: Iterator<Item = R::Item>>(&self, pairs: &mut Peekable<P>) -> Prec {
+    fn lbp<P: Iterator<Item = R::Item>>(&self, pairs: &mut Peekable<P>) -> Result<Prec, Error> {
         match pairs.peek() {
             Some(pair) => match self.inflix_weight(pair) {
-                Some((_, prec)) => prec,
-                None => panic!("Expected operator, found {:?}", pair),
+                Some((_, prec)) => Ok(prec),
+                None => Err(Error {
+                    inner: format!("\"{}\" is not an operator", pair.as_str()),
+                    span: pair.to_span(),
+                }),
             },
-            None => 0,
+            None => Ok(0),
         }
     }
 

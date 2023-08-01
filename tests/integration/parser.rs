@@ -1,4 +1,21 @@
-use sqf::parser::*;
+use sqf::{parser::*, types::Spanned};
+
+fn check_parse(cases: &[&str]) {
+    for case in cases {
+        let r = tokens(case);
+        match r {
+            Ok(r) => {
+                println!("{case}");
+                let (_, e) = parse(r);
+                assert!(e.is_empty());
+            }
+            Err(r) => {
+                println!("{r:?}");
+                panic!();
+            }
+        }
+    }
+}
 
 #[test]
 fn general() {
@@ -56,13 +73,7 @@ fn assignment() {
         "private _key = _arguments select (count _arguments - 2)",
     ];
 
-    for case in cases {
-        let r = tokens(case);
-        if let Err(r) = r {
-            println!("{r:?}");
-            panic!();
-        }
-    }
+    check_parse(&cases);
 }
 
 #[test]
@@ -94,11 +105,35 @@ fn expr() {
         "private _results = +DICT_results;", // + as unary
     ];
 
-    for case in cases {
+    check_parse(&cases);
+}
+
+#[test]
+fn expr_negative() {
+    let cases = ["ormat [\"\", _arguments];", "_a cal [\"\", _arguments];"];
+    let expected = [
+        vec![Spanned {
+            span: (6, 22),
+            inner: "\"[\"\", _arguments]\" is not an operator".to_string(),
+        }],
+        vec![Spanned {
+            span: (3, 6),
+            inner: "\"cal\" is not an operator".to_string(),
+        }],
+    ];
+
+    for (case, expected) in cases.iter().zip(expected.iter()) {
         let r = tokens(case);
-        if let Err(r) = r {
-            println!("{r:?}");
-            panic!("{case}");
+        match r {
+            Ok(r) => {
+                println!("{case}");
+                let (_, e) = parse(r);
+                assert_eq!(&e, expected);
+            }
+            Err(r) => {
+                println!("{r:?}");
+                panic!();
+            }
         }
     }
 }

@@ -5,7 +5,9 @@ use sqf::parser::*;
 use sqf::types::*;
 
 fn check_infer(case: &str, expected: HashMap<Spanned<String>, Option<Type>>) {
-    let result = analyze(&parse(tokens(case).unwrap()), "tests/dictionary/".into());
+    let (ast, errors) = parse(tokens(case).unwrap());
+    assert_eq!(errors, vec![]);
+    let result = analyze(&ast, "tests/dictionary/".into());
     assert_eq!(result.errors, vec![]);
     assert_eq!(result.types, expected);
 }
@@ -145,7 +147,10 @@ fn infer_example1() {
         ),
     ]);
 
-    let r = analyze(&parse(tokens(&case).unwrap()), path.into());
+    let (ast, errors) = parse(tokens(&case).unwrap());
+    assert_eq!(errors, vec![]);
+
+    let r = analyze(&ast, path.into());
     assert_eq!(r.errors, vec![]);
     assert_eq!(r.types, expected);
 }
@@ -168,7 +173,11 @@ fn infer_example2() {
         }
         println!("{path:?}");
         let case = fs::read_to_string(path.clone()).unwrap();
-        let r = analyze(&parse(tokens(&case).unwrap()), path);
+
+        let (ast, errors) = parse(tokens(&case).unwrap());
+        assert_eq!(errors, vec![]);
+
+        let r = analyze(&ast, path);
         assert!(r.errors.is_empty())
     }
 }

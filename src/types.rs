@@ -98,4 +98,5 @@ pub enum Expr {
         variable: Spanned<String>,
         expr: Box<Spanned<Expr>>,
     },
+    Error,
 }

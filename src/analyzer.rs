@@ -278,6 +278,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
             state.defines.insert(define.name.clone(), define.clone());
             Some(Type::Nothing)
         }
+        Expr::Error => None,
     }
 }
 
@@ -359,7 +360,11 @@ pub fn analyze(program: &[Spanned<Expr>], mut path: PathBuf) -> State {
                     if let Some(data) = consume_result(data, &mut state.errors) {
                         let tokens = tokens(&data);
                         let tokens = consume_result(tokens, &mut state.errors);
-                        tokens.map(|tokens| v.insert(parse(tokens)));
+                        if let Some(tokens) = tokens {
+                            let (expr, errors) = parse(tokens);
+                            state.errors.extend(errors);
+                            v.insert(expr);
+                        }
                     }
                 }
             }
