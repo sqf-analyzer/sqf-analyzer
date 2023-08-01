@@ -103,6 +103,7 @@ fn expr() {
         "private _key = _arguments select (count _arguments - 2);",
         "private _dict2 = 1;",               // variable with digit
         "private _results = +DICT_results;", // + as unary
+        "[_this, false] call EFUNC(_set);",
     ];
 
     check_parse(&cases);
@@ -155,5 +156,11 @@ fn for_() {
 #[test]
 fn macros_() {
     let case = "if not ISOBJECT(_dictionary) exitWith {}";
+    parse(tokens(case).unwrap());
+}
+
+#[test]
+fn no_panic() {
+    let case = "params";
     parse(tokens(case).unwrap());
 }

@@ -150,7 +150,10 @@ where
     /// "the action that should happen when the symbol is encountered
     ///  as start of an expression (most notably, prefix operators)
     fn nud<P: Iterator<Item = R::Item>>(&mut self, pairs: &mut Peekable<P>) -> Result<T, Error> {
-        let pair = pairs.next().expect("Pratt parsing expects non-empty Pairs");
+        let pair = pairs.next().ok_or_else(|| Error {
+            span: (0, 0),
+            inner: "Missing arguments to operator".to_string(),
+        })?;
         match self.prefix_weight(&pair) {
             Some((Affix::Prefix, prec)) => {
                 let rhs = self.expr(pairs, prec - 1)?;
@@ -175,7 +178,10 @@ where
         pairs: &mut Peekable<P>,
         lhs: T,
     ) -> Result<T, Error> {
-        let pair = pairs.next().expect("Pratt parsing expects non-empty Pairs");
+        let pair = pairs.next().ok_or_else(|| Error {
+            span: (0, 0),
+            inner: "Missing arguments to binary operator".to_string(),
+        })?;
         match self.inflix_weight(&pair) {
             Some((Affix::Infix(assoc), prec)) => {
                 let rhs = match assoc {

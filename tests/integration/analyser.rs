@@ -4,7 +4,7 @@ use sqf::analyzer::*;
 use sqf::parser::*;
 use sqf::types::*;
 
-fn parse_analyze(case: &str) -> State {
+pub fn parse_analyze(case: &str) -> State {
     let (ast, errors) = parse(tokens(case).unwrap());
     assert_eq!(errors, vec![]);
     analyze(&ast, "tests/dictionary/".into())

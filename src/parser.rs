@@ -227,8 +227,12 @@ pub fn parse_expr(pair: Pair<Rule>, errors: &mut Vec<Error>) -> Spanned<Expr> {
     let result = a.parse(pair.into_inner());
     match result {
         Ok(r) => r,
-        Err(e) => {
+        Err(mut e) => {
+            if e.span == (0, 0) {
+                e.span = span;
+            }
             errors.push(e);
+
             Spanned {
                 span,
                 inner: Expr::Error,

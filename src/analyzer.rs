@@ -45,6 +45,16 @@ fn _build_unary() -> HashMap<&'static str, HashMap<Type, Type>> {
     r
 }
 
+fn _build_nullary() -> HashMap<&'static str, Type> {
+    let mut r: HashMap<&'static str, Type> = Default::default();
+    for s in SIGNATURES {
+        if let Signature::Nullary(name, type_) = s {
+            r.insert(name, type_);
+        }
+    }
+    r
+}
+
 lazy_static::lazy_static! {
 
     pub static ref BINARY: HashMap<&'static str, HashMap<(Type, Type), Type>> = {
@@ -54,6 +64,135 @@ lazy_static::lazy_static! {
     pub static ref UNARY: HashMap<&'static str, HashMap<Type, Type>> = {
         _build_unary()
     };
+
+    pub static ref NULLNARY: HashMap<&'static str, Type> = {
+        _build_nullary()
+    };
+}
+
+#[inline]
+fn _is_private(v: &str) -> bool {
+    v.as_bytes().first() == Some(&b'_')
+}
+
+fn process_param_variable(v: &str, span: Span, state: &mut State, type_: Type) {
+    if _is_private(v) {
+        state.namespace.insert(
+            Spanned {
+                inner: v.to_owned(),
+                span,
+            },
+            Some(type_),
+            true,
+        );
+    } else {
+        state.errors.push(Spanned {
+            span,
+            inner: "Argument must begin with _".to_string(),
+        })
+    }
+}
+
+fn process_param_types(
+    name: &str,
+    name_span: Span,
+    types: Option<&Spanned<Expr>>,
+    state: &mut State,
+) -> Option<Type> {
+    let types = if let Some(types) = types {
+        types
+    } else {
+        process_param_variable(name, name_span, state, Type::Anything);
+        return None;
+    };
+
+    let (types, span) = if let Expr::Value(Value::Array(expr)) = &types.inner {
+        (expr, types.span)
+    } else {
+        state.errors.push(Spanned {
+            span: types.span,
+            inner: "params' third argument must be an array".to_string(),
+        });
+        return None;
+    };
+
+    Some(types.iter().fold(Type::Nothing, |acc, maybe_type| {
+        // reduce the list of types to a single type
+        let type_ = infer_type(&maybe_type.inner, state);
+        let type_ = type_.unwrap_or_else(|| {
+            state.errors.push(Spanned {
+                span,
+                inner: "params' third argument's elements must be typed".to_string(),
+            });
+            Type::Anything
+        });
+        match acc {
+            // first type => get it
+            Type::Nothing => type_,
+            // more than one type => Anything
+            _ => Type::Anything,
+        }
+    }))
+}
+
+fn process_params_variable(param: &Spanned<Expr>, state: &mut State) {
+    if let Expr::Value(Value::String(v)) = &param.inner {
+        process_param_variable(v, param.span, state, Type::Anything);
+        return;
+    }
+
+    let Expr::Value(Value::Array(expr)) = &param.inner else {
+        state.errors.push(Spanned {
+            span: param.span,
+            inner: "params' argument must be either a string or array".to_string(),
+        });
+        return;
+    };
+
+    let mut iter = expr.iter();
+    let name = iter.next();
+    let default = iter.next();
+    let types = iter.next();
+    let _counts = iter.next();
+    for remaining in iter {
+        state.errors.push(Spanned {
+            span: remaining.span,
+            inner: "params' arguments only accept up to 4 arguments".to_string(),
+        })
+    }
+
+    let (name, name_span) = if let Some(Spanned {
+        inner: Expr::Value(Value::String(name)),
+        span: name_span,
+    }) = name
+    {
+        (name, *name_span)
+    } else {
+        state.errors.push(Spanned {
+            span: param.span,
+            inner: "params' first argument must be a string".to_string(),
+        });
+        return;
+    };
+
+    let Some(default) = default else {
+        process_param_variable(name, name_span, state, Type::Anything);
+        return;
+    };
+    let default_type = infer_type(&default.inner, state).unwrap_or(Type::Anything);
+
+    let Some(type_) = process_param_types(name, name_span, types, state) else {
+        return
+    };
+
+    if !type_.consistent(default_type) {
+        state.errors.push(Spanned {
+            span: param.span,
+            inner: format!("params' default argument type \"{:?}\" is inconsistent with expected type \"{:?}\"", default_type, type_),
+        });
+    }
+
+    process_param_variable(name, name_span, state, type_)
 }
 
 /// infers the type of a bynary expression by considering all possible options
@@ -64,10 +203,7 @@ fn infer_unary(
 ) -> Option<Type> {
     let lower = name.inner.to_ascii_lowercase();
 
-    let options = UNARY.get(lower.as_str());
-    let options = if let Some(options) = options {
-        options
-    } else {
+    let Some(options) = UNARY.get(lower.as_str()) else {
         errors.push(Spanned {
             span: name.span,
             inner: format!("No unary operator named \"{}\"", name.inner),
@@ -114,10 +250,7 @@ fn infer_binary(
 ) -> Option<Type> {
     let lower = name.inner.to_ascii_lowercase();
 
-    let options = BINARY.get(lower.as_str());
-    let options = if let Some(options) = options {
-        options
-    } else {
+    let Some(options) = BINARY.get(lower.as_str()) else {
         errors.push(Spanned {
             span: name.span,
             inner: format!("No binary operator named \"{}\"", name.inner),
@@ -201,22 +334,11 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
         }),
 
         Expr::Variable(variable) => {
-            let name = &variable.inner;
+            let name = variable.inner.to_ascii_lowercase();
 
             (name == "_this")
                 .then_some(Type::Anything)
-                .or_else(|| {
-                    SIGNATURES
-                        .iter()
-                        .filter_map(|x| {
-                            if let Signature::Nullary(name, type_) = x {
-                                Some((*name, *type_))
-                            } else {
-                                None
-                            }
-                        })
-                        .find_map(|(x, type_)| (x == name).then_some(type_))
-                })
+                .or_else(|| NULLNARY.get(name.as_str()).cloned())
                 .or_else(|| {
                     if let Some((span, type_)) = state.namespace.get(&variable.inner) {
                         state.origins.insert(variable.span, *span);
@@ -232,18 +354,30 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
             infer_binary(lhs_type, op, rhs_type, &mut state.errors)
         }
         Expr::UnaryOp { op, rhs } => {
-            let name = op.inner.as_str();
-            if name == "for" {
-                if let Expr::Value(Value::String(x)) = &rhs.inner {
-                    state.types.insert(
-                        Spanned {
-                            inner: x.clone(),
+            match op.inner.as_str() {
+                "for" => {
+                    if let Expr::Value(Value::String(x)) = &rhs.inner {
+                        state.types.insert(
+                            Spanned {
+                                inner: x.clone(),
+                                span: rhs.span,
+                            },
+                            Some(Type::Number),
+                        );
+                    } else {
+                        state.errors.push(Spanned {
+                            inner: "parameter of `for` must be a string".to_string(),
                             span: rhs.span,
-                        },
-                        Some(Type::Number),
-                    );
+                        })
+                    }
                 }
-            }
+                "params" => {
+                    if let Expr::Value(Value::Array(x)) = &rhs.inner {
+                        x.iter().for_each(|x| process_params_variable(x, state))
+                    }
+                }
+                _ => {}
+            };
             let rhs_type = infer_type(&rhs.inner, state);
             infer_unary(op, rhs_type, &mut state.errors)
         }
@@ -258,7 +392,13 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
             type_
         }
         Expr::Macro(name, argument) => {
-            let a: &Define = state.defines.get(&name.inner).expect("defined macro");
+            let Some(a) = state.defines.get(&name.inner) else {
+                state.errors.push(Spanned {
+                    span: name.span,
+                    inner: "undefined macro".to_string(),
+                });
+                return None
+            };
             let _compiled = a
                 .body
                 .as_ref()
@@ -326,7 +466,7 @@ impl Namespace {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct State {
     pub types: HashMap<Spanned<String>, Option<Type>>,
     pub namespace: Namespace,
