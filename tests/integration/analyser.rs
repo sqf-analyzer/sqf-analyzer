@@ -4,10 +4,14 @@ use sqf::analyzer::*;
 use sqf::parser::*;
 use sqf::types::*;
 
-fn check_infer(case: &str, expected: HashMap<Spanned<String>, Option<Type>>) {
+fn parse_analyze(case: &str) -> State {
     let (ast, errors) = parse(tokens(case).unwrap());
     assert_eq!(errors, vec![]);
-    let result = analyze(&ast, "tests/dictionary/".into());
+    analyze(&ast, "tests/dictionary/".into())
+}
+
+fn check_infer(case: &str, expected: HashMap<Spanned<String>, Option<Type>>) {
+    let result = parse_analyze(case);
     assert_eq!(result.errors, vec![]);
     assert_eq!(result.types, expected);
 }
@@ -101,6 +105,37 @@ fn infer_nullary() {
     )]);
 
     check_infer(case, expected);
+}
+
+/// when not private, variables are assigned to the previous stacks (or namespace if not defined)
+#[test]
+fn namespace() {
+    let case = "private _a = west; call {private _a = 2}";
+
+    let expected = vec![HashMap::from([(
+        "_a".to_string(),
+        ((8, 10), Some(Type::Side)),
+    )])];
+
+    let state = parse_analyze(case);
+    assert_eq!(state.namespace.stack, expected);
+
+    let case = "private _a = west; call {_a = 2}";
+
+    let expected = vec![HashMap::from([(
+        "_a".to_string(),
+        ((25, 27), Some(Type::Number)),
+    )])];
+
+    let state = parse_analyze(case);
+    assert_eq!(state.namespace.stack, expected);
+
+    let case = "call {_a = 2}";
+
+    let expected = HashMap::from([("_a".to_string(), ((6, 8), Some(Type::Number)))]);
+
+    let state = parse_analyze(case);
+    assert_eq!(state.namespace.mission, expected);
 }
 
 #[test]

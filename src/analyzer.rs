@@ -289,6 +289,7 @@ pub struct Namespace {
 }
 
 impl Namespace {
+    #[allow(clippy::map_entry)]
     pub fn insert(&mut self, key: Spanned<String>, value: Option<Type>, is_private: bool) {
         if is_private {
             self.stack
@@ -296,6 +297,13 @@ impl Namespace {
                 .unwrap()
                 .insert(key.inner, (key.span, value));
         } else {
+            for stack in self.stack.iter_mut().rev() {
+                if stack.contains_key(&key.inner) {
+                    // entries API would require cloning, which is more expensive than this lookup
+                    stack.insert(key.inner, (key.span, value));
+                    return;
+                }
+            }
             self.mission.insert(key.inner, (key.span, value));
         }
     }
@@ -314,11 +322,7 @@ impl Namespace {
                 return Some(value);
             }
         }
-        self.stack
-            .last()
-            .unwrap()
-            .get(key)
-            .or_else(|| self.mission.get(key))
+        self.mission.get(key)
     }
 }
 
