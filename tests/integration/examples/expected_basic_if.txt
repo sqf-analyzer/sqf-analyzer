@@ -1,0 +1,143 @@
+Body(
+    [
+        Term(
+            Spanned {
+                inner: "if",
+                span: (
+                    0,
+                    2,
+                ),
+            },
+        ),
+        Term(
+            Spanned {
+                inner: "a",
+                span: (
+                    3,
+                    4,
+                ),
+            },
+        ),
+        Term(
+            Spanned {
+                inner: "then",
+                span: (
+                    5,
+                    9,
+                ),
+            },
+        ),
+        Term(
+            Spanned {
+                inner: "{",
+                span: (
+                    10,
+                    11,
+                ),
+            },
+        ),
+        Term(
+            Spanned {
+                inner: "b",
+                span: (
+                    16,
+                    17,
+                ),
+            },
+        ),
+        Ifdef(
+            Spanned {
+                inner: "A",
+                span: (
+                    25,
+                    26,
+                ),
+            },
+            [
+                Term(
+                    Spanned {
+                        inner: "}",
+                        span: (
+                            27,
+                            28,
+                        ),
+                    },
+                ),
+                Term(
+                    Spanned {
+                        inner: ";",
+                        span: (
+                            28,
+                            29,
+                        ),
+                    },
+                ),
+            ],
+            [
+                Term(
+                    Spanned {
+                        inner: "}",
+                        span: (
+                            36,
+                            37,
+                        ),
+                    },
+                ),
+                Term(
+                    Spanned {
+                        inner: "else",
+                        span: (
+                            38,
+                            42,
+                        ),
+                    },
+                ),
+                Term(
+                    Spanned {
+                        inner: "{",
+                        span: (
+                            43,
+                            44,
+                        ),
+                    },
+                ),
+                Term(
+                    Spanned {
+                        inner: "c",
+                        span: (
+                            49,
+                            50,
+                        ),
+                    },
+                ),
+                Term(
+                    Spanned {
+                        inner: "}",
+                        span: (
+                            51,
+                            52,
+                        ),
+                    },
+                ),
+                Term(
+                    Spanned {
+                        inner: ";",
+                        span: (
+                            52,
+                            53,
+                        ),
+                    },
+                ),
+            ],
+        ),
+        Term(
+            Spanned {
+                inner: "d",
+                span: (
+                    61,
+                    62,
+                ),
+            },
+        ),
+    ],
+)

@@ -7,3 +7,4 @@ if a then {
     c
 };
 #endif
+d

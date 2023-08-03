@@ -8,7 +8,8 @@ term = _{ include | undef | define | if_ | base_term }
 string    = @{ "\"" ~ ("\"\"" | (!"\"" ~ ANY))* ~ "\"" }
 number    = @{ "-"? ~ ASCII_DIGIT ~ (ASCII_DIGIT | ".")* }
 word      = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
-base_term = _{ number | string | word | SYMBOL | PUNCTUATION | NUMBER }
+symbol    =  { SYMBOL | PUNCTUATION | NUMBER }
+base_term = _{ number | string | word | symbol }
 
 // #include
 include     = ${ "#include" ~ " " ~ include_str ~ end }
@@ -22,7 +23,8 @@ if_ = {
     (ifdef_start | if_start) ~ if_body ~ (else_ ~ if_body)? ~ "#endif"
 }
 
-if_body     =  { (!("#endif" | else_) ~ term)* }
+if_term     = _{ (!("#endif" | else_) ~ term) }
+if_body     =  { if_term* }
 else_       =  { "#else" }
 ifdef_start = ${ if_def_kw ~ " " ~ word ~ "\n" }
 if_def_kw   =  { "#ifdef" | "#ifndef" }
@@ -37,7 +39,7 @@ define = ${
     "#define" ~ " " ~ word ~ define_arguments? ~ " "* ~ define_term* ~ end
 }
 
-define_arguments = { "(" ~ word ~ ("," ~ word)* ~ ")" }
+define_arguments =  { "(" ~ word ~ ("," ~ word)* ~ ")" }
 define_term      = @{ "\\\n" | "##" | "#" | base_term | " " | "\t" | "\r" }
 
 end = _{ ("\n" | EOI) }

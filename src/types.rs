@@ -46,7 +46,7 @@ pub enum Signature {
 
 pub type Span = (usize, usize);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Spanned<T> {
     pub inner: T,
     pub span: Span,

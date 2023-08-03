@@ -1,3 +1,5 @@
+use std::collections::{HashMap, VecDeque};
+
 use pest::iterators::{Pair, Pairs};
 use pest::Parser;
 use pest_derive::Parser;
@@ -30,14 +32,25 @@ pub fn pairs(data: &str) -> Result<Pairs<'_, Rule>, Error> {
 }
 
 #[derive(Debug, Clone)]
+pub struct Define<'a> {
+    pub name: Spanned<&'a str>,
+    pub arguments: Vec<Spanned<&'a str>>,
+    pub body: Vec<Spanned<&'a str>>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Ast<'a> {
-    Ifdef(Pair<'a, Rule>, Vec<Ast<'a>>, Vec<Ast<'a>>),
-    Ifndef(Pair<'a, Rule>, Vec<Ast<'a>>, Vec<Ast<'a>>),
-    If(Pairs<'a, Rule>, Vec<Ast<'a>>, Vec<Ast<'a>>),
-    Define(Pair<'a, Rule>, Vec<Spanned<&'a str>>, Vec<Spanned<&'a str>>),
+    Ifdef(Spanned<&'a str>, VecDeque<Ast<'a>>, VecDeque<Ast<'a>>),
+    Ifndef(Spanned<&'a str>, VecDeque<Ast<'a>>, VecDeque<Ast<'a>>),
+    If(
+        VecDeque<Spanned<&'a str>>,
+        VecDeque<Ast<'a>>,
+        VecDeque<Ast<'a>>,
+    ),
+    Define(Define<'a>),
     Undefine(Spanned<&'a str>),
     Include(Spanned<&'a str>),
-    Body(Vec<Ast<'a>>),
+    Body(VecDeque<Ast<'a>>),
     Comment(Spanned<&'a str>),
     Term(Spanned<&'a str>),
 }
@@ -63,15 +76,15 @@ fn parse_if(pair: Pair<'_, Rule>) -> Ast<'_> {
     match if_type.as_str() {
         "#ifndef" => {
             let name = if_start.next().unwrap();
-            Ast::Ifndef(name, body, else_)
+            Ast::Ifndef(name.into(), body, else_)
         }
         "#ifdef" => {
             let name = if_start.next().unwrap();
-            Ast::Ifdef(name, body, else_)
+            Ast::Ifdef(name.into(), body, else_)
         }
         _ => {
             assert!(matches!(if_type.as_rule(), Rule::if_expr));
-            let expr = if_type.into_inner();
+            let expr = if_type.into_inner().map(|x| x.into()).collect();
             Ast::If(expr, body, else_)
         }
     }
@@ -82,14 +95,15 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
         Rule::if_ => parse_if(pair),
         Rule::define => {
             let mut define = pair.into_inner();
-            let name = define.next().unwrap();
+            let name = define.next().unwrap().into();
 
             let Some(args_or_body) = define.next() else {
-                return Ast::Define(name, vec![], vec![]);
+                return Ast::Define(Define {
+                    name, arguments: vec![], body: vec![]});
             };
             let is_arguments = matches!(args_or_body.as_rule(), Rule::define_arguments);
 
-            let (args, body) = if is_arguments {
+            let (arguments, body) = if is_arguments {
                 let body = define.map(|x| x.into()).collect::<Vec<_>>();
 
                 let args = args_or_body.into_inner().map(|x| x.into()).collect();
@@ -104,7 +118,11 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
                 )
             };
 
-            Ast::Define(name, args, body)
+            Ast::Define(Define {
+                name,
+                arguments,
+                body,
+            })
         }
         Rule::undef => {
             let word = pair.into_inner().next().unwrap();
@@ -119,7 +137,7 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
     }
 }
 
-fn _parse(pairs: Pairs<'_, Rule>) -> Vec<Ast<'_>> {
+fn _parse(pairs: Pairs<'_, Rule>) -> VecDeque<Ast<'_>> {
     pairs
         .filter(|pair| pair.as_rule() != Rule::EOI)
         .map(parse_pair)
@@ -128,4 +146,102 @@ fn _parse(pairs: Pairs<'_, Rule>) -> Vec<Ast<'_>> {
 
 pub fn parse(pairs: Pairs<'_, Rule>) -> Ast<'_> {
     Ast::Body(_parse(pairs))
+}
+
+pub type Defines<'a> = HashMap<&'a str, Define<'a>>;
+
+pub struct AstIterator<'a> {
+    base: VecDeque<Ast<'a>>,
+    defines: Defines<'a>,
+}
+
+fn evaluate_terms<'a>(
+    terms: &mut VecDeque<Ast<'a>>,
+    defines: &mut Defines<'a>,
+) -> (bool, Option<Spanned<&'a str>>) {
+    // go to front, take (has_more, item); if not has_more; remove it
+    match terms.front_mut() {
+        Some(item) => {
+            let (has_more, item) = take_last(item, defines);
+            if has_more {
+                (true, item)
+            } else {
+                terms.pop_front();
+                (true, item)
+            }
+        }
+        None => (false, None),
+    }
+}
+
+fn evaluate_if(expr: &VecDeque<Spanned<&str>>, defines: &Defines) -> bool {
+    match expr.len() {
+        1 => {
+            let def_name = expr.front().unwrap().inner;
+            defines
+                .get(def_name)
+                .and_then(|_| todo!("compute bool from variable"))
+                .unwrap_or_default()
+        }
+        3 => {
+            todo!("compute op from variable")
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn take_last<'a>(ast: &mut Ast<'a>, defines: &mut Defines<'a>) -> (bool, Option<Spanned<&'a str>>) {
+    match ast {
+        Ast::Ifndef(term, else_, then) | Ast::Ifdef(term, then, else_) => {
+            if defines.contains_key(term.inner) {
+                evaluate_terms(then, defines)
+            } else {
+                evaluate_terms(else_, defines)
+            }
+        }
+        Ast::If(expr, then, else_) => {
+            if evaluate_if(expr, defines) {
+                evaluate_terms(then, defines)
+            } else {
+                evaluate_terms(else_, defines)
+            }
+        }
+        Ast::Define(define) => {
+            defines.insert(define.name.inner, define.clone());
+            (false, None)
+        }
+        Ast::Undefine(name) => {
+            defines.remove(name.inner);
+            (false, None)
+        }
+        Ast::Include(_) => todo!(),
+        Ast::Body(terms) => evaluate_terms(terms, defines),
+        Ast::Term(term) => (false, Some(*term)),
+        Ast::Comment(_) => (false, None),
+    }
+}
+
+impl<'a> AstIterator<'a> {
+    pub fn new(base: Ast<'a>, defines: Defines<'a>) -> Self {
+        let Ast::Body(base) = base else {
+            panic!()
+        };
+        Self { base, defines }
+    }
+}
+
+impl<'a> Iterator for AstIterator<'a> {
+    type Item = Spanned<&'a str>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // None => continue
+        // Some(None) => empty
+        // Some(Some(_)) => value
+        match evaluate_terms(&mut self.base, &mut self.defines) {
+            (true, None) => self.next(),
+            (true, item) => item,
+            (false, None) => None,
+            (false, item) => item,
+        }
+    }
 }
