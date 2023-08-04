@@ -9,11 +9,12 @@ string    = @{ "\"" ~ ("\"\"" | (!"\"" ~ ANY))* ~ "\"" }
 number    = @{ "-"? ~ ASCII_DIGIT ~ (ASCII_DIGIT | ".")* }
 word      = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 symbol    =  { "&&" | "||" | "==" | "<=" | ">=" | "!=" | SYMBOL | PUNCTUATION | NUMBER }
-base_term = _{ number | string | word | symbol }
+base_term =  { number | string | word | symbol }
 
 // #include
-include     = ${ "#include" ~ " " ~ include_str ~ end }
-include_str = @{ ("<" ~ (!">" ~ ANY)* ~ ">") | "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+include           = ${ "#include" ~ " " ~ include_str ~ end }
+include_str_inner = @{ (!("\"" | ">") ~ ANY)* }
+include_str       = _{ ("<" ~ include_str_inner ~ ">") | "\"" ~ include_str_inner ~ "\"" }
 
 // #undef
 undef = ${ "#undef" ~ " " ~ word ~ end }
@@ -36,10 +37,15 @@ if_op    = @{ "<=" | ">=" | "<" | ">" | "==" | "!=" }
 
 // #define
 define = ${
-    "#define" ~ " " ~ word ~ define_arguments? ~ " "* ~ define_term* ~ end
+    "#define" ~ " " ~ word ~ define_arguments? ~ " "* ~ define_expr* ~ end
 }
 
+define_quote  = { "#" ~ word }
+define_concat = { base_term ~ "##" ~ base_term }
+
+define_expr = _{ define_concat | define_quote | define_term }
+
 define_arguments =  { "(" ~ word ~ ("," ~ word)* ~ ")" }
-define_term      = @{ "\\\n" | "##" | "#" | base_term | " " | "\t" | "\r" }
+define_term      = _{ "\\\n" | base_term | " " | "\t" | "\r" }
 
 end = _{ ("\n" | EOI) }

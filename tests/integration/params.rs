@@ -1,7 +1,4 @@
-use sqf::{
-    analyzer::State,
-    types::{Spanned, Type},
-};
+use sqf::{analyzer::State, span::Spanned, types::Type};
 
 use crate::analyser::parse_analyze;
 

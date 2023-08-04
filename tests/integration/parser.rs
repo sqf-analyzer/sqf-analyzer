@@ -2,7 +2,7 @@ use sqf::{error::Error, parser::parse, preprocessor::tokens, span::Spanned};
 
 fn check_parse(cases: &[&str]) {
     for case in cases {
-        let pairs = tokens(case, Default::default());
+        let pairs = tokens(case, Default::default(), Default::default());
 
         match pairs {
             Ok(r) => {
@@ -43,7 +43,7 @@ if not typeName _dictionary == "OBJECT" exitWith {
 _dictionary setVariable [toLower _key, _value, _isGlobal];
 
 "#;
-    parse(tokens(case, Default::default()).unwrap());
+    parse(tokens(case, Default::default(), Default::default()).unwrap());
 }
 
 #[test]
@@ -52,6 +52,7 @@ fn parse_for() {
         tokens(
             "for \"_i\" from 1 to (count _arguments - 3) do {}",
             Default::default(),
+            Default::default(),
         )
         .unwrap(),
     );
@@ -59,17 +60,24 @@ fn parse_for() {
 
 #[test]
 fn parse_macros() {
-    parse(tokens("#include \"macros.hpp\"\na = AA(a)", Default::default()).unwrap());
+    parse(
+        tokens(
+            "#include \"macros.hpp\"\na = AA(a)",
+            Default::default(),
+            Default::default(),
+        )
+        .unwrap(),
+    );
 }
 
 #[test]
 fn parse_macros_call() {
-    parse(tokens("a = (call AA(a))", Default::default()).unwrap());
+    parse(tokens("a = (call AA(a))", Default::default(), Default::default()).unwrap());
 }
 
 #[test]
 fn two_signatures() {
-    parse(tokens("call A; [] call A;", Default::default()).unwrap());
+    parse(tokens("call A; [] call A;", Default::default(), Default::default()).unwrap());
 }
 
 #[test]
@@ -137,7 +145,7 @@ fn expr_negative() {
     ];
 
     for (case, expected) in cases.iter().zip(expected.iter()) {
-        let r = tokens(case, Default::default());
+        let r = tokens(case, Default::default(), Default::default());
         match r {
             Ok(r) => {
                 println!("{case}");
@@ -158,27 +166,27 @@ fn f() {
     let e = r#"if _a then {
 diag_log format ["a", _arguments];
 };"#;
-    let (_, error) = parse(tokens(e, Default::default()).unwrap());
+    let (_, error) = parse(tokens(e, Default::default(), Default::default()).unwrap());
     assert_eq!(error, vec![]);
 }
 
 #[test]
 fn for_() {
     let case = "for \"_i\" from 1 to 10 do { 1+1; }";
-    let (_, error) = parse(tokens(case, Default::default()).unwrap());
+    let (_, error) = parse(tokens(case, Default::default(), Default::default()).unwrap());
     assert_eq!(error, vec![]);
 }
 
 #[test]
 fn macros_() {
     let case = "if not ISOBJECT(_dictionary) exitWith {}";
-    parse(tokens(case, Default::default()).unwrap());
+    parse(tokens(case, Default::default(), Default::default()).unwrap());
 }
 
 #[test]
 fn no_panic() {
     let case = "params";
-    parse(tokens(case, Default::default()).unwrap());
+    parse(tokens(case, Default::default(), Default::default()).unwrap());
 }
 
 #[test]
@@ -188,7 +196,7 @@ fn parenthesis() {
     let case = fs::read_to_string(path).unwrap();
 
     let a = sqf::preprocessor::parse(sqf::preprocessor::pairs(&case).unwrap());
-    let iter = sqf::preprocessor::AstIterator::new(a, Default::default());
+    let iter = sqf::preprocessor::AstIterator::new(a, Default::default(), Default::default());
 
     let (result, errors) = parse(iter);
     assert!(errors.is_empty());
@@ -249,7 +257,7 @@ fn errors() {
 
     for (case, expected) in case {
         let a = sqf::preprocessor::parse(sqf::preprocessor::pairs(case).unwrap());
-        let iter = sqf::preprocessor::AstIterator::new(a, Default::default());
+        let iter = sqf::preprocessor::AstIterator::new(a, Default::default(), Default::default());
 
         let (r, errors) = parse(iter);
         println!("{r:#?}");

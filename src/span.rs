@@ -14,3 +14,21 @@ impl<T> Spanned<T> {
         }
     }
 }
+
+impl<T: Clone> Spanned<T> {
+    pub fn cloned(self) -> Spanned<T> {
+        Spanned::<T> {
+            inner: self.inner.clone(),
+            span: self.span,
+        }
+    }
+}
+
+impl<T> Spanned<T> {
+    pub fn as_deref(&self) -> Spanned<&T> {
+        Spanned::<&T> {
+            inner: &self.inner,
+            span: self.span,
+        }
+    }
+}

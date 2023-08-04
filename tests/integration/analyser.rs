@@ -1,13 +1,17 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use sqf::analyzer::*;
-use sqf::parser::*;
-use sqf::types::*;
+use sqf::parser;
+use sqf::preprocessor;
+use sqf::span::Spanned;
+use sqf::types::Type;
 
 pub fn parse_analyze(case: &str) -> State {
-    let (ast, errors) = parse(tokens(case).unwrap());
+    let ast = preprocessor::tokens(case, Default::default(), Default::default()).unwrap();
+    let (expr, errors) = parser::parse(ast);
     assert_eq!(errors, vec![]);
-    analyze(&ast, "tests/dictionary/".into())
+    analyze(&expr)
 }
 
 fn check_infer(case: &str, expected: HashMap<Spanned<String>, Option<Type>>) {
@@ -141,8 +145,8 @@ fn namespace() {
 #[test]
 fn infer_example1() {
     use std::fs;
-    let path = "tests/integration/dictionary/addons/dictionary/fnc__set.sqf";
-    let case = fs::read_to_string(path).unwrap();
+    let path: PathBuf = "tests/integration/dictionary/addons/dictionary/fnc__set.sqf".into();
+    let case = fs::read_to_string(path.clone()).unwrap();
 
     let expected = HashMap::from([
         (
@@ -182,10 +186,12 @@ fn infer_example1() {
         ),
     ]);
 
-    let (ast, errors) = parse(tokens(&case).unwrap());
+    let ast = preprocessor::tokens(&case, Default::default(), path).unwrap();
+    println!("{:#?}", ast.clone().collect::<Vec<_>>());
+    let (expr, errors) = parser::parse(ast);
     assert_eq!(errors, vec![]);
 
-    let r = analyze(&ast, path.into());
+    let r = analyze(&expr);
     assert_eq!(r.errors, vec![]);
     assert_eq!(r.types, expected);
 }
@@ -209,10 +215,11 @@ fn infer_example2() {
         println!("{path:?}");
         let case = fs::read_to_string(path.clone()).unwrap();
 
-        let (ast, errors) = parse(tokens(&case).unwrap());
+        let ast = preprocessor::tokens(&case, Default::default(), path.clone()).unwrap();
+        let (expr, errors) = parser::parse(ast);
         assert_eq!(errors, vec![]);
 
-        let r = analyze(&ast, path);
+        let r = analyze(&expr);
         assert!(r.errors.is_empty())
     }
 }

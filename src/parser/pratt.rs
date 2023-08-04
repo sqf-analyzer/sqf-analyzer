@@ -4,7 +4,11 @@ use std::{collections::HashSet, iter::Peekable};
 use super::Expr;
 
 use crate::{
-    database::SIGNATURES, error::Error, preprocessor::AstIterator, span::Spanned, types::Signature,
+    database::SIGNATURES,
+    error::Error,
+    preprocessor::{AstIterator, SpannedRef},
+    span::Spanned,
+    types::Signature,
 };
 
 lazy_static::lazy_static! {
@@ -43,10 +47,10 @@ lazy_static::lazy_static! {
         .collect::<HashSet<_, _>>();
 }
 
-fn atom_to_expr(token: Spanned<&str>) -> Expr {
+fn atom_to_expr(token: SpannedRef) -> Expr {
     NULLARY
-        .contains(token.inner)
-        .then(|| Expr::Nullary(token))
+        .contains(token.inner.as_ref())
+        .then(|| Expr::Nullary(token.clone()))
         .or_else(|| {
             // bool
             if token.inner == "true" {
@@ -66,6 +70,7 @@ fn atom_to_expr(token: Spanned<&str>) -> Expr {
         .or_else(|| {
             // number
             token
+                .clone()
                 .inner
                 .parse::<i64>()
                 .map(|x| Spanned {
@@ -79,7 +84,11 @@ fn atom_to_expr(token: Spanned<&str>) -> Expr {
             // string
             let bytes = token.inner.as_bytes();
             if bytes.first() == Some(&b'"') && bytes.last() == Some(&b'"') {
-                Some(Expr::String(token))
+                Some(Expr::String(
+                    token
+                        .as_deref()
+                        .map(|x| x.get(1..x.len() - 1).unwrap().to_owned().into()),
+                ))
             } else {
                 None
             }
@@ -97,7 +106,7 @@ fn _is_op(token: &str) -> bool {
         )
 }
 
-fn code<'a, I: Iterator<Item = Spanned<&'a str>>>(
+fn code<'a, I: Iterator<Item = SpannedRef<'a>>>(
     iter: &mut Peekable<I>,
     errors: &mut Vec<Error>,
 ) -> Vec<Expr<'a>> {
@@ -120,7 +129,7 @@ fn code<'a, I: Iterator<Item = Spanned<&'a str>>>(
     expressions
 }
 
-fn array<'a, I: Iterator<Item = Spanned<&'a str>>>(
+fn array<'a, I: Iterator<Item = SpannedRef<'a>>>(
     iter: &mut Peekable<I>,
     errors: &mut Vec<Error>,
 ) -> Vec<Expr<'a>> {
@@ -142,14 +151,16 @@ fn array<'a, I: Iterator<Item = Spanned<&'a str>>>(
     expressions
 }
 
-pub fn parse(iter: AstIterator) -> (Vec<Expr<'_>>, Vec<Error>) {
-    let mut iter = iter.peekable();
+pub fn parse(mut ast: AstIterator) -> (Vec<Expr>, Vec<Error>) {
+    let mut peekable = ast.by_ref().peekable();
     let mut errors = vec![];
-    (code(&mut iter, &mut errors), errors)
+    let expr = code(&mut peekable, &mut errors);
+    errors.extend(ast.state.errors);
+    (expr, errors)
 }
 
 #[inline]
-fn matches(token: Option<&Spanned<&str>>, v: &str) -> bool {
+fn matches(token: Option<&SpannedRef>, v: &str) -> bool {
     if let Some(Spanned { inner, .. }) = token {
         *inner == v
     } else {
@@ -161,75 +172,95 @@ fn matches(token: Option<&Spanned<&str>>, v: &str) -> bool {
 /// 1. Reached end of file
 /// 2. Reached an operator with a binding power < min_bp
 /// 3. Reached a ";" or ","
-fn expr_bp<'a, I: Iterator<Item = Spanned<&'a str>>>(
+fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
     lexer: &mut Peekable<I>,
     min_bp: u8,
     errors: &mut Vec<Error>,
 ) -> Expr<'a> {
     let mut lhs = match lexer.next() {
-        Some(Spanned { inner: "(", span }) => {
-            let lhs = expr_bp(lexer, 0, errors);
-
-            if !matches(lexer.next().as_ref(), ")") {
-                errors.push(Error {
-                    inner: "\"(\" is not closed".to_string(),
-                    span,
-                })
-            }
-
-            lhs
-        }
-        Some(Spanned { inner: ";", .. }) => Expr::Code(vec![]),
-        Some(Spanned { inner: "{", span }) => {
-            let expr = code(lexer, errors);
-
-            if !matches(lexer.next().as_ref(), "}") {
-                errors.push(Error {
-                    inner: "\"{\" is not closed".to_string(),
-                    span,
-                })
-            }
-
-            Expr::Code(expr)
-        }
-        Some(Spanned { inner: "[", span }) => {
-            let expr = array(lexer, errors);
-
-            if !matches(lexer.next().as_ref(), "]") {
-                errors.push(Error {
-                    inner: "\"[\" is not closed".to_string(),
-                    span,
-                })
-            }
-
-            Expr::Array(expr)
-        }
-        Some(op) => {
-            if let Some(((), r_bp)) = prefix_binding_power(op.inner) {
-                let rhs = expr_bp(lexer, r_bp, errors);
-                Expr::Unary(op, Box::new(rhs))
-            } else {
-                atom_to_expr(op)
-            }
-        }
         None => {
             errors.push(Error {
                 inner: "Un-expected end of file".to_string(),
                 span: (0, 0),
             });
-            return Expr::Nil;
+            return Expr::Nil((0, 0));
         }
+        Some(Spanned { inner, span }) => match inner.as_ref() {
+            "(" => {
+                let lhs = expr_bp(lexer, 0, errors);
+
+                if !matches(lexer.next().as_ref(), ")") {
+                    errors.push(Error {
+                        inner: "\"(\" is not closed".to_string(),
+                        span,
+                    })
+                }
+
+                lhs
+            }
+            ";" => Expr::Code(Spanned {
+                inner: vec![],
+                span,
+            }),
+            "{" => {
+                let expr = code(lexer, errors);
+
+                let last = lexer.next();
+                if !matches(last.as_ref(), "}") {
+                    errors.push(Error {
+                        inner: "\"{\" is not closed".to_string(),
+                        span,
+                    })
+                }
+                let start = span.0;
+                let end = last.map(|x| x.span.1).unwrap_or(start);
+
+                Expr::Code(Spanned {
+                    inner: expr,
+                    span: (start, end),
+                })
+            }
+            "[" => {
+                let expr = array(lexer, errors);
+
+                let last = lexer.next();
+                if !matches(last.as_ref(), "]") {
+                    errors.push(Error {
+                        inner: "\"[\" is not closed".to_string(),
+                        span,
+                    })
+                }
+                let start = span.0;
+                let end = last.map(|x| x.span.1).unwrap_or(start);
+
+                Expr::Array(Spanned {
+                    inner: expr,
+                    span: (start, end),
+                })
+            }
+            op => {
+                if let Some(((), r_bp)) = prefix_binding_power(op) {
+                    let rhs = expr_bp(lexer, r_bp, errors);
+                    Expr::Unary(Spanned { inner, span }, Box::new(rhs))
+                } else {
+                    atom_to_expr(Spanned { inner, span })
+                }
+            }
+        },
     };
 
     loop {
         let op = match lexer.peek() {
             None => break,
-            Some(Spanned { inner: ";", .. }) => break,
-            Some(Spanned { inner: ",", .. }) => break,
-            Some(op) => *op,
+            Some(op) => {
+                if op.inner == ";" || op.inner == "," {
+                    break;
+                }
+                op.clone()
+            }
         };
 
-        if let Some((l_bp, r_bp)) = infix_binding_power(op.inner) {
+        if let Some((l_bp, r_bp)) = infix_binding_power(&op.inner) {
             if l_bp < min_bp {
                 break;
             }

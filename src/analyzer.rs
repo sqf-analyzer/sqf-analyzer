@@ -1,21 +1,12 @@
-use std::collections::hash_map::{Entry, HashMap};
-use std::fs;
+use std::collections::hash_map::HashMap;
 use std::path::PathBuf;
 
 use crate::database::SIGNATURES;
 use crate::error::Error;
-use crate::parser::parse;
+use crate::parser::Expr;
+use crate::preprocessor::SpannedRef;
+use crate::span::{Span, Spanned};
 use crate::types::*;
-
-fn consume_result<T>(result: Result<T, Error>, errors: &mut Vec<Error>) -> Option<T> {
-    match result {
-        Ok(value) => Some(value),
-        Err(err) => {
-            errors.push(err);
-            None
-        }
-    }
-}
 
 fn _build_binary() -> HashMap<&'static str, HashMap<(Type, Type), Type>> {
     let mut r: HashMap<&'static str, HashMap<(Type, Type), Type>> = Default::default();
@@ -96,7 +87,7 @@ fn process_param_variable(v: &str, span: Span, state: &mut State, type_: Type) {
 fn process_param_types(
     name: &str,
     name_span: Span,
-    types: Option<&Spanned<Expr>>,
+    types: Option<&Expr>,
     state: &mut State,
 ) -> Option<Type> {
     let types = if let Some(types) = types {
@@ -106,19 +97,19 @@ fn process_param_types(
         return None;
     };
 
-    let (types, span) = if let Expr::Value(Value::Array(expr)) = &types.inner {
-        (expr, types.span)
+    let (types, span) = if let Expr::Array(expr) = &types {
+        (expr, expr.span)
     } else {
         state.errors.push(Spanned {
-            span: types.span,
+            span: types.span(),
             inner: "params' third argument must be an array".to_string(),
         });
         return None;
     };
 
-    Some(types.iter().fold(Type::Nothing, |acc, maybe_type| {
+    Some(types.inner.iter().fold(Type::Nothing, |acc, maybe_type| {
         // reduce the list of types to a single type
-        let type_ = infer_type(&maybe_type.inner, state);
+        let type_ = infer_type(maybe_type, state);
         let type_ = type_.unwrap_or_else(|| {
             state.errors.push(Spanned {
                 span,
@@ -135,41 +126,41 @@ fn process_param_types(
     }))
 }
 
-fn process_params_variable(param: &Spanned<Expr>, state: &mut State) {
-    if let Expr::Value(Value::String(v)) = &param.inner {
-        process_param_variable(v, param.span, state, Type::Anything);
+fn process_params_variable(param: &Expr, state: &mut State) {
+    if let Expr::String(v) = &param {
+        process_param_variable(&v.inner, param.span(), state, Type::Anything);
         return;
     }
 
-    let Expr::Value(Value::Array(expr)) = &param.inner else {
+    let Expr::Array(expr) = param else {
         state.errors.push(Spanned {
-            span: param.span,
+            span: param.span(),
             inner: "params' argument must be either a string or array".to_string(),
         });
         return;
     };
 
-    let mut iter = expr.iter();
+    let mut iter = expr.inner.iter();
     let name = iter.next();
     let default = iter.next();
     let types = iter.next();
     let _counts = iter.next();
     for remaining in iter {
         state.errors.push(Spanned {
-            span: remaining.span,
+            span: remaining.span(),
             inner: "params' arguments only accept up to 4 arguments".to_string(),
         })
     }
 
-    let (name, name_span) = if let Some(Spanned {
-        inner: Expr::Value(Value::String(name)),
+    let (name, name_span) = if let Some(Expr::String(Spanned {
+        inner: name,
         span: name_span,
-    }) = name
+    })) = name
     {
         (name, *name_span)
     } else {
         state.errors.push(Spanned {
-            span: param.span,
+            span: param.span(),
             inner: "params' first argument must be a string".to_string(),
         });
         return;
@@ -179,7 +170,7 @@ fn process_params_variable(param: &Spanned<Expr>, state: &mut State) {
         process_param_variable(name, name_span, state, Type::Anything);
         return;
     };
-    let default_type = infer_type(&default.inner, state).unwrap_or(Type::Anything);
+    let default_type = infer_type(default, state).unwrap_or(Type::Anything);
 
     let Some(type_) = process_param_types(name, name_span, types, state) else {
         return
@@ -187,7 +178,7 @@ fn process_params_variable(param: &Spanned<Expr>, state: &mut State) {
 
     if !type_.consistent(default_type) {
         state.errors.push(Spanned {
-            span: param.span,
+            span: param.span(),
             inner: format!("params' default argument type \"{:?}\" is inconsistent with expected type \"{:?}\"", default_type, type_),
         });
     }
@@ -197,7 +188,7 @@ fn process_params_variable(param: &Spanned<Expr>, state: &mut State) {
 
 /// infers the type of a bynary expression by considering all possible options
 fn infer_unary(
-    name: &Spanned<String>,
+    name: &SpannedRef,
     rhs: Option<Type>,
     errors: &mut Vec<Spanned<String>>,
 ) -> Option<Type> {
@@ -244,7 +235,7 @@ fn infer_unary(
 /// infers the type of a bynary expression by considering all possible options
 fn infer_binary(
     lhs: Option<Type>,
-    name: &Spanned<String>,
+    name: &SpannedRef,
     rhs: Option<Type>,
     errors: &mut Vec<Spanned<String>>,
 ) -> Option<Type> {
@@ -309,116 +300,121 @@ fn infer_binary(
     }
 }
 
-fn infer_code(code: &[Spanned<Expr>], state: &mut State) {
+fn infer_code(code: &[Expr], state: &mut State) {
     state.namespace.push_stack();
     for expr in code {
-        infer_type(&expr.inner, state);
+        infer_type(expr, state);
     }
     state.namespace.pop_stack();
 }
 
+fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
+    let rhs_type = infer_type(rhs, state);
+    let (is_private, variable) = if let Expr::Unary(Spanned { inner, .. }, variable) = lhs {
+        // private a = ...
+        if inner.as_ref() != "private" {
+            state.errors.push(Error {
+                inner: "assigment can only have variables in left side".to_string(),
+                span: variable.span(),
+            });
+            return;
+        }
+
+        let Expr::Variable(variable) = variable.as_ref() else {
+            state.errors.push(Error {
+                inner: "assigment can only have variables in left side".to_string(),
+                span: variable.span(),
+            });
+            return;
+        };
+        (true, variable)
+    } else {
+        // a = ...
+        let Expr::Variable(variable) = lhs else {
+            state.errors.push(Error {
+                inner: "assigment can only have variables in left side".to_string(),
+                span: lhs.span(),
+            });
+            return
+        };
+        (false, variable)
+    };
+    let variable = variable.clone().map(|x| x.to_string());
+
+    state.types.insert(variable.clone(), rhs_type);
+    state.namespace.insert(variable, rhs_type, is_private);
+}
+
 fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
     match expr {
-        Expr::Value(value) => Some(match value {
-            Value::Number(_) => Type::Number,
-            Value::String(_) => Type::String,
-            Value::Array(expr) => {
-                infer_code(expr, state);
-                Type::Array
-            }
-            Value::Boolean(_) => Type::Boolean,
-            Value::Code(code) => {
-                infer_code(code, state);
-                Type::Code
-            }
-        }),
-
+        Expr::Number(_) => Some(Type::Number),
+        Expr::String(_) => Some(Type::String),
+        Expr::Boolean(_) => Some(Type::Boolean),
+        Expr::Array(expr) => {
+            infer_code(&expr.inner, state);
+            Some(Type::Array)
+        }
+        Expr::Code(code) => {
+            infer_code(&code.inner, state);
+            Some(Type::Code)
+        }
+        Expr::Nullary(variable) => {
+            let name = variable.inner.to_ascii_lowercase();
+            NULLNARY.get(name.as_str()).cloned()
+        }
         Expr::Variable(variable) => {
             let name = variable.inner.to_ascii_lowercase();
 
-            (name == "_this")
-                .then_some(Type::Anything)
-                .or_else(|| NULLNARY.get(name.as_str()).cloned())
-                .or_else(|| {
-                    if let Some((span, type_)) = state.namespace.get(&variable.inner) {
-                        state.origins.insert(variable.span, *span);
-                        *type_
-                    } else {
-                        None
-                    }
-                })
+            (name == "_this").then_some(Type::Anything).or_else(|| {
+                if let Some((span, type_)) = state.namespace.get(&variable.inner) {
+                    state.origins.insert(variable.span, *span);
+                    *type_
+                } else {
+                    None
+                }
+            })
         }
-        Expr::BinaryOp { lhs, op, rhs } => {
-            let lhs_type = infer_type(&lhs.inner, state);
-            let rhs_type = infer_type(&rhs.inner, state);
-            infer_binary(lhs_type, op, rhs_type, &mut state.errors)
+        Expr::Binary(lhs, op, rhs) => {
+            if op.inner == "=" {
+                infer_assign(lhs, rhs, state);
+                Some(Type::Nothing)
+            } else {
+                let lhs_type = infer_type(lhs, state);
+                let rhs_type = infer_type(rhs, state);
+                infer_binary(lhs_type, op, rhs_type, &mut state.errors)
+            }
         }
-        Expr::UnaryOp { op, rhs } => {
-            match op.inner.as_str() {
+        Expr::Unary(op, rhs) => {
+            match op.inner.as_ref() {
                 "for" => {
-                    if let Expr::Value(Value::String(x)) = &rhs.inner {
+                    if let Expr::String(x) = rhs.as_ref() {
                         state.types.insert(
                             Spanned {
-                                inner: x.clone(),
-                                span: rhs.span,
+                                inner: x.inner.to_string(),
+                                span: x.span,
                             },
                             Some(Type::Number),
                         );
                     } else {
                         state.errors.push(Spanned {
                             inner: "parameter of `for` must be a string".to_string(),
-                            span: rhs.span,
+                            span: rhs.span(),
                         })
                     }
                 }
                 "params" => {
-                    if let Expr::Value(Value::Array(x)) = &rhs.inner {
-                        x.iter().for_each(|x| process_params_variable(x, state))
+                    if let Expr::Array(x) = rhs.as_ref() {
+                        x.inner
+                            .iter()
+                            .for_each(|x| process_params_variable(x, state))
                     }
                 }
                 _ => {}
             };
-            let rhs_type = infer_type(&rhs.inner, state);
+            let rhs_type = infer_type(rhs, state);
             infer_unary(op, rhs_type, &mut state.errors)
         }
-        Expr::Assignment {
-            is_private,
-            variable,
-            expr,
-        } => {
-            let type_ = infer_type(&expr.inner, state);
-            state.types.insert(variable.clone(), type_);
-            state.namespace.insert(variable.clone(), type_, *is_private);
-            type_
-        }
-        Expr::Macro(name, argument) => {
-            let Some(a) = state.defines.get(&name.inner) else {
-                state.errors.push(Spanned {
-                    span: name.span,
-                    inner: "undefined macro".to_string(),
-                });
-                return None
-            };
-            let _compiled = a
-                .body
-                .as_ref()
-                .map(|x| x.replace(&a.arguments[0], &argument.inner));
-            // todo: parse and process "compiled"
-            None
-        }
-        Expr::Include(name) => {
-            // copy all expressions and process them
-            let a = state.files.get(&name.inner).unwrap().clone();
-            for expr in a {
-                infer_type(&expr.inner, state);
-            }
-            Some(Type::Nothing)
-        }
-        Expr::Define(define) => {
-            state.defines.insert(define.name.clone(), define.clone());
-            Some(Type::Nothing)
-        }
-        Expr::Error => None,
+        Expr::Nil(_) => None,
     }
 }
 
@@ -471,8 +467,6 @@ pub struct State {
     pub types: HashMap<Spanned<String>, Option<Type>>,
     pub namespace: Namespace,
     pub origins: HashMap<Span, Span>,
-    pub files: HashMap<String, Vec<Spanned<Expr>>>,
-    pub defines: HashMap<String, Define>,
     pub errors: Vec<Error>,
 }
 
@@ -483,40 +477,12 @@ pub struct Configuration {
 
 pub type Types = HashMap<Spanned<String>, Option<Type>>;
 
-pub fn analyze(program: &[Spanned<Expr>], mut path: PathBuf) -> State {
-    path.pop();
-    let directory = path;
-
+pub fn analyze(program: &[Expr]) -> State {
     let mut state = State::default();
 
-    // process includes
-    for expr in program {
-        if let Expr::Include(name) = &expr.inner {
-            match state.files.entry(name.inner.clone()) {
-                Entry::Occupied(_) => {}
-                Entry::Vacant(v) => {
-                    let path = directory.join(name.inner.clone());
-                    let data = fs::read_to_string(path.clone()).map_err(|_| Error {
-                        span: name.span,
-                        inner: format!("File \"{path:?}\" not found"),
-                    });
-
-                    if let Some(data) = consume_result(data, &mut state.errors) {
-                        let tokens = tokens(&data);
-                        let tokens = consume_result(tokens, &mut state.errors);
-                        if let Some(tokens) = tokens {
-                            let (expr, errors) = parse(tokens);
-                            state.errors.extend(errors);
-                            v.insert(expr);
-                        }
-                    }
-                }
-            }
-        }
-    }
     state.namespace.push_stack();
     for expr in program {
-        infer_type(&expr.inner, &mut state);
+        infer_type(expr, &mut state);
     }
     state
 }
