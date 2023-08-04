@@ -1,5 +1,6 @@
 use sqf::{
     database::SIGNATURES,
+    error::Error,
     preprocessor::AstIterator,
     types::{Signature, Spanned},
 };
@@ -48,6 +49,7 @@ enum S<'a> {
     Cons(Spanned<&'a str>, Vec<S<'a>>),
     Code(Vec<S<'a>>),
     Array(Vec<S<'a>>),
+    Nil,
 }
 
 impl<'a> fmt::Debug for S<'a> {
@@ -75,6 +77,9 @@ impl<'a> fmt::Debug for S<'a> {
                 }
                 write!(f, "]")
             }
+            S::Nil => {
+                write!(f, "nil")
+            }
         }
     }
 }
@@ -96,14 +101,17 @@ fn _is_op(token: &str) -> bool {
         )
 }
 
-fn code<'a, I: Iterator<Item = Token<'a>>>(iter: &mut Peekable<I>) -> Vec<S<'a>> {
+fn code<'a, I: Iterator<Item = Token<'a>>>(
+    iter: &mut Peekable<I>,
+    errors: &mut Vec<Error>,
+) -> Vec<S<'a>> {
     let mut expressions = vec![];
     if matches(iter.peek(), "}") {
         return expressions;
     };
 
-    while iter.peek() != Some(&Token::Eof) {
-        let expression = expr_bp(iter, 0);
+    while iter.peek().unwrap_or(&Token::Eof) != &Token::Eof {
+        let expression = expr_bp(iter, 0, errors);
         expressions.push(expression);
 
         if matches(iter.peek(), ";") {
@@ -116,13 +124,16 @@ fn code<'a, I: Iterator<Item = Token<'a>>>(iter: &mut Peekable<I>) -> Vec<S<'a>>
     expressions
 }
 
-fn array<'a, I: Iterator<Item = Token<'a>>>(iter: &mut Peekable<I>) -> Vec<S<'a>> {
+fn array<'a, I: Iterator<Item = Token<'a>>>(
+    iter: &mut Peekable<I>,
+    errors: &mut Vec<Error>,
+) -> Vec<S<'a>> {
     let mut expressions = vec![];
     if matches(iter.peek(), "]") {
         return expressions;
     };
-    while iter.peek() != Some(&Token::Eof) {
-        let expression = expr_bp(iter, 0);
+    while iter.peek().unwrap_or(&Token::Eof) != &Token::Eof {
+        let expression = expr_bp(iter, 0, errors);
         expressions.push(expression);
 
         if matches(iter.peek(), ",") {
@@ -136,7 +147,7 @@ fn array<'a, I: Iterator<Item = Token<'a>>>(iter: &mut Peekable<I>) -> Vec<S<'a>
 }
 
 // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html#Introduction
-fn expr(iter: AstIterator) -> Vec<S<'_>> {
+fn expr(iter: AstIterator) -> (Vec<S<'_>>, Vec<Error>) {
     let mut iter = iter
         .map(|x| {
             if _is_op(x.inner) {
@@ -147,8 +158,8 @@ fn expr(iter: AstIterator) -> Vec<S<'_>> {
         })
         .chain(std::iter::once(Token::Eof))
         .peekable();
-
-    code(&mut iter)
+    let mut errors = vec![];
+    (code(&mut iter, &mut errors), errors)
 }
 
 #[inline]
@@ -164,46 +175,84 @@ fn matches(token: Option<&Token>, v: &str) -> bool {
 /// 1. Reached end of file
 /// 2. Reached an operator with a binding power < min_bp
 /// 3. Reached a ";" or ","
-fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(lexer: &mut Peekable<I>, min_bp: u8) -> S<'a> {
-    let mut lhs = match lexer.next().unwrap() {
+fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(
+    lexer: &mut Peekable<I>,
+    min_bp: u8,
+    errors: &mut Vec<Error>,
+) -> S<'a> {
+    let mut lhs = match lexer.next().unwrap_or(Token::Eof) {
         Token::Atom(it) => S::Atom(it),
-        Token::Op(Spanned { inner: "(", .. }) => {
-            let lhs = expr_bp(lexer, 0);
-            assert!(matches(lexer.next().as_ref(), ")"));
+        Token::Op(Spanned { inner: "(", span }) => {
+            let lhs = expr_bp(lexer, 0, errors);
+
+            if !matches(lexer.next().as_ref(), ")") {
+                errors.push(Error {
+                    inner: "\"(\" is not closed".to_string(),
+                    span,
+                })
+            }
+
             lhs
         }
         Token::Op(Spanned { inner: ";", .. }) => S::Code(vec![]),
-        Token::Op(Spanned { inner: "{", .. }) => {
-            let expr = code(lexer);
+        Token::Op(Spanned { inner: "{", span }) => {
+            let expr = code(lexer, errors);
 
-            // todo: convert to error
-            assert!(matches(lexer.next().as_ref(), "}"));
+            if !matches(lexer.next().as_ref(), "}") {
+                errors.push(Error {
+                    inner: "\"{\" is not closed".to_string(),
+                    span,
+                })
+            }
 
             S::Code(expr)
         }
-        Token::Op(Spanned { inner: "[", .. }) => {
-            let expr = array(lexer);
+        Token::Op(Spanned { inner: "[", span }) => {
+            let expr = array(lexer, errors);
 
-            // todo: convert to error
-            assert!(matches(lexer.next().as_ref(), "]"));
+            if !matches(lexer.next().as_ref(), "]") {
+                errors.push(Error {
+                    inner: "\"[\" is not closed".to_string(),
+                    span,
+                })
+            }
 
             S::Array(expr)
         }
         Token::Op(op) => {
-            let ((), r_bp) = prefix_binding_power(op.inner);
-            let rhs = expr_bp(lexer, r_bp);
+            let ((), r_bp) = prefix_binding_power(op.inner).unwrap_or_else(|| {
+                errors.push(Error {
+                    inner: format!("\"{}\" is not a valid unary operator", op.inner),
+                    span: op.span,
+                });
+                ((), 50)
+            });
+            let rhs = expr_bp(lexer, r_bp, errors);
             S::Cons(op, vec![rhs])
         }
-        t => panic!("bad token: {:?}", t),
+        Token::Eof => {
+            errors.push(Error {
+                inner: "Un-expected end of file".to_string(),
+                span: (0, 0),
+            });
+            return S::Nil;
+        }
     };
 
     loop {
-        let op = match lexer.peek().unwrap() {
+        let op = match lexer.peek().unwrap_or(&Token::Eof) {
             Token::Eof => break,
             Token::Op(Spanned { inner: ";", .. }) => break,
             Token::Op(Spanned { inner: ",", .. }) => break,
             Token::Op(op) => *op,
-            t => panic!("bad token: {:?}", t),
+            Token::Atom(primary) => {
+                errors.push(Error {
+                    inner: format!("Un-expected value \"{}\"", primary.inner),
+                    span: primary.span,
+                });
+                // provide _something_
+                return S::Cons(*primary, vec![lhs]);
+            }
         };
 
         if let Some((l_bp, ())) = postfix_binding_power(op.inner) {
@@ -220,9 +269,9 @@ fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(lexer: &mut Peekable<I>, min_bp: u
             if l_bp < min_bp {
                 break;
             }
-            lexer.next().unwrap();
+            lexer.next();
 
-            let rhs = expr_bp(lexer, r_bp);
+            let rhs = expr_bp(lexer, r_bp, errors);
             lhs = S::Cons(op, vec![lhs, rhs]);
             continue;
         }
@@ -232,11 +281,12 @@ fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(lexer: &mut Peekable<I>, min_bp: u
     lhs
 }
 
-fn prefix_binding_power(op: &str) -> ((), u8) {
+fn prefix_binding_power(op: &str) -> Option<((), u8)> {
     if UNARY.contains(op) {
-        ((), 50)
+        // https://foxhound.international/precedence-arma-3-sqf.html
+        Some(((), 50))
     } else {
-        panic!("bad op: {:?}", op)
+        None
     }
 }
 
@@ -276,7 +326,9 @@ fn tokens() {
     let a = sqf::preprocessor::parse(sqf::preprocessor::pairs(&case).unwrap());
     let iter = sqf::preprocessor::AstIterator::new(a, Default::default());
 
-    println!("{:#?}", expr(iter.clone()));
+    let (result, errors) = expr(iter);
+    assert!(errors.is_empty());
+    println!("{:#?}", result);
     let expected = r#"[
     1,
     {},
@@ -289,5 +341,46 @@ fn tokens() {
     (= a [1,2,]),
     (* (+ a 1) 2),
 ]"#;
-    assert_eq!(format!("{:#?}", expr(iter)), expected);
+    assert_eq!(format!("{:#?}", result), expected);
+}
+
+#[test]
+fn errors() {
+    let case = vec![
+        (
+            "[",
+            vec![Spanned {
+                inner: "\"[\" is not closed".to_string(),
+                span: (0, 1),
+            }],
+        ),
+        (
+            "{",
+            vec![Spanned {
+                inner: "\"{\" is not closed".to_string(),
+                span: (0, 1),
+            }],
+        ),
+        (
+            "(",
+            vec![
+                Spanned {
+                    inner: "Un-expected end of file".to_string(),
+                    span: (0, 0),
+                },
+                Spanned {
+                    inner: "\"(\" is not closed".to_string(),
+                    span: (0, 1),
+                },
+            ],
+        ),
+    ];
+
+    for (case, expected) in case {
+        let a = sqf::preprocessor::parse(sqf::preprocessor::pairs(case).unwrap());
+        let iter = sqf::preprocessor::AstIterator::new(a, Default::default());
+
+        let (_, errors) = expr(iter);
+        assert_eq!(errors, expected);
+    }
 }
