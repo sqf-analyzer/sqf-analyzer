@@ -45,7 +45,11 @@ lazy_static::lazy_static! {
 
 #[derive(Clone)]
 pub enum Expr<'a> {
-    Atom(Spanned<&'a str>),
+    String(Spanned<&'a str>),
+    Number(Spanned<i64>),
+    Nullary(Spanned<&'a str>),
+    Boolean(Spanned<bool>),
+    Variable(Spanned<&'a str>),
     Unary(Spanned<&'a str>, Box<Expr<'a>>),
     Binary(Box<Expr<'a>>, Spanned<&'a str>, Box<Expr<'a>>),
     Code(Vec<Expr<'a>>),
@@ -53,10 +57,62 @@ pub enum Expr<'a> {
     Nil, // returned on error
 }
 
+fn atom_to_expr(token: Spanned<&str>) -> Expr {
+    NULLARY
+        .contains(token.inner)
+        .then(|| Expr::Nullary(token))
+        .or_else(|| {
+            // bool
+            if token.inner == "true" {
+                Some(Expr::Boolean(Spanned {
+                    inner: true,
+                    span: token.span,
+                }))
+            } else if token.inner == "false" {
+                Some(Expr::Boolean(Spanned {
+                    inner: false,
+                    span: token.span,
+                }))
+            } else {
+                None
+            }
+        })
+        .or_else(|| {
+            // number
+            token
+                .inner
+                .parse::<i64>()
+                .map(|x| Spanned {
+                    inner: x,
+                    span: token.span,
+                })
+                .map(Expr::Number)
+                .ok()
+        })
+        .or_else(|| {
+            // string
+            let bytes = token.inner.as_bytes();
+            if bytes.first() == Some(&b'"') && bytes.last() == Some(&b'"') {
+                Some(Expr::String(token))
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| Expr::Variable(token))
+}
+
 impl<'a> fmt::Debug for Expr<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Expr::Atom(i) => write!(f, "{}", i.inner),
+            Expr::Nullary(i) | Expr::String(i) | Expr::Variable(i) => {
+                write!(f, "{}", i.inner)
+            }
+            Expr::Boolean(i) => {
+                write!(f, "{}", i.inner)
+            }
+            Expr::Number(i) => {
+                write!(f, "{}", i.inner)
+            }
             Expr::Unary(head, rhs) => {
                 write!(f, "({} {:?})", head.inner, rhs)
             }
@@ -181,7 +237,7 @@ fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(
     errors: &mut Vec<Error>,
 ) -> Expr<'a> {
     let mut lhs = match lexer.next().unwrap_or(Token::Eof) {
-        Token::Atom(it) => Expr::Atom(it),
+        Token::Atom(it) => atom_to_expr(it),
         Token::Op(Spanned { inner: "(", span }) => {
             let lhs = expr_bp(lexer, 0, errors);
 
