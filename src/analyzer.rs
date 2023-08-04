@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use crate::database::SIGNATURES;
 use crate::error::Error;
-use crate::parser::{parse, tokens};
+use crate::parser::parse;
 use crate::types::*;
 
 fn consume_result<T>(result: Result<T, Error>, errors: &mut Vec<Error>) -> Option<T> {

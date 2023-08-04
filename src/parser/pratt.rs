@@ -1,10 +1,10 @@
-use std::{collections::HashSet, fmt, iter::Peekable};
+/// Inspired by https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
+use std::{collections::HashSet, iter::Peekable};
+
+use super::Expr;
 
 use crate::{
-    database::SIGNATURES,
-    error::Error,
-    preprocessor::AstIterator,
-    types::{Signature, Spanned},
+    database::SIGNATURES, error::Error, preprocessor::AstIterator, span::Spanned, types::Signature,
 };
 
 lazy_static::lazy_static! {
@@ -41,20 +41,6 @@ lazy_static::lazy_static! {
             }
         })
         .collect::<HashSet<_, _>>();
-}
-
-#[derive(Clone)]
-pub enum Expr<'a> {
-    String(Spanned<&'a str>),
-    Number(Spanned<i64>),
-    Nullary(Spanned<&'a str>),
-    Boolean(Spanned<bool>),
-    Variable(Spanned<&'a str>),
-    Unary(Spanned<&'a str>, Box<Expr<'a>>),
-    Binary(Box<Expr<'a>>, Spanned<&'a str>, Box<Expr<'a>>),
-    Code(Vec<Expr<'a>>),
-    Array(Vec<Expr<'a>>),
-    Nil, // returned on error
 }
 
 fn atom_to_expr(token: Spanned<&str>) -> Expr {
@@ -101,52 +87,6 @@ fn atom_to_expr(token: Spanned<&str>) -> Expr {
         .unwrap_or_else(|| Expr::Variable(token))
 }
 
-impl<'a> fmt::Debug for Expr<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Expr::Nullary(i) | Expr::String(i) | Expr::Variable(i) => {
-                write!(f, "{}", i.inner)
-            }
-            Expr::Boolean(i) => {
-                write!(f, "{}", i.inner)
-            }
-            Expr::Number(i) => {
-                write!(f, "{}", i.inner)
-            }
-            Expr::Unary(head, rhs) => {
-                write!(f, "({} {:?})", head.inner, rhs)
-            }
-            Expr::Binary(lhs, head, rhs) => {
-                write!(f, "({:?} {} {:?})", lhs, head.inner, rhs)
-            }
-            Expr::Code(rest) => {
-                write!(f, "{{")?;
-                for s in rest {
-                    write!(f, "{:?};", s)?
-                }
-                write!(f, "}}")
-            }
-            Expr::Array(rest) => {
-                write!(f, "[")?;
-                for s in rest {
-                    write!(f, "{:?},", s)?
-                }
-                write!(f, "]")
-            }
-            Expr::Nil => {
-                write!(f, "nil")
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Token<'a> {
-    Atom(Spanned<&'a str>),
-    Op(Spanned<&'a str>),
-    Eof,
-}
-
 fn _is_op(token: &str) -> bool {
     let token = token.to_owned().to_ascii_lowercase();
     UNARY.contains(token.as_str())
@@ -157,7 +97,7 @@ fn _is_op(token: &str) -> bool {
         )
 }
 
-fn code<'a, I: Iterator<Item = Token<'a>>>(
+fn code<'a, I: Iterator<Item = Spanned<&'a str>>>(
     iter: &mut Peekable<I>,
     errors: &mut Vec<Error>,
 ) -> Vec<Expr<'a>> {
@@ -166,7 +106,7 @@ fn code<'a, I: Iterator<Item = Token<'a>>>(
         return expressions;
     };
 
-    while iter.peek().unwrap_or(&Token::Eof) != &Token::Eof {
+    while iter.peek().is_some() {
         let expression = expr_bp(iter, 0, errors);
         expressions.push(expression);
 
@@ -180,7 +120,7 @@ fn code<'a, I: Iterator<Item = Token<'a>>>(
     expressions
 }
 
-fn array<'a, I: Iterator<Item = Token<'a>>>(
+fn array<'a, I: Iterator<Item = Spanned<&'a str>>>(
     iter: &mut Peekable<I>,
     errors: &mut Vec<Error>,
 ) -> Vec<Expr<'a>> {
@@ -188,7 +128,7 @@ fn array<'a, I: Iterator<Item = Token<'a>>>(
     if matches(iter.peek(), "]") {
         return expressions;
     };
-    while iter.peek().unwrap_or(&Token::Eof) != &Token::Eof {
+    while iter.peek().is_some() {
         let expression = expr_bp(iter, 0, errors);
         expressions.push(expression);
 
@@ -202,25 +142,15 @@ fn array<'a, I: Iterator<Item = Token<'a>>>(
     expressions
 }
 
-// https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html#Introduction
 pub fn parse(iter: AstIterator) -> (Vec<Expr<'_>>, Vec<Error>) {
-    let mut iter = iter
-        .map(|x| {
-            if _is_op(x.inner) {
-                Token::Op(x)
-            } else {
-                Token::Atom(x)
-            }
-        })
-        .chain(std::iter::once(Token::Eof))
-        .peekable();
+    let mut iter = iter.peekable();
     let mut errors = vec![];
     (code(&mut iter, &mut errors), errors)
 }
 
 #[inline]
-fn matches(token: Option<&Token>, v: &str) -> bool {
-    if let Some(Token::Op(Spanned { inner, .. })) = token {
+fn matches(token: Option<&Spanned<&str>>, v: &str) -> bool {
+    if let Some(Spanned { inner, .. }) = token {
         *inner == v
     } else {
         false
@@ -231,14 +161,13 @@ fn matches(token: Option<&Token>, v: &str) -> bool {
 /// 1. Reached end of file
 /// 2. Reached an operator with a binding power < min_bp
 /// 3. Reached a ";" or ","
-fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(
+fn expr_bp<'a, I: Iterator<Item = Spanned<&'a str>>>(
     lexer: &mut Peekable<I>,
     min_bp: u8,
     errors: &mut Vec<Error>,
 ) -> Expr<'a> {
-    let mut lhs = match lexer.next().unwrap_or(Token::Eof) {
-        Token::Atom(it) => atom_to_expr(it),
-        Token::Op(Spanned { inner: "(", span }) => {
+    let mut lhs = match lexer.next() {
+        Some(Spanned { inner: "(", span }) => {
             let lhs = expr_bp(lexer, 0, errors);
 
             if !matches(lexer.next().as_ref(), ")") {
@@ -250,8 +179,8 @@ fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(
 
             lhs
         }
-        Token::Op(Spanned { inner: ";", .. }) => Expr::Code(vec![]),
-        Token::Op(Spanned { inner: "{", span }) => {
+        Some(Spanned { inner: ";", .. }) => Expr::Code(vec![]),
+        Some(Spanned { inner: "{", span }) => {
             let expr = code(lexer, errors);
 
             if !matches(lexer.next().as_ref(), "}") {
@@ -263,7 +192,7 @@ fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(
 
             Expr::Code(expr)
         }
-        Token::Op(Spanned { inner: "[", span }) => {
+        Some(Spanned { inner: "[", span }) => {
             let expr = array(lexer, errors);
 
             if !matches(lexer.next().as_ref(), "]") {
@@ -275,18 +204,15 @@ fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(
 
             Expr::Array(expr)
         }
-        Token::Op(op) => {
-            let ((), r_bp) = prefix_binding_power(op.inner).unwrap_or_else(|| {
-                errors.push(Error {
-                    inner: format!("\"{}\" is not a valid unary operator", op.inner),
-                    span: op.span,
-                });
-                ((), 50)
-            });
-            let rhs = expr_bp(lexer, r_bp, errors);
-            Expr::Unary(op, Box::new(rhs))
+        Some(op) => {
+            if let Some(((), r_bp)) = prefix_binding_power(op.inner) {
+                let rhs = expr_bp(lexer, r_bp, errors);
+                Expr::Unary(op, Box::new(rhs))
+            } else {
+                atom_to_expr(op)
+            }
         }
-        Token::Eof => {
+        None => {
             errors.push(Error {
                 inner: "Un-expected end of file".to_string(),
                 span: (0, 0),
@@ -296,30 +222,12 @@ fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(
     };
 
     loop {
-        let op = match lexer.peek().unwrap_or(&Token::Eof) {
-            Token::Eof => break,
-            Token::Op(Spanned { inner: ";", .. }) => break,
-            Token::Op(Spanned { inner: ",", .. }) => break,
-            Token::Op(op) => *op,
-            Token::Atom(primary) => {
-                errors.push(Error {
-                    inner: format!("Un-expected value \"{}\"", primary.inner),
-                    span: primary.span,
-                });
-                // provide _something_
-                return Expr::Unary(*primary, Box::new(lhs));
-            }
+        let op = match lexer.peek() {
+            None => break,
+            Some(Spanned { inner: ";", .. }) => break,
+            Some(Spanned { inner: ",", .. }) => break,
+            Some(op) => *op,
         };
-
-        if let Some((l_bp, ())) = postfix_binding_power(op.inner) {
-            if l_bp < min_bp {
-                break;
-            }
-            lexer.next();
-
-            lhs = Expr::Unary(op, Box::new(lhs));
-            continue;
-        }
 
         if let Some((l_bp, r_bp)) = infix_binding_power(op.inner) {
             if l_bp < min_bp {
@@ -330,6 +238,12 @@ fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(
             let rhs = expr_bp(lexer, r_bp, errors);
             lhs = Expr::Binary(Box::new(lhs), op, Box::new(rhs));
             continue;
+        } else if op.inner == "}" || op.inner == "]" || op.inner == ")" {
+        } else {
+            errors.push(Error {
+                inner: format!("\"{}\" is not a valid binary operator", op.inner),
+                span: op.span,
+            });
         }
 
         break;
@@ -338,6 +252,9 @@ fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(
 }
 
 fn prefix_binding_power(op: &str) -> Option<((), u8)> {
+    let op = op.to_owned().to_lowercase();
+    let op = op.as_str();
+
     if UNARY.contains(op) {
         // https://foxhound.international/precedence-arma-3-sqf.html
         Some(((), 50))
@@ -346,11 +263,10 @@ fn prefix_binding_power(op: &str) -> Option<((), u8)> {
     }
 }
 
-fn postfix_binding_power(_: &str) -> Option<(u8, ())> {
-    None
-}
-
 fn infix_binding_power(op: &str) -> Option<(u8, u8)> {
+    let op = op.to_owned().to_lowercase();
+    let op = op.as_str();
+
     // https://foxhound.international/precedence-arma-3-sqf.html
     let res = match op {
         ";" => (1, 2),

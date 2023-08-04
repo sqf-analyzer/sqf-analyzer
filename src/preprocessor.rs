@@ -5,8 +5,11 @@ use pest::Parser;
 use pest_derive::Parser;
 
 use crate::error::Error;
-use crate::pratt_parser::ToSpan;
-use crate::types::{Span, Spanned};
+use crate::span::{Span, Spanned};
+
+pub trait ToSpan {
+    fn to_span(&self) -> Span;
+}
 
 impl<'a> From<Pair<'a, Rule>> for Spanned<&'a str> {
     fn from(value: Pair<'a, Rule>) -> Self {
@@ -215,7 +218,7 @@ fn take_last<'a>(ast: &mut Ast<'a>, defines: &mut Defines<'a>) -> (bool, Option<
             defines.remove(name.inner);
             (false, None)
         }
-        Ast::Include(_) => todo!(),
+        Ast::Include(_) => (false, None), // todo => include
         Ast::Body(terms) => evaluate_terms(terms, defines),
         Ast::Term(term) => (false, Some(*term)),
         Ast::Comment(_) => (false, None),
@@ -245,4 +248,10 @@ impl<'a> Iterator for AstIterator<'a> {
             (false, item) => item,
         }
     }
+}
+
+pub fn tokens<'a>(data: &'a str, defines: Defines<'a>) -> Result<AstIterator<'a>, Error> {
+    let pairs = pairs(data)?;
+    let ast = parse(pairs);
+    Ok(AstIterator::new(ast, defines))
 }

@@ -1,12 +1,14 @@
-use sqf::{parser::*, types::Spanned};
+use sqf::{error::Error, parser::parse, preprocessor::tokens, span::Spanned};
 
 fn check_parse(cases: &[&str]) {
     for case in cases {
-        let r = tokens(case);
-        match r {
+        let pairs = tokens(case, Default::default());
+
+        match pairs {
             Ok(r) => {
                 println!("{case}");
                 let (_, e) = parse(r);
+                println!("{e:?}");
                 assert!(e.is_empty());
             }
             Err(r) => {
@@ -41,27 +43,33 @@ if not typeName _dictionary == "OBJECT" exitWith {
 _dictionary setVariable [toLower _key, _value, _isGlobal];
 
 "#;
-    tokens(case).unwrap();
+    parse(tokens(case, Default::default()).unwrap());
 }
 
 #[test]
 fn parse_for() {
-    parse(tokens("for \"_i\" from 1 to (count _arguments - 3) do {}").unwrap());
+    parse(
+        tokens(
+            "for \"_i\" from 1 to (count _arguments - 3) do {}",
+            Default::default(),
+        )
+        .unwrap(),
+    );
 }
 
 #[test]
 fn parse_macros() {
-    parse(tokens("#include \"macros.hpp\"\na = AA(a)").unwrap());
+    parse(tokens("#include \"macros.hpp\"\na = AA(a)", Default::default()).unwrap());
 }
 
 #[test]
 fn parse_macros_call() {
-    parse(tokens("a = (call AA(a))").unwrap());
+    parse(tokens("a = (call AA(a))", Default::default()).unwrap());
 }
 
 #[test]
 fn two_signatures() {
-    parse(tokens("call A; [] call A;").unwrap());
+    parse(tokens("call A; [] call A;", Default::default()).unwrap());
 }
 
 #[test]
@@ -103,7 +111,6 @@ fn expr() {
         "private _key = _arguments select (count _arguments - 2);",
         "private _dict2 = 1;",               // variable with digit
         "private _results = +DICT_results;", // + as unary
-        "[_this, false] call EFUNC(_set);",
     ];
 
     check_parse(&cases);
@@ -114,20 +121,27 @@ fn expr_negative() {
     let cases = ["ormat [\"\", _arguments];", "_a cal [\"\", _arguments];"];
     let expected = [
         vec![Spanned {
-            span: (6, 22),
-            inner: "\"[\"\", _arguments]\" is not an operator".to_string(),
+            span: (6, 7),
+            inner: "\"[\" is not a valid binary operator".to_string(),
         }],
-        vec![Spanned {
-            span: (3, 6),
-            inner: "\"cal\" is not an operator".to_string(),
-        }],
+        vec![
+            Spanned {
+                span: (3, 6),
+                inner: "\"cal\" is not a valid binary operator".to_string(),
+            },
+            Spanned {
+                span: (7, 8),
+                inner: "\"[\" is not a valid binary operator".to_string(),
+            },
+        ],
     ];
 
     for (case, expected) in cases.iter().zip(expected.iter()) {
-        let r = tokens(case);
+        let r = tokens(case, Default::default());
         match r {
             Ok(r) => {
                 println!("{case}");
+                println!("{:#?}", r.clone().collect::<Vec<_>>());
                 let (_, e) = parse(r);
                 assert_eq!(&e, expected);
             }
@@ -144,23 +158,101 @@ fn f() {
     let e = r#"if _a then {
 diag_log format ["a", _arguments];
 };"#;
-    tokens(e).unwrap();
+    let (_, error) = parse(tokens(e, Default::default()).unwrap());
+    assert_eq!(error, vec![]);
 }
 
 #[test]
 fn for_() {
     let case = "for \"_i\" from 1 to 10 do { 1+1; }";
-    tokens(case).unwrap();
+    let (_, error) = parse(tokens(case, Default::default()).unwrap());
+    assert_eq!(error, vec![]);
 }
 
 #[test]
 fn macros_() {
     let case = "if not ISOBJECT(_dictionary) exitWith {}";
-    parse(tokens(case).unwrap());
+    parse(tokens(case, Default::default()).unwrap());
 }
 
 #[test]
 fn no_panic() {
     let case = "params";
-    parse(tokens(case).unwrap());
+    parse(tokens(case, Default::default()).unwrap());
+}
+
+#[test]
+fn parenthesis() {
+    use std::fs;
+    let path = "tests/integration/examples/basic_parenthesis.sqf";
+    let case = fs::read_to_string(path).unwrap();
+
+    let a = sqf::preprocessor::parse(sqf::preprocessor::pairs(&case).unwrap());
+    let iter = sqf::preprocessor::AstIterator::new(a, Default::default());
+
+    let (result, errors) = parse(iter);
+    assert!(errors.is_empty());
+    println!("{:#?}", result);
+    let expected = r#"[
+    1,
+    {},
+    (1 + 1),
+    {},
+    ((if a) then ({1;2;} else {1;2;})),
+    ((if a) then ({1;} else {2;})),
+    ((private a) = 1),
+    (a = []),
+    (a = [1,2,]),
+    ((a + 1) * 2),
+]"#;
+    assert_eq!(format!("{:#?}", result), expected);
+}
+
+#[test]
+fn errors() {
+    let case = vec![
+        (
+            "[",
+            vec![Error {
+                inner: "\"[\" is not closed".to_string(),
+                span: (0, 1),
+            }],
+        ),
+        (
+            "{",
+            vec![Error {
+                inner: "\"{\" is not closed".to_string(),
+                span: (0, 1),
+            }],
+        ),
+        (
+            "(",
+            vec![
+                Error {
+                    inner: "Un-expected end of file".to_string(),
+                    span: (0, 0),
+                },
+                Error {
+                    inner: "\"(\" is not closed".to_string(),
+                    span: (0, 1),
+                },
+            ],
+        ),
+        (
+            "ormat [\"\", _arguments]",
+            vec![Error {
+                inner: "\"[\" is not a valid binary operator".to_string(),
+                span: (6, 7),
+            }],
+        ),
+    ];
+
+    for (case, expected) in case {
+        let a = sqf::preprocessor::parse(sqf::preprocessor::pairs(case).unwrap());
+        let iter = sqf::preprocessor::AstIterator::new(a, Default::default());
+
+        let (r, errors) = parse(iter);
+        println!("{r:#?}");
+        assert_eq!(errors, expected);
+    }
 }

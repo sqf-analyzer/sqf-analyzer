@@ -8,7 +8,7 @@ term = _{ include | undef | define | if_ | base_term }
 string    = @{ "\"" ~ ("\"\"" | (!"\"" ~ ANY))* ~ "\"" }
 number    = @{ "-"? ~ ASCII_DIGIT ~ (ASCII_DIGIT | ".")* }
 word      = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
-symbol    =  { SYMBOL | PUNCTUATION | NUMBER }
+symbol    =  { "&&" | "||" | "==" | "<=" | ">=" | "!=" | SYMBOL | PUNCTUATION | NUMBER }
 base_term = _{ number | string | word | symbol }
 
 // #include
