@@ -150,6 +150,7 @@ pub fn parse(pairs: Pairs<'_, Rule>) -> Ast<'_> {
 
 pub type Defines<'a> = HashMap<&'a str, Define<'a>>;
 
+#[derive(Clone)]
 pub struct AstIterator<'a> {
     base: VecDeque<Ast<'a>>,
     defines: Defines<'a>,

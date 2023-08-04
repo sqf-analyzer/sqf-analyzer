@@ -46,6 +46,8 @@ lazy_static::lazy_static! {
 enum S<'a> {
     Atom(Spanned<&'a str>),
     Cons(Spanned<&'a str>, Vec<S<'a>>),
+    Code(Vec<S<'a>>),
+    Array(Vec<S<'a>>),
 }
 
 impl<'a> fmt::Debug for S<'a> {
@@ -59,6 +61,20 @@ impl<'a> fmt::Debug for S<'a> {
                 }
                 write!(f, ")")
             }
+            S::Code(rest) => {
+                write!(f, "{{")?;
+                for s in rest {
+                    write!(f, "{:?};", s)?
+                }
+                write!(f, "}}")
+            }
+            S::Array(rest) => {
+                write!(f, "[")?;
+                for s in rest {
+                    write!(f, "{:?},", s)?
+                }
+                write!(f, "]")
+            }
         }
     }
 }
@@ -70,36 +86,108 @@ enum Token<'a> {
     Eof,
 }
 
+fn _is_op(token: &str) -> bool {
+    let token = token.to_owned().to_ascii_lowercase();
+    UNARY.contains(token.as_str())
+        || BINARY.contains(token.as_str())
+        || matches!(
+            token.as_str(),
+            "}" | ")" | "]" | "{" | "(" | "[" | ";" | "=" | ","
+        )
+}
+
+fn code<'a, I: Iterator<Item = Token<'a>>>(iter: &mut Peekable<I>) -> Vec<S<'a>> {
+    let mut expressions = vec![];
+    if matches(iter.peek(), "}") {
+        return expressions;
+    };
+
+    while iter.peek() != Some(&Token::Eof) {
+        let expression = expr_bp(iter, 0);
+        expressions.push(expression);
+
+        if matches(iter.peek(), ";") {
+            iter.next().unwrap();
+        }
+        if matches(iter.peek(), "}") {
+            break;
+        }
+    }
+    expressions
+}
+
+fn array<'a, I: Iterator<Item = Token<'a>>>(iter: &mut Peekable<I>) -> Vec<S<'a>> {
+    let mut expressions = vec![];
+    if matches(iter.peek(), "]") {
+        return expressions;
+    };
+    while iter.peek() != Some(&Token::Eof) {
+        let expression = expr_bp(iter, 0);
+        expressions.push(expression);
+
+        if matches(iter.peek(), ",") {
+            iter.next().unwrap();
+        }
+        if matches(iter.peek(), "]") {
+            break;
+        }
+    }
+    expressions
+}
+
 // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html#Introduction
-fn expr(iter: AstIterator) -> S {
+fn expr(iter: AstIterator) -> Vec<S<'_>> {
     let mut iter = iter
-        .map(|x| match x.inner {
-            "*" | "+" | "-" | "}" | ")" | "]" | "{" | "(" | "[" | "==" | "=<" | "=>" | "!="
-            | "<" | ">" | "if" | "then" | "else" | ";" => Token::Op(x),
-            _ => Token::Atom(x),
+        .map(|x| {
+            if _is_op(x.inner) {
+                Token::Op(x)
+            } else {
+                Token::Atom(x)
+            }
         })
         .chain(std::iter::once(Token::Eof))
         .peekable();
-    expr_bp(&mut iter, 0)
+
+    code(&mut iter)
 }
 
+#[inline]
+fn matches(token: Option<&Token>, v: &str) -> bool {
+    if let Some(Token::Op(Spanned { inner, .. })) = token {
+        *inner == v
+    } else {
+        false
+    }
+}
+
+/// This function returns under 3 conditions
+/// 1. Reached end of file
+/// 2. Reached an operator with a binding power < min_bp
+/// 3. Reached a ";" or ","
 fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(lexer: &mut Peekable<I>, min_bp: u8) -> S<'a> {
     let mut lhs = match lexer.next().unwrap() {
         Token::Atom(it) => S::Atom(it),
         Token::Op(Spanned { inner: "(", .. }) => {
             let lhs = expr_bp(lexer, 0);
-            matches!(lexer.next().unwrap(), Token::Op(Spanned { inner: ")", .. }));
+            assert!(matches(lexer.next().as_ref(), ")"));
             lhs
         }
+        Token::Op(Spanned { inner: ";", .. }) => S::Code(vec![]),
         Token::Op(Spanned { inner: "{", .. }) => {
-            let lhs = expr_bp(lexer, 0);
-            matches!(lexer.next().unwrap(), Token::Op(Spanned { inner: "}", .. }));
-            lhs
+            let expr = code(lexer);
+
+            // todo: convert to error
+            assert!(matches(lexer.next().as_ref(), "}"));
+
+            S::Code(expr)
         }
         Token::Op(Spanned { inner: "[", .. }) => {
-            let lhs = expr_bp(lexer, 0);
-            matches!(lexer.next().unwrap(), Token::Op(Spanned { inner: "]", .. }));
-            lhs
+            let expr = array(lexer);
+
+            // todo: convert to error
+            assert!(matches(lexer.next().as_ref(), "]"));
+
+            S::Array(expr)
         }
         Token::Op(op) => {
             let ((), r_bp) = prefix_binding_power(op.inner);
@@ -112,6 +200,8 @@ fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(lexer: &mut Peekable<I>, min_bp: u
     loop {
         let op = match lexer.peek().unwrap() {
             Token::Eof => break,
+            Token::Op(Spanned { inner: ";", .. }) => break,
+            Token::Op(Spanned { inner: ",", .. }) => break,
             Token::Op(op) => *op,
             t => panic!("bad token: {:?}", t),
         };
@@ -132,10 +222,8 @@ fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(lexer: &mut Peekable<I>, min_bp: u
             }
             lexer.next().unwrap();
 
-            lhs = {
-                let rhs = expr_bp(lexer, r_bp);
-                S::Cons(op, vec![lhs, rhs])
-            };
+            let rhs = expr_bp(lexer, r_bp);
+            lhs = S::Cons(op, vec![lhs, rhs]);
             continue;
         }
 
@@ -145,92 +233,61 @@ fn expr_bp<'a, I: Iterator<Item = Token<'a>>>(lexer: &mut Peekable<I>, min_bp: u
 }
 
 fn prefix_binding_power(op: &str) -> ((), u8) {
-    match op {
-        "+" | "-" => ((), 9),
-        "if" => ((), 4),
-        _ => panic!("bad op: {:?}", op),
+    if UNARY.contains(op) {
+        ((), 50)
+    } else {
+        panic!("bad op: {:?}", op)
     }
 }
 
-fn postfix_binding_power(op: &str) -> Option<(u8, ())> {
-    let res = match op {
-        ";" => (1, ()),
-        "{" => (11, ()),
-        _ => return None,
-    };
-    Some(res)
+fn postfix_binding_power(_: &str) -> Option<(u8, ())> {
+    None
 }
 
 fn infix_binding_power(op: &str) -> Option<(u8, u8)> {
+    // https://foxhound.international/precedence-arma-3-sqf.html
     let res = match op {
-        "=" => (2, 1),
-        "+" | "-" => (5, 6),
-        "*" | "/" => (7, 8),
-        "then" | "else" => (3, 4),
-        _ => return None,
+        ";" => (1, 2),
+        "=" => (19, 20), // assign op has the least binding power
+        "or" | "||" => (21, 22),
+        "and" | "&&" => (23, 24),
+        "==" | "!=" | ">" | "<" | ">=" | "<=" | ">>" => (25, 26),
+        // binary op below => (27, 28)
+        "else" => (29, 30),
+        "+" | "-" | "max" | "min" => (31, 32),
+        "*" | "/" | "%" | "mod" | "atan2" => (33, 34),
+        "^" => (34, 35),
+        _ => {
+            if !BINARY.contains(op) {
+                return None;
+            }
+            (27, 28)
+        }
     };
     Some(res)
 }
-
-/*
-#[test]
-fn tests() {
-    let s = expr("1");
-    assert_eq!(s.to_string(), "1");
-
-    let s = expr("1 + 2 * 3");
-    assert_eq!(s.to_string(), "(+ 1 (* 2 3))");
-
-    let s = expr("a + b * c * d + e");
-    assert_eq!(s.to_string(), "(+ (+ a (* (* b c) d)) e)");
-
-    let s = expr("f . g . h");
-    assert_eq!(s.to_string(), "(. f (. g h))");
-
-    let s = expr("1 + 2 + f . g . h * 3 * 4");
-    assert_eq!(s.to_string(), "(+ (+ 1 2) (* (* (. f (. g h)) 3) 4))");
-
-    let s = expr("--1 * 2");
-    assert_eq!(s.to_string(), "(* (- (- 1)) 2)");
-
-    let s = expr("--f . g");
-    assert_eq!(s.to_string(), "(- (- (. f g)))");
-
-    let s = expr("-9!");
-    assert_eq!(s.to_string(), "(- (! 9))");
-
-    let s = expr("f . g !");
-    assert_eq!(s.to_string(), "(! (. f g))");
-
-    let s = expr("(((0)))");
-    assert_eq!(s.to_string(), "0");
-
-    let s = expr("x[0][1]");
-    assert_eq!(s.to_string(), "([ ([ x 0) 1)");
-
-    let s = expr(
-        "a ? b :
-         c ? d
-         : e",
-    );
-    assert_eq!(s.to_string(), "(? a b (? c d e))");
-
-    let s = expr("a = 0 ? b : c = d");
-    assert_eq!(s.to_string(), "(= a (= (? 0 b c) d))")
-}
- */
 
 #[test]
 fn tokens() {
     use std::fs;
-    let path = "tests/integration/examples/basic_if.sqf";
+    let path = "tests/integration/examples/basic_parenthesis.sqf";
     let case = fs::read_to_string(path).unwrap();
 
     let a = sqf::preprocessor::parse(sqf::preprocessor::pairs(&case).unwrap());
     let iter = sqf::preprocessor::AstIterator::new(a, Default::default());
 
-    println!("{:?}", iter.clone().collect::<Vec<_>>());
-    println!("{:#?}", expr(iter));
-    // if (else (then (if a) b) (; c))
-    panic!();
+    println!("{:#?}", expr(iter.clone()));
+    let expected = r#"[
+    1,
+    {},
+    (+ 1 1),
+    {},
+    (then (if a) (else {1;2;} {1;2;})),
+    (then (if a) (else {1;} {2;})),
+    (= (private a) 1),
+    (= a []),
+    (= a [1,2,]),
+    (* (+ a 1) 2),
+]"#;
+    assert_eq!(format!("{:#?}", expr(iter)), expected);
 }
