@@ -40,7 +40,7 @@ impl ToSpan for Pair<'_, Rule> {
 }
 
 #[derive(Parser)]
-#[grammar = "preprocessor.pest"]
+#[grammar = "preprocessor/preprocessor.pest"]
 struct PreprocessorParser;
 
 pub fn pairs(data: &str) -> Result<Pairs<'_, Rule>, Error> {
