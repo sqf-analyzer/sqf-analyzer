@@ -195,10 +195,9 @@ fn parenthesis() {
     let path = "tests/integration/examples/basic_parenthesis.sqf";
     let case = fs::read_to_string(path).unwrap();
 
-    let a = sqf::preprocessor::parse(sqf::preprocessor::pairs(&case).unwrap());
-    let iter = sqf::preprocessor::AstIterator::new(a, Default::default(), Default::default());
+    let ast = tokens(&case, Default::default(), Default::default()).unwrap();
 
-    let (result, errors) = parse(iter);
+    let (result, errors) = parse(ast);
     assert!(errors.is_empty());
     println!("{:#?}", result);
     let expected = r#"[
@@ -256,8 +255,7 @@ fn errors() {
     ];
 
     for (case, expected) in case {
-        let a = sqf::preprocessor::parse(sqf::preprocessor::pairs(case).unwrap());
-        let iter = sqf::preprocessor::AstIterator::new(a, Default::default(), Default::default());
+        let iter = tokens(case, Default::default(), Default::default()).unwrap();
 
         let (r, errors) = parse(iter);
         println!("{r:#?}");

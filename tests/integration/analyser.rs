@@ -8,8 +8,8 @@ use sqf::span::Spanned;
 use sqf::types::Type;
 
 pub fn parse_analyze(case: &str) -> State {
-    let ast = preprocessor::tokens(case, Default::default(), Default::default()).unwrap();
-    let (expr, errors) = parser::parse(ast);
+    let iter = preprocessor::tokens(case, Default::default(), Default::default()).unwrap();
+    let (expr, errors) = parser::parse(iter);
     assert_eq!(errors, vec![]);
     analyze(&expr)
 }
@@ -186,9 +186,8 @@ fn infer_example1() {
         ),
     ]);
 
-    let ast = preprocessor::tokens(&case, Default::default(), path).unwrap();
-    println!("{:#?}", ast.clone().collect::<Vec<_>>());
-    let (expr, errors) = parser::parse(ast);
+    let iter = preprocessor::tokens(&case, Default::default(), path).unwrap();
+    let (expr, errors) = parser::parse(iter);
     assert_eq!(errors, vec![]);
 
     let r = analyze(&expr);
@@ -215,8 +214,8 @@ fn infer_example2() {
         println!("{path:?}");
         let case = fs::read_to_string(path.clone()).unwrap();
 
-        let ast = preprocessor::tokens(&case, Default::default(), path.clone()).unwrap();
-        let (expr, errors) = parser::parse(ast);
+        let iter = preprocessor::tokens(&case, Default::default(), path.clone()).unwrap();
+        let (expr, errors) = parser::parse(iter);
         assert_eq!(errors, vec![]);
 
         let r = analyze(&expr);

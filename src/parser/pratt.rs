@@ -151,11 +151,11 @@ fn array<'a, I: Iterator<Item = SpannedRef<'a>>>(
     expressions
 }
 
-pub fn parse(mut ast: AstIterator) -> (Vec<Expr>, Vec<Error>) {
-    let mut peekable = ast.by_ref().peekable();
+pub fn parse(mut iter: AstIterator) -> (Vec<Expr>, Vec<Error>) {
+    let mut peekable = iter.by_ref().peekable();
     let mut errors = vec![];
     let expr = code(&mut peekable, &mut errors);
-    errors.extend(ast.state.errors);
+    errors.extend(iter.state.errors);
     (expr, errors)
 }
 
