@@ -94,6 +94,100 @@ fn define_use() {
 }
 
 #[test]
+fn define_no_args() {
+    let case = "#define B a\nB";
+
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(ast.state.errors, vec![]);
+
+    assert_eq!(r, vec!["a"]);
+}
+
+#[test]
+fn macro_nested_no_args() {
+    let case = "#define B b\n#define A a\\B\nA";
+
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(ast.state.errors, vec![]);
+
+    assert_eq!(r, vec!["a", "\\", "b"]);
+}
+
+#[test]
+fn macro_with_concat() {
+    let case = "#define B ##b\n#define A a\\B\nA";
+
+    let mut iter: sqf::preprocessor::AstIterator<'_> =
+        tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = iter.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
+
+    assert_eq!(r, vec!["a", "\\b"]);
+}
+
+#[test]
+fn macro_with_arg() {
+    let case = "#define B ##b\n#define A(c) c\\B\nA(a)";
+
+    let mut iter: sqf::preprocessor::AstIterator<'_> =
+        tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = iter.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
+
+    assert_eq!(r, vec!["a", "\\b"]);
+}
+
+#[test]
+fn macro_with_arg_nested() {
+    let case = "#define B(b) ##b\n#define A(a) a\\B(b)\nA(a)";
+
+    let mut iter: sqf::preprocessor::AstIterator<'_> =
+        tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = iter.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
+
+    assert_eq!(r, vec!["a", "\\b"]);
+}
+
+#[test]
+fn define_double() {
+    let case = r#"#define DOUBLES(var1,var2) ##var1##_##var2
+#define QUOTE(var1) #var1
+#define FNC_FILE_BASE(func) QUOTE(dictionary\DOUBLES(fnc,func).sqf)
+
+FNC_FILE_BASE(a)
+"#;
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(ast.state.errors, vec![]);
+
+    assert_eq!(r, vec!["\"dictionary\\fnc_a.sqf\""]);
+}
+
+#[test]
+fn define_quote_in_middle() {
+    let case = r#"#define A(a) #a
+#define B(a) b = A(a)
+
+B(a)
+"#;
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(ast.state.errors, vec![]);
+
+    assert_eq!(r, vec!["b", "=", "\"a\""]);
+}
+
+#[test]
 fn antistasi() {
     use std::fs;
     let path = "tests/integration/examples/antistasi.cpp";
@@ -107,4 +201,18 @@ fn antistasi() {
     let expected: Vec<&str> = vec![];
 
     assert_eq!(r, expected);
+}
+
+#[test]
+fn macro_with_composite_arg() {
+    let case = r#"#define A(a) a
+
+A(call b)
+"#;
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(ast.state.errors, vec![]);
+
+    assert_eq!(r, vec!["call", "b"]);
 }

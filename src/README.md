@@ -2,11 +2,11 @@
 
 ## Passes
 
-This SQF parser is designed using the following passes:
+This parser is designed using the following passes:
 
 ### 1. Parse preprocessor
 
-Implemented in Rust's `pest` crate to identify preprocessor tokens.
+Implemented in Rust's `pest` crate to identify preprocessor tokens (e.g. `if`, `#if`, `+`).
 Returns an iterator of `pest::Pair` each being a matched rule (that may include multiple tokens).
 
 Implemented in [./preprocessor/parser.rs](./preprocessor/parser.rs).

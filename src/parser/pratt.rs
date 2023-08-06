@@ -86,7 +86,7 @@ fn atom_to_expr(token: SpannedRef) -> Expr {
             if bytes.first() == Some(&b'"') && bytes.last() == Some(&b'"') {
                 Some(Expr::String(
                     token
-                        .as_deref()
+                        .as_ref()
                         .map(|x| x.get(1..x.len() - 1).unwrap().to_owned().into()),
                 ))
             } else {

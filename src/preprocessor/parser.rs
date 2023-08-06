@@ -51,16 +51,8 @@ fn parse_if(pair: Pair<'_, Rule>) -> Ast<'_> {
     }
 }
 
-fn define_expr(x: Pair<'_, Rule>) -> DefineExpr {
-    match x.as_rule() {
-        Rule::base_term => DefineExpr::Term(x.into()),
-        Rule::define_concat => {
-            let mut pairs = x.into_inner();
-            DefineExpr::Concat(pairs.next().unwrap().into(), pairs.next().unwrap().into())
-        }
-        Rule::define_quote => DefineExpr::Quote(x.into()),
-        other => unreachable!("{other:?}"),
-    }
+fn define_expr(x: Pair<'_, Rule>) -> Spanned<String> {
+    x.into()
 }
 
 fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {

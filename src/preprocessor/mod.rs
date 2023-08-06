@@ -7,10 +7,12 @@ use crate::error::Error;
 use crate::span::Spanned;
 
 mod ast;
+mod define;
+mod include;
 mod iterator;
 mod parser;
 
-pub use ast::{Ast, Define, DefineExpr, Defines};
+pub use ast::{Ast, Define, Defines};
 pub use iterator::AstIterator;
 
 pub type SpannedRef<'a> = Spanned<Cow<'a, str>>;

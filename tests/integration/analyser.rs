@@ -111,6 +111,15 @@ fn infer_nullary() {
     check_infer(case, expected);
 }
 
+#[test]
+fn infer_ok() {
+    let case = "if true exitWith {_result\n};";
+
+    let expected = Default::default();
+
+    check_infer(case, expected);
+}
+
 /// when not private, variables are assigned to the previous stacks (or namespace if not defined)
 #[test]
 fn namespace() {

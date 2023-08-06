@@ -1,6 +1,6 @@
 pub type Span = (usize, usize);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Spanned<T> {
     pub inner: T,
     pub span: Span,
@@ -25,7 +25,7 @@ impl<T: Clone> Spanned<T> {
 }
 
 impl<T> Spanned<T> {
-    pub fn as_deref(&self) -> Spanned<&T> {
+    pub fn as_ref(&self) -> Spanned<&T> {
         Spanned::<&T> {
             inner: &self.inner,
             span: self.span,

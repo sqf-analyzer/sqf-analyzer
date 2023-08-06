@@ -37,15 +37,12 @@ if_op    = @{ "<=" | ">=" | "<" | ">" | "==" | "!=" }
 
 // #define
 define = ${
-    "#define" ~ " " ~ word ~ define_arguments? ~ " "* ~ define_expr* ~ end
+    "#define" ~ " " ~ word ~ define_arguments? ~ " "* ~ define_term* ~ end
 }
 
-define_quote  = { "#" ~ word }
-define_concat = { base_term ~ "##" ~ base_term }
-
-define_expr = _{ define_concat | define_quote | define_term }
+define_quote = {"##" | "#"}
 
 define_arguments =  { "(" ~ word ~ ("," ~ word)* ~ ")" }
-define_term      = _{ "\\\n" | base_term | " " | "\t" | "\r" }
+define_term      = _{ define_quote | "\\\n" | base_term | " " | "\t" | "\r" }
 
 end = _{ ("\n" | EOI) }
