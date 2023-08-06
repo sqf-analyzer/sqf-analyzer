@@ -47,9 +47,13 @@ lazy_static::lazy_static! {
         .collect::<HashSet<_, _>>();
 }
 
+fn to_lower_case(v: &str) -> String {
+    v.to_ascii_lowercase()
+}
+
 fn atom_to_expr(token: SpannedRef) -> Expr {
     NULLARY
-        .contains(token.inner.as_ref())
+        .contains(to_lower_case(token.inner.as_ref()).as_str())
         .then(|| Expr::Nullary(token.clone()))
         .or_else(|| {
             // bool

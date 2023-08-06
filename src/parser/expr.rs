@@ -1,11 +1,9 @@
-use std::fmt;
-
 use crate::{
     preprocessor::SpannedRef,
     span::{Span, Spanned},
 };
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Expr<'a> {
     String(SpannedRef<'a>),
     Number(Spanned<i64>),
@@ -39,45 +37,6 @@ impl<'a> Expr<'a> {
             }
             Self::Code(expr) | Self::Array(expr) => expr.span,
             Self::Nil(span) => *span,
-        }
-    }
-}
-
-impl<'a> fmt::Debug for Expr<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Expr::Nullary(i) | Expr::String(i) | Expr::Variable(i) => {
-                write!(f, "{}", i.inner)
-            }
-            Expr::Boolean(i) => {
-                write!(f, "{}", i.inner)
-            }
-            Expr::Number(i) => {
-                write!(f, "{}", i.inner)
-            }
-            Expr::Unary(head, rhs) => {
-                write!(f, "({} {:?})", head.inner, rhs)
-            }
-            Expr::Binary(lhs, head, rhs) => {
-                write!(f, "({:?} {} {:?})", lhs, head.inner, rhs)
-            }
-            Expr::Code(rest) => {
-                write!(f, "{{")?;
-                for s in &rest.inner {
-                    write!(f, "{:?};", s)?
-                }
-                write!(f, "}}")
-            }
-            Expr::Array(rest) => {
-                write!(f, "[")?;
-                for s in &rest.inner {
-                    write!(f, "{:?},", s)?
-                }
-                write!(f, "]")
-            }
-            Expr::Nil(_) => {
-                write!(f, "nil")
-            }
         }
     }
 }

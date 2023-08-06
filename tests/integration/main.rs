@@ -1,5 +1,5 @@
 mod analyser;
-//mod params;
+mod params;
 mod cpp;
 mod parser;
 mod preprocessor;

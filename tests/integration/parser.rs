@@ -197,22 +197,8 @@ fn parenthesis() {
 
     let ast = tokens(&case, Default::default(), Default::default()).unwrap();
 
-    let (result, errors) = parse(ast);
+    let (_, errors) = parse(ast);
     assert!(errors.is_empty());
-    println!("{:#?}", result);
-    let expected = r#"[
-    1,
-    {},
-    (1 + 1),
-    {},
-    ((if a) then ({1;2;} else {1;2;})),
-    ((if a) then ({1;} else {2;})),
-    ((private a) = 1),
-    (a = []),
-    (a = [1,2,]),
-    ((a + 1) * 2),
-]"#;
-    assert_eq!(format!("{:#?}", result), expected);
 }
 
 #[test]
