@@ -7,3 +7,10 @@ edition = "2021"
 pest = "2.6"
 pest_derive = "2.6"
 lazy_static = "*"
+
+[dev-dependencies]
+clap = {version = "*", features = ["cargo"]}
+source-span = "*"
+
+[[example]]
+name = "sqf-analyzer"

@@ -279,6 +279,8 @@ fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
                 inner: format!("\"{}\" is not a valid binary operator", op.inner),
                 span: op.span,
             });
+            lexer.next();
+            return lhs;
         }
 
         break;

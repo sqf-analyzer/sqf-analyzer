@@ -322,8 +322,8 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
             ),
             other => {
                 errors.push(Error {
-                    inner: format!("assignment requires a right side: {:?}", other),
-                    span: name.span,
+                    inner: "assignment requires the right side to be a number, array or string but this is neither".to_string(),
+                    span: other.span(),
                 });
                 return;
             }

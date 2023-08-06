@@ -11,7 +11,7 @@ while {_index != -1} do {
     if (_index != -1) then {
         _result pushBack (_string select [0, _index]);
     } else {
-        _result pushBack _string;
+        _result pushBck _string;
     };
 };
 _result
