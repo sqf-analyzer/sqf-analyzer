@@ -26,9 +26,10 @@ impl<'a> From<Pair<'a, parser::Rule>> for SpannedRef<'a> {
     }
 }
 
-pub fn tokens(data: &str, defines: Defines, path: PathBuf) -> Result<AstIterator, Error> {
-    let pairs = parser::pairs(data)?;
+pub fn parse(data: &str) -> Result<Ast, Error> {
+    parser::pairs(data).map(parser::parse)
+}
 
-    let ast = parser::parse(pairs);
-    Ok(AstIterator::new(ast, defines, path))
+pub fn tokens(data: &str, defines: Defines, path: PathBuf) -> Result<AstIterator, Error> {
+    parse(data).map(|ast| AstIterator::new(ast, defines, path))
 }

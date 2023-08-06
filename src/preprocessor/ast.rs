@@ -18,8 +18,18 @@ pub type Defines = HashMap<String, Define>;
 /// The preprocessor's abstract syntatic tree (AST)
 #[derive(Debug, Clone)]
 pub enum Ast<'a> {
-    Ifdef(Spanned<&'a str>, VecDeque<Ast<'a>>, VecDeque<Ast<'a>>),
-    Ifndef(Spanned<&'a str>, VecDeque<Ast<'a>>, VecDeque<Ast<'a>>),
+    Ifdef(
+        Spanned<&'a str>,
+        Spanned<&'a str>,
+        VecDeque<Ast<'a>>,
+        VecDeque<Ast<'a>>,
+    ),
+    Ifndef(
+        Spanned<&'a str>,
+        Spanned<&'a str>,
+        VecDeque<Ast<'a>>,
+        VecDeque<Ast<'a>>,
+    ),
     If(
         VecDeque<Spanned<&'a str>>,
         VecDeque<Ast<'a>>,

@@ -100,7 +100,7 @@ pub enum MacroState {
 /// * token: (false, Some(...))
 fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<SpannedRef<'a>>) {
     match ast {
-        Ast::Ifndef(term, else_, then) | Ast::Ifdef(term, then, else_) => {
+        Ast::Ifndef(_, term, else_, then) | Ast::Ifdef(_, term, then, else_) => {
             if state.defines.contains_key(term.inner) {
                 evaluate_terms(then, state)
             } else {

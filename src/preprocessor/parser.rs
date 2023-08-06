@@ -37,11 +37,11 @@ fn parse_if(pair: Pair<'_, Rule>) -> Ast<'_> {
     match if_type.as_str() {
         "#ifndef" => {
             let name = if_start.next().unwrap();
-            Ast::Ifndef(name.into(), body, else_)
+            Ast::Ifndef(if_type.into(), name.into(), body, else_)
         }
         "#ifdef" => {
             let name = if_start.next().unwrap();
-            Ast::Ifdef(name.into(), body, else_)
+            Ast::Ifdef(if_type.into(), name.into(), body, else_)
         }
         _ => {
             assert!(matches!(if_type.as_rule(), Rule::if_expr));
