@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod analyzer;
 pub mod database;
 pub mod error;
