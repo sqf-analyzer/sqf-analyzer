@@ -128,20 +128,20 @@ fn expr() {
 fn expr_negative() {
     let cases = ["ormat [\"\", _arguments];", "_a cal [\"\", _arguments];"];
     let expected = [
-        vec![Spanned {
-            span: (6, 7),
-            inner: "\"[\" is not a valid binary operator".to_string(),
-        }],
         vec![
             Spanned {
-                span: (3, 6),
-                inner: "\"cal\" is not a valid binary operator".to_string(),
-            },
-            Spanned {
-                span: (7, 8),
+                span: (6, 7),
                 inner: "\"[\" is not a valid binary operator".to_string(),
             },
+            Spanned {
+                span: (11, 21),
+                inner: "\"_arguments\" is not a valid binary operator".to_string(),
+            },
         ],
+        vec![Spanned {
+            span: (3, 6),
+            inner: "\"cal\" is not a valid binary operator".to_string(),
+        }],
     ];
 
     for (case, expected) in cases.iter().zip(expected.iter()) {
@@ -233,10 +233,16 @@ fn errors() {
         ),
         (
             "ormat [\"\", _arguments]",
-            vec![Error {
-                inner: "\"[\" is not a valid binary operator".to_string(),
-                span: (6, 7),
-            }],
+            vec![
+                Error {
+                    inner: "\"[\" is not a valid binary operator".to_string(),
+                    span: (6, 7),
+                },
+                Error {
+                    inner: "\"_arguments\" is not a valid binary operator".to_string(),
+                    span: (11, 21),
+                },
+            ],
         ),
     ];
 

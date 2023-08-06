@@ -120,11 +120,11 @@ fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<SpannedR
                 .insert(define.name.inner.clone(), define.clone());
             (false, None)
         }
-        Ast::Undefine(name) => {
+        Ast::Undefine(_, name) => {
             state.defines.remove(name.inner);
             (false, None)
         }
-        Ast::Include(name) => match process_include(name, state) {
+        Ast::Include(_, name) => match process_include(name, state) {
             Some(include) => {
                 state.stack = include;
                 pop_stack(&mut state.stack)

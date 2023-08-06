@@ -56,7 +56,7 @@ lazy_static::lazy_static! {
         _build_unary()
     };
 
-    pub static ref NULLNARY: HashMap<&'static str, Type> = {
+    pub static ref NULLARY: HashMap<&'static str, Type> = {
         _build_nullary()
     };
 }
@@ -360,7 +360,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
         }
         Expr::Nullary(variable) => {
             let name = variable.inner.to_ascii_lowercase();
-            NULLNARY.get(name.as_str()).cloned()
+            NULLARY.get(name.as_str()).cloned()
         }
         Expr::Variable(variable) => {
             let name = variable.inner.to_ascii_lowercase();

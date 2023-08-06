@@ -7,6 +7,7 @@ use crate::span::Spanned;
 /// that have been opened with diferent lifetimes
 #[derive(Debug, Clone)]
 pub struct Define {
+    pub keyword: Spanned<String>,
     pub name: Spanned<String>,
     pub arguments: Vec<Spanned<String>>,
     pub body: VecDeque<Spanned<String>>,
@@ -25,8 +26,8 @@ pub enum Ast<'a> {
         VecDeque<Ast<'a>>,
     ),
     Define(Define),
-    Undefine(Spanned<&'a str>),
-    Include(Spanned<&'a str>),
+    Undefine(Spanned<&'a str>, Spanned<&'a str>),
+    Include(Spanned<&'a str>, Spanned<&'a str>),
     Body(VecDeque<Ast<'a>>),
     Comment(Spanned<&'a str>),
     Term(Spanned<&'a str>),

@@ -16,12 +16,14 @@ symbol    =  { "&&" | "||" | "==" | "<=" | ">=" | "!=" | SYMBOL | PUNCTUATION | 
 base_term =  { number | string | word | symbol }
 
 // #include
-include           = ${ "#include" ~ " " ~ include_str ~ end }
+include_kw        =  {"#include"}
+include           = ${ include_kw ~ " " ~ include_str ~ end }
 include_str_inner = @{ (!("\"" | ">") ~ ANY)* }
 include_str       = _{ ("<" ~ include_str_inner ~ ">") | "\"" ~ include_str_inner ~ "\"" }
 
 // #undef
-undef = ${ "#undef" ~ " " ~ word ~ end }
+undef_kw = {"#undef"}
+undef = ${ undef_kw ~ " " ~ word ~ end }
 
 // #if | #ifdef | #ifndef
 if_ = {
@@ -41,9 +43,10 @@ if_op    = @{ "<=" | ">=" | "<" | ">" | "==" | "!=" }
 
 // #define
 define = ${
-    "#define" ~ " " ~ word ~ define_arguments? ~ " "* ~ define_term* ~ end
+    define_kw ~ " " ~ word ~ define_arguments? ~ " "* ~ define_term* ~ end
 }
 
+define_kw = {"#define"}
 define_quote = {"##" | "#"}
 
 define_arguments =  { "(" ~ word ~ ("," ~ word)* ~ ")" }

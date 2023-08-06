@@ -60,10 +60,12 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
         Rule::if_ => parse_if(pair),
         Rule::define => {
             let mut define = pair.into_inner();
+            let keyword = define.next().unwrap().into();
             let name = define.next().unwrap().into();
 
             let Some(args_or_body) = define.next() else {
                 return Ast::Define(Define {
+                    keyword,
                     name, arguments: Default::default(), body: Default::default()});
             };
             let is_arguments = matches!(args_or_body.as_rule(), Rule::define_arguments);
@@ -87,18 +89,23 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
             };
 
             Ast::Define(Define {
+                keyword,
                 name,
                 arguments,
                 body,
             })
         }
         Rule::undef => {
-            let word = pair.into_inner().next().unwrap();
-            Ast::Undefine(word.into())
+            let mut tokens = pair.into_inner();
+            let keyword = tokens.next().unwrap();
+            let word = tokens.next().unwrap();
+            Ast::Undefine(keyword.into(), word.into())
         }
         Rule::include => {
-            let word = pair.into_inner().next().unwrap();
-            Ast::Include(word.into())
+            let mut tokens = pair.into_inner();
+            let keyword = tokens.next().unwrap();
+            let word = tokens.next().unwrap();
+            Ast::Include(keyword.into(), word.into())
         }
         Rule::COMMENT => Ast::Comment(pair.into()),
         _ => Ast::Term(pair.into()),
