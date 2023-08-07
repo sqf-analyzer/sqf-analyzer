@@ -87,7 +87,7 @@ fn atom_to_expr(token: SpannedRef) -> Expr {
         .or_else(|| {
             // string
             let bytes = token.inner.as_bytes();
-            if bytes.first() == Some(&b'"') && bytes.last() == Some(&b'"') {
+            if bytes.first() == Some(&b'"') && bytes.last() == Some(&b'"') && bytes.len() >= 2 {
                 Some(Expr::String(
                     token
                         .as_ref()

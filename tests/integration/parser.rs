@@ -232,6 +232,13 @@ fn errors() {
             ],
         ),
         (
+            "private a = \"_a",
+            vec![Error {
+                inner: "\"_a\" is not a valid binary operator".to_string(),
+                span: (13, 15),
+            }],
+        ),
+        (
             "ormat [\"\", _arguments]",
             vec![
                 Error {
