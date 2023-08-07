@@ -345,18 +345,15 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
 
 /// Given a directory, it tries to open the file "config.cpp" and
 /// retrieve the list of function names and corresponding paths in the addon
-pub fn analyze_addon(mut directory: PathBuf) -> (Functions, Vec<Error>) {
+pub fn analyze_addon(mut directory: PathBuf) -> Result<(Functions, Vec<Error>), String> {
     directory.push("config.cpp");
 
     let Ok(content) = std::fs::read_to_string(directory.clone()) else {
-        return (Default::default(), vec![Error {
-            span: (0, 0),
-            inner: format!("File \"{directory:?}\" not found"),
-        }])
+        return Err(format!("File \"{directory:?}\" not found"))
     };
 
     // it is an addon, parse the config.cpp to fetch list of functions
 
     let iter = preprocessor::tokens(&content, Default::default(), Default::default()).unwrap();
-    analyze(iter)
+    Ok(analyze(iter))
 }

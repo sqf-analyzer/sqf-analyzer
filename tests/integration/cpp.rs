@@ -137,7 +137,7 @@ fn infer_addon() {
 fn addon_basic() {
     let directory = "tests/integration/dictionary/addons/dictionary";
 
-    let (functions, errors) = analyze_addon(directory.into());
+    let (functions, errors) = analyze_addon(directory.into()).unwrap();
     assert_eq!(errors, vec![]);
 
     let names = [

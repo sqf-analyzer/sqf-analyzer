@@ -32,7 +32,13 @@ fn main() {
     }
 
     if let Some(directory) = matches.get_one::<PathBuf>("directory") {
-        let (functions, errors) = cpp::analyze_addon(directory.into());
+        let (functions, errors) = match cpp::analyze_addon(directory.into()) {
+            Ok((functions, errors)) => (functions, errors),
+            Err(error) => {
+                println!("{error}");
+                return;
+            }
+        };
         if !errors.is_empty() {
             print_errors(errors, &directory.join("config.cpp"))
         }
