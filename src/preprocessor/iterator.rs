@@ -33,7 +33,7 @@ pub struct State {
     pub define: Option<(Define, Arguments)>,
     pub stack: VecDeque<Spanned<String>>,
     pub path: PathBuf,
-    pub state: MacroState,
+    pub state: Spanned<MacroState>,
     pub errors: Vec<Error>,
 }
 
@@ -171,7 +171,7 @@ impl<'a> AstIterator<'a> {
             state: State {
                 defines,
                 path,
-                state: MacroState::None,
+                state: Spanned::new(MacroState::None, (0, 0)),
                 define: Default::default(),
                 stack: Default::default(),
                 errors: Default::default(),

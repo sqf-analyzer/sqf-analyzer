@@ -1,4 +1,4 @@
-use sqf::preprocessor::tokens;
+use sqf::{preprocessor::tokens, span::Spanned};
 
 #[test]
 fn pairs_() {
@@ -215,4 +215,62 @@ A(call b)
     assert_eq!(ast.state.errors, vec![]);
 
     assert_eq!(r, vec!["call", "b"]);
+}
+
+#[test]
+fn origin_define() {
+    let case = r#"#define A _a
+_a = 1;
+_b = A;
+"#;
+
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = ast
+        .by_ref()
+        .map(|x| x.map(|x| x.to_string()))
+        .collect::<Vec<_>>();
+
+    let r = r
+        .iter()
+        .map(|x| x.as_ref().map(|x| x.as_str()))
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        r,
+        vec![
+            Spanned {
+                inner: "_a",
+                span: (13, 15)
+            },
+            Spanned {
+                inner: "=",
+                span: (16, 17)
+            },
+            Spanned {
+                inner: "1",
+                span: (18, 19)
+            },
+            Spanned {
+                inner: ";",
+                span: (19, 20)
+            },
+            Spanned {
+                inner: "_b",
+                span: (21, 23)
+            },
+            Spanned {
+                inner: "=",
+                span: (24, 25)
+            },
+            Spanned {
+                inner: "_a",
+                span: (26, 27)
+            },
+            Spanned {
+                inner: ";",
+                span: (27, 28)
+            }
+        ]
+    );
 }

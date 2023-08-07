@@ -1,5 +1,6 @@
 use std::collections::hash_map::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::database::SIGNATURES;
 use crate::error::Error;
@@ -366,8 +367,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
             let name = variable.inner.to_ascii_lowercase();
 
             (name == "_this").then_some(Type::Anything).or_else(|| {
-                if let Some((span, type_)) = state.namespace.get(&variable.inner) {
-                    state.origins.insert(variable.span, span);
+                if let Some((origin, type_)) = state.namespace.get(&variable.inner) {
+                    state.origins.insert(variable.span, origin);
                     type_
                 } else {
                     None
@@ -421,7 +422,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Namespace {
     pub stack: Vec<HashMap<String, (Span, Option<Type>)>>,
-    pub mission: HashMap<String, (Origin, Option<Type>)>,
+    pub mission: HashMap<Arc<str>, (Origin, Option<Type>)>,
 }
 
 impl Namespace {
@@ -441,7 +442,7 @@ impl Namespace {
                 }
             }
             self.mission
-                .insert(key.inner, (Origin::File(key.span), value));
+                .insert(key.inner.into(), (Origin::File(key.span), value));
         }
     }
 
@@ -459,14 +460,14 @@ impl Namespace {
                 return Some((Origin::File(*span), *a));
             }
         }
-        self.mission.get(key).copied()
+        self.mission.get(key).cloned()
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Origin {
     File(Span),
-    External(Span, usize),
+    External(Arc<str>),
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -484,12 +485,9 @@ pub struct Configuration {
 
 pub type Types = HashMap<Spanned<String>, Option<Type>>;
 
-pub fn analyze(program: &[Expr]) -> State {
-    let mut state = State::default();
-
+pub fn analyze(program: &[Expr], state: &mut State) {
     state.namespace.push_stack();
     for expr in program {
-        infer_type(expr, &mut state);
+        infer_type(expr, state);
     }
-    state
 }

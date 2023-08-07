@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use crate::error::Error;
 use crate::preprocessor::iterator::MacroState;
-use crate::span::Spanned;
+use crate::span::{Span, Spanned};
 
 use super::iterator::{Arguments, State};
 use super::*;
@@ -14,6 +14,7 @@ pub fn update<'a>(state: &mut State, item: &SpannedRef<'a>) -> Option<()> {
             state.stack.clear();
             evaluate(
                 &mut define.clone(),
+                item.span,
                 &[],
                 &state.defines,
                 &mut state.errors,
@@ -24,15 +25,16 @@ pub fn update<'a>(state: &mut State, item: &SpannedRef<'a>) -> Option<()> {
             // there is a define with this token => push it to the stack
             state.define = Some((define.clone(), vec![]));
 
-            if state.state != MacroState::None {
+            if state.state.inner != MacroState::None {
                 state.errors.push(Error {
                     inner: "macro invoked inside another macro".to_string(),
                     span: item.span,
                 });
-                state.state = MacroState::None;
+                state.state.inner = MacroState::None;
             }
         }
-        state.state = MacroState::ParenthesisStart;
+        state.state.inner = MacroState::ParenthesisStart;
+        state.state.span = item.span;
         return Some(());
     }
 
@@ -41,34 +43,40 @@ pub fn update<'a>(state: &mut State, item: &SpannedRef<'a>) -> Option<()> {
         return None;
     };
 
-    match (state.state, item.inner.as_ref()) {
+    match (state.state.inner, item.inner.as_ref()) {
         (MacroState::Argument | MacroState::Coma, ")") => {
             // end state
-            state.state = MacroState::None;
+            state.state.inner = MacroState::None;
+            state.state.span.1 += item.span.1 - item.span.0;
             // evaluate define and push it to the stack
             let (define, arguments) = state.define.as_mut().unwrap();
             state.stack.clear();
             evaluate(
                 define,
+                state.state.span,
                 arguments,
                 &state.defines,
                 &mut state.errors,
                 &mut state.stack,
             );
+            state.state.span = (0, 0);
             state.define = None;
             Some(())
         }
         // start state
         (MacroState::ParenthesisStart | MacroState::Coma, _) => {
-            state.state = MacroState::Argument;
+            state.state.inner = MacroState::Argument;
+            state.state.span.1 += item.span.1 - item.span.0;
             Some(())
         }
         (MacroState::Argument, ",") => {
             arguments.push(Default::default());
+            state.state.span.1 += item.span.1 - item.span.0;
             Some(())
         }
         (MacroState::Argument, _) => {
             push_argument(arguments, item);
+            state.state.span.1 += item.span.1 - item.span.0;
             Some(())
         }
         (MacroState::None, _) => {
@@ -122,6 +130,7 @@ fn replace(
 
 fn evaluate(
     define: &mut Define,
+    span: Span,
     arguments: &[VecDeque<Spanned<String>>],
     defines: &Defines,
     errors: &mut Vec<Error>,
@@ -144,6 +153,7 @@ fn evaluate(
 
             evaluate(
                 &mut new_define.clone(),
+                span,
                 &arguments,
                 defines,
                 errors,
@@ -200,6 +210,8 @@ fn evaluate(
             span: (0, 0),
         });
     }
+
+    new_tokens.iter_mut().for_each(|t| t.span = span);
 }
 
 fn get_arguments(
@@ -232,6 +244,7 @@ fn get_arguments(
 
                     evaluate(
                         &mut new_define.clone(),
+                        (0, 0),
                         &define_arguments,
                         defines,
                         errors,

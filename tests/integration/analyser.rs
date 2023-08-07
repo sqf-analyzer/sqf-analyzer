@@ -7,11 +7,17 @@ use sqf::preprocessor;
 use sqf::span::Spanned;
 use sqf::types::Type;
 
-pub fn parse_analyze(case: &str) -> State {
+pub fn parse_analyze_s(case: &str, state: &mut State) {
     let iter = preprocessor::tokens(case, Default::default(), Default::default()).unwrap();
     let (expr, errors) = parser::parse(iter);
     assert_eq!(errors, vec![]);
-    analyze(&expr)
+    analyze(&expr, state);
+}
+
+pub fn parse_analyze(case: &str) -> State {
+    let mut state = Default::default();
+    parse_analyze_s(case, &mut state);
+    state
 }
 
 fn check_infer(case: &str, expected: HashMap<Spanned<String>, Option<Type>>) {
@@ -120,6 +126,25 @@ fn infer_ok() {
     check_infer(case, expected);
 }
 
+#[test]
+fn namespace_origin() {
+    let case = "call A_fn_a";
+
+    let mut state = State::default();
+    state.namespace.mission.insert(
+        "A_fn_a".to_string().into(),
+        (
+            Origin::External("A_fn_a".to_string().into()),
+            Some(Type::Code),
+        ),
+    );
+    parse_analyze_s(case, &mut state);
+    assert_eq!(
+        state.origins,
+        HashMap::from([((5, 11), Origin::External("A_fn_a".to_string().into()))])
+    );
+}
+
 /// when not private, variables are assigned to the previous stacks (or namespace if not defined)
 #[test]
 fn namespace() {
@@ -145,7 +170,10 @@ fn namespace() {
 
     let case = "call {_a = 2}";
 
-    let expected = HashMap::from([("_a".to_string(), (Origin::File((6, 8)), Some(Type::Number)))]);
+    let expected = HashMap::from([(
+        "_a".to_string().into(),
+        (Origin::File((6, 8)), Some(Type::Number)),
+    )]);
 
     let state = parse_analyze(case);
     assert_eq!(state.namespace.mission, expected);
@@ -199,9 +227,10 @@ fn infer_example1() {
     let (expr, errors) = parser::parse(iter);
     assert_eq!(errors, vec![]);
 
-    let r = analyze(&expr);
-    assert_eq!(r.errors, vec![]);
-    assert_eq!(r.types, expected);
+    let mut state = Default::default();
+    analyze(&expr, &mut state);
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(state.types, expected);
 }
 
 #[test]
@@ -227,7 +256,8 @@ fn infer_example2() {
         let (expr, errors) = parser::parse(iter);
         assert_eq!(errors, vec![]);
 
-        let r = analyze(&expr);
-        assert!(r.errors.is_empty())
+        let mut state = Default::default();
+        analyze(&expr, &mut state);
+        assert_eq!(state.errors, vec![]);
     }
 }

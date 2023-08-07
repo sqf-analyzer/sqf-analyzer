@@ -188,7 +188,7 @@ pub struct State {
     assignments: Assignments,
 }
 
-pub type Functions = HashMap<String, Spanned<String>>;
+pub type Functions = HashMap<Arc<str>, Spanned<String>>;
 
 impl State {
     fn functions(&self) -> Functions {
@@ -248,7 +248,7 @@ impl State {
                     }
                 }
             };
-            r.insert(name, path);
+            r.insert(name.into(), path);
         }
         r
     }

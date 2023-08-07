@@ -62,22 +62,22 @@ class CfgFunctions
         functions,
         HashMap::from([
             (
-                "TAG_fn_myFunction".to_string(),
+                "TAG_fn_myFunction".to_string().into(),
                 Spanned::new("Category\\fn_myFunction.sqf".to_string(), (93, 103)),
             ),
             (
-                "TAG_fn_myFunction1".to_string(),
+                "TAG_fn_myFunction1".to_string().into(),
                 Spanned::new(
                     "My\\Category\\Path\\fn_myFunction1.sqf".to_string(),
                     (215, 226)
                 ),
             ),
             (
-                "TAG_fn_myDataFunction".to_string(),
+                "TAG_fn_myDataFunction".to_string().into(),
                 Spanned::new("My\\Function\\Filepath.sqf".to_string(), (528, 542)),
             ),
             (
-                "SOME_fn_myFunction".to_string(),
+                "SOME_fn_myFunction".to_string().into(),
                 Spanned::new("Category\\fn_myFunction.sqf".to_string(), (807, 817)),
             ),
         ])
@@ -169,7 +169,12 @@ fn addon_basic() {
 
     let expected = names
         .into_iter()
-        .map(|x| (format!("DICT_fn_{x}"), format!("dictionary\\fnc_{x}.sqf")))
+        .map(|x| {
+            (
+                format!("DICT_fn_{x}").into(),
+                format!("dictionary\\fnc_{x}.sqf"),
+            )
+        })
         .collect::<HashMap<_, _>>();
 
     assert_eq!(functions, expected);

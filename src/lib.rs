@@ -25,7 +25,8 @@ pub fn check(path: &std::path::Path) -> Vec<error::Error> {
     };
     let (expr, errors) = parser::parse(iter);
 
-    let mut r = analyzer::analyze(&expr);
-    r.errors.extend(errors);
-    r.errors
+    let mut state = Default::default();
+    analyzer::analyze(&expr, &mut state);
+    state.errors.extend(errors);
+    state.errors
 }
