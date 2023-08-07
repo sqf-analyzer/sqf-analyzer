@@ -367,8 +367,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
 
             (name == "_this").then_some(Type::Anything).or_else(|| {
                 if let Some((span, type_)) = state.namespace.get(&variable.inner) {
-                    state.origins.insert(variable.span, *span);
-                    *type_
+                    state.origins.insert(variable.span, span);
+                    type_
                 } else {
                     None
                 }
@@ -421,7 +421,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Namespace {
     pub stack: Vec<HashMap<String, (Span, Option<Type>)>>,
-    pub mission: HashMap<String, (Span, Option<Type>)>,
+    pub mission: HashMap<String, (Origin, Option<Type>)>,
 }
 
 impl Namespace {
@@ -440,7 +440,8 @@ impl Namespace {
                     return;
                 }
             }
-            self.mission.insert(key.inner, (key.span, value));
+            self.mission
+                .insert(key.inner, (Origin::File(key.span), value));
         }
     }
 
@@ -452,21 +453,27 @@ impl Namespace {
         self.stack.pop();
     }
 
-    pub fn get(&self, key: &str) -> Option<&(Span, Option<Type>)> {
+    pub fn get(&self, key: &str) -> Option<(Origin, Option<Type>)> {
         for stack in self.stack.iter().rev() {
-            if let Some(value) = stack.get(key) {
-                return Some(value);
+            if let Some((span, a)) = stack.get(key) {
+                return Some((Origin::File(*span), *a));
             }
         }
-        self.mission.get(key)
+        self.mission.get(key).copied()
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Origin {
+    File(Span),
+    External(Span, usize),
 }
 
 #[derive(Debug, Default, PartialEq)]
 pub struct State {
     pub types: HashMap<Spanned<String>, Option<Type>>,
     pub namespace: Namespace,
-    pub origins: HashMap<Span, Span>,
+    pub origins: HashMap<Span, Origin>,
     pub errors: Vec<Error>,
 }
 

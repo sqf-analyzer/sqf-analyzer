@@ -145,7 +145,7 @@ fn namespace() {
 
     let case = "call {_a = 2}";
 
-    let expected = HashMap::from([("_a".to_string(), ((6, 8), Some(Type::Number)))]);
+    let expected = HashMap::from([("_a".to_string(), (Origin::File((6, 8)), Some(Type::Number)))]);
 
     let state = parse_analyze(case);
     assert_eq!(state.namespace.mission, expected);
