@@ -179,14 +179,16 @@ enum Value {
     Array(String),
 }
 
+type Assignments = HashMap<Arc<[Spanned<String>]>, HashMap<String, Spanned<Value>>>;
+
 #[derive(Debug, Default, Clone)]
 pub struct State {
-    namespace: Vec<String>,
-    namespaces: Vec<Arc<[String]>>,
-    assignments: HashMap<Arc<[String]>, HashMap<String, Value>>,
+    namespace: Vec<Spanned<String>>,
+    namespaces: Vec<Arc<[Spanned<String>]>>,
+    assignments: Assignments,
 }
 
-pub type Functions = HashMap<String, String>;
+pub type Functions = HashMap<String, Spanned<String>>;
 
 impl State {
     fn functions(&self) -> Functions {
@@ -200,32 +202,50 @@ impl State {
                 .get(&namespace[..2])
                 .and_then(|x| {
                     x.get("tag").and_then(|x| {
-                        if let Value::String(tag) = x {
+                        if let Value::String(tag) = &x.inner {
                             Some(tag)
                         } else {
                             None
                         }
                     })
                 })
-                .unwrap_or(&namespace[1]);
+                .unwrap_or(&namespace[1].inner);
 
-            let category = &namespace[2];
-            let function_name = &namespace[3];
+            let category = &namespace[2].inner;
+            let function_name = &namespace[3].inner;
+            let span = namespace[3].span;
 
             let maybe_path = self.assignments.get(namespace).and_then(|x| x.get("file"));
 
             let name = format!("{tag}_fn_{function_name}");
-            let path = if let Some(Value::String(path)) = maybe_path {
-                path.clone()
+            let path = if let Some(Spanned {
+                inner: Value::String(path),
+                ..
+            }) = maybe_path
+            {
+                Spanned {
+                    inner: path.clone(),
+                    span,
+                }
             } else {
                 let maybe_category_file = self
                     .assignments
                     .get(&namespace[..3])
                     .and_then(|x| x.get("file"));
-                if let Some(Value::String(path)) = maybe_category_file {
-                    format!("{path}\\fn_{function_name}.sqf")
+                if let Some(Spanned {
+                    inner: Value::String(path),
+                    ..
+                }) = maybe_category_file
+                {
+                    Spanned {
+                        inner: format!("{path}\\fn_{function_name}.sqf"),
+                        span,
+                    }
                 } else {
-                    format!("{category}\\fn_{function_name}.sqf")
+                    Spanned {
+                        inner: format!("{category}\\fn_{function_name}.sqf"),
+                        span,
+                    }
                 }
             };
             r.insert(name, path);
@@ -279,7 +299,7 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
             });
             return
         };
-        state.namespace.push(name.inner.to_string());
+        state.namespace.push(name.map(|x| x.to_string()));
         state.namespaces.push(state.namespace.clone().into());
         while !body.inner.is_empty() {
             process_code(&mut body.inner, state, errors);
@@ -303,23 +323,32 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
         };
 
         let value = match value {
-            Expr::Number(number) => Value::Number(number.inner),
-            Expr::String(string) => Value::String(string.inner.to_string()),
-            Expr::Code(expr) => Value::Array(
-                expr.inner
-                    .into_iter()
-                    .filter_map(|expr| {
-                        let Expr::String(string) = expr else {
+            Expr::Number(number) => Spanned {
+                inner: Value::Number(number.inner),
+                span: number.span,
+            },
+            Expr::String(string) => Spanned {
+                inner: Value::String(string.inner.to_string()),
+                span: string.span,
+            },
+            Expr::Code(expr) => Spanned {
+                inner: Value::Array(
+                    expr.inner
+                        .into_iter()
+                        .filter_map(|expr| {
+                            let Expr::String(string) = expr else {
                         errors.push(Error {
                             inner: "arrays must be composed of strings".to_string(),
                             span: name.span,
                         });
                         return None;
                     };
-                        Some(string.inner.to_string())
-                    })
-                    .collect(),
-            ),
+                            Some(string.inner.to_string())
+                        })
+                        .collect(),
+                ),
+                span: expr.span,
+            },
             other => {
                 errors.push(Error {
                     inner: "assignment requires the right side to be a number, array or string but this is neither".to_string(),

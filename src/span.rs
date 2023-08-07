@@ -25,6 +25,10 @@ impl<T: Clone> Spanned<T> {
 }
 
 impl<T> Spanned<T> {
+    pub fn new(inner: T, span: Span) -> Self {
+        Self { inner, span }
+    }
+
     pub fn as_ref(&self) -> Spanned<&T> {
         Spanned::<&T> {
             inner: &self.inner,

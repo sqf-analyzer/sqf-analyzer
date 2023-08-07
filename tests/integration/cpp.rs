@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use sqf::cpp::{analyze, analyze_addon};
 use sqf::preprocessor::tokens;
+use sqf::span::Spanned;
 
 #[test]
 fn basic() {
@@ -62,23 +63,22 @@ class CfgFunctions
         HashMap::from([
             (
                 "TAG_fn_myFunction".to_string(),
-                "Category\\fn_myFunction.sqf".to_string()
+                Spanned::new("Category\\fn_myFunction.sqf".to_string(), (93, 103)),
             ),
             (
                 "TAG_fn_myFunction1".to_string(),
-                "My\\Category\\Path\\fn_myFunction1.sqf".to_string()
+                Spanned::new(
+                    "My\\Category\\Path\\fn_myFunction1.sqf".to_string(),
+                    (215, 226)
+                ),
             ),
             (
                 "TAG_fn_myDataFunction".to_string(),
-                "DataCategory\\fn_myDataFunction.sqf".to_string()
-            ),
-            (
-                "TAG_fn_myDataFunction".to_string(),
-                "My\\Function\\Filepath.sqf".to_string()
+                Spanned::new("My\\Function\\Filepath.sqf".to_string(), (528, 542)),
             ),
             (
                 "SOME_fn_myFunction".to_string(),
-                "Category\\fn_myFunction.sqf".to_string()
+                Spanned::new("Category\\fn_myFunction.sqf".to_string(), (807, 817)),
             ),
         ])
     );
@@ -161,6 +161,11 @@ fn addon_basic() {
         ("deserialize".to_string()),
         ("test".to_string()),
     ];
+
+    let functions = functions
+        .into_iter()
+        .map(|(k, v)| (k, v.inner))
+        .collect::<HashMap<_, _>>();
 
     let expected = names
         .into_iter()
