@@ -217,7 +217,7 @@ impl State {
 
             let maybe_path = self.assignments.get(namespace).and_then(|x| x.get("file"));
 
-            let name = format!("{tag}_fn_{function_name}");
+            let name = format!("{tag}_fnc_{function_name}");
             let path = if let Some(Spanned {
                 inner: Value::String(path),
                 ..

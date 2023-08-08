@@ -161,7 +161,7 @@ fn infer_example1() {
     let (expr, errors) = parser::parse(iter);
     assert_eq!(errors, vec![]);
 
-    let mut state = Default::default();
+    let mut state = State::default();
     analyze(&expr, &mut state);
     assert_eq!(state.errors, vec![]);
     assert_eq!(state.types, expected);
@@ -176,6 +176,45 @@ fn infer_example1() {
                 name: "_isGlobal".into(),
                 type_: Type::Anything,
             }
+        ])
+    );
+}
+
+#[test]
+fn infer_example3() {
+    use std::fs;
+    let path: PathBuf = "tests/integration/dictionary/addons/dictionary/fnc_set.sqf".into();
+    let case = fs::read_to_string(path.clone()).unwrap();
+
+    let iter = preprocessor::tokens(&case, Default::default(), path).unwrap();
+    let (expr, errors) = parser::parse(iter);
+    assert_eq!(errors, vec![]);
+
+    let mut state = State::default();
+    state.namespace.mission.insert(
+        "DICT_fnc__set".to_string().into(),
+        (
+            Origin::External("DICT_fnc__set".to_string().into()),
+            Some(Output::Code(vec![
+                Parameter {
+                    name: "_arguments".into(),
+                    type_: Type::Anything,
+                },
+                Parameter {
+                    name: "_isGlobal".into(),
+                    type_: Type::Anything,
+                },
+            ])),
+        ),
+    );
+
+    analyze(&expr, &mut state);
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(
+        state.parameters,
+        HashMap::from([
+            ((119, 124), "_arguments".into()),
+            ((126, 131), "_isGlobal".into())
         ])
     );
 }

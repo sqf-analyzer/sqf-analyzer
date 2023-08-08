@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 
-use sqf::span::Spanned;
+use sqf::{
+    analyzer::{Origin, Output, Parameter, State},
+    span::Spanned,
+    types::Type,
+};
 
-use super::analyser::parse_analyze;
+use super::analyser::{parse_analyze, parse_analyze_s};
 
 #[test]
 fn call_len_args() {
@@ -25,4 +29,27 @@ fn call_annotate() {
     let state = parse_analyze(case);
     assert_eq!(state.errors, vec![]);
     assert_eq!(state.parameters, HashMap::from([((31, 32), "_a".into())]));
+}
+
+#[test]
+fn call_annotate_ext() {
+    let case = r#"[1] call A_fn_a;"#;
+
+    let mut state = State::default();
+    state.namespace.mission.insert(
+        "A_fn_a".to_string().into(),
+        (
+            Origin::External("A_fn_a".to_string().into()),
+            Some(Output::Code(vec![Parameter {
+                name: "_a".into(),
+                type_: Type::Anything,
+            }])),
+        ),
+    );
+    parse_analyze_s(case, &mut state);
+    assert_eq!(
+        state.origins,
+        HashMap::from([((9, 15), Origin::External("A_fn_a".to_string().into()))])
+    );
+    assert_eq!(state.parameters, HashMap::from([((1, 2), "_a".into())]));
 }

@@ -550,7 +550,8 @@ pub struct State {
     pub namespace: Namespace,
     pub origins: HashMap<Span, Origin>,
     // parameters in the current scope (last call of `params []` in the scope)
-    pub current_signature: Option<Vec<Parameter>>,
+    current_signature: Option<Vec<Parameter>>,
+    // parameters in the root scope (last call of `params []` in the first stack)
     pub signature: Option<Vec<Parameter>>,
     pub errors: Vec<Error>,
 }
