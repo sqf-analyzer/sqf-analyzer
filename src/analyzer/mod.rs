@@ -9,6 +9,12 @@ use crate::preprocessor::SpannedRef;
 use crate::span::{Span, Spanned};
 use crate::types::*;
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Parameter {
+    pub name: String,
+    pub type_: Type,
+}
+
 fn _build_binary() -> HashMap<&'static str, HashMap<(Type, Type), Type>> {
     let mut r: HashMap<&'static str, HashMap<(Type, Type), Type>> = Default::default();
     for s in SIGNATURES {
@@ -69,12 +75,16 @@ fn _is_private(v: &str) -> bool {
 
 fn process_param_variable(v: &str, span: Span, state: &mut State, type_: Type) {
     if _is_private(v) {
+        state.parameters.as_mut().unwrap().push(Parameter {
+            name: v.to_string(),
+            type_,
+        });
         state.namespace.insert(
             Spanned {
                 inner: v.to_owned(),
                 span,
             },
-            Some(type_),
+            Some(type_.into()),
             true,
         );
     } else {
@@ -110,7 +120,7 @@ fn process_param_types(
 
     Some(types.inner.iter().fold(Type::Nothing, |acc, maybe_type| {
         // reduce the list of types to a single type
-        let type_ = infer_type(maybe_type, state);
+        let type_ = infer_type(maybe_type, state).map(|x| x.type_());
         let type_ = type_.unwrap_or_else(|| {
             state.errors.push(Spanned {
                 span,
@@ -171,7 +181,9 @@ fn process_params_variable(param: &Expr, state: &mut State) {
         process_param_variable(name, name_span, state, Type::Anything);
         return;
     };
-    let default_type = infer_type(default, state).unwrap_or(Type::Anything);
+    let default_type = infer_type(default, state)
+        .map(|x| x.type_())
+        .unwrap_or(Type::Anything);
 
     let Some(type_) = process_param_types(name, name_span, types, state) else {
         return
@@ -190,9 +202,9 @@ fn process_params_variable(param: &Expr, state: &mut State) {
 /// infers the type of a bynary expression by considering all possible options
 fn infer_unary(
     name: &SpannedRef,
-    rhs: Option<Type>,
+    rhs: Option<Output>,
     errors: &mut Vec<Spanned<String>>,
-) -> Option<Type> {
+) -> Option<Output> {
     let lower = name.inner.to_ascii_lowercase();
 
     let Some(options) = UNARY.get(lower.as_str()) else {
@@ -209,15 +221,16 @@ fn infer_unary(
             options
                 .next()
                 .and_then(|first| options.next().is_none().then_some(*first))
+                .map(|x| x.into())
         }
         Some(rhs) => {
             let mut options = options
                 .iter()
-                .filter_map(|(x_rhs, type_)| x_rhs.consistent(rhs).then_some(type_));
+                .filter_map(|(x_rhs, type_)| x_rhs.consistent(rhs.type_()).then_some(type_));
             let first = options.next();
             if let Some(first) = first {
-                options.next().is_none().then_some(*first)
-            } else if rhs == Type::Anything {
+                options.next().is_none().then_some(*first).map(|x| x.into())
+            } else if rhs.type_() == Type::Anything {
                 None
             } else {
                 errors.push(Spanned {
@@ -239,7 +252,7 @@ fn infer_binary(
     name: &SpannedRef,
     rhs: Option<Type>,
     errors: &mut Vec<Spanned<String>>,
-) -> Option<Type> {
+) -> Option<Output> {
     let lower = name.inner.to_ascii_lowercase();
 
     let Some(options) = BINARY.get(lower.as_str()) else {
@@ -256,6 +269,7 @@ fn infer_binary(
             options
                 .next()
                 .and_then(|first| options.next().is_none().then_some(*first))
+                .map(|x| x.into())
         }
         (None, Some(rhs)) => {
             let mut options = options
@@ -263,7 +277,7 @@ fn infer_binary(
                 .filter_map(|((_, x_rhs), type_)| x_rhs.consistent(rhs).then_some(type_));
             let first = options.next();
             if let Some(first) = first {
-                options.next().is_none().then_some(*first)
+                options.next().is_none().then_some(*first).map(|x| x.into())
             } else if rhs == Type::Anything {
                 None
             } else {
@@ -283,7 +297,7 @@ fn infer_binary(
                 .filter_map(|((x_lhs, _), type_)| x_lhs.consistent(lhs).then_some(type_));
             let first = options.next();
             if let Some(first) = first {
-                options.next().is_none().then_some(*first)
+                options.next().is_none().then_some(*first).map(|x| x.into())
             } else {
                 if lhs != Type::Anything {
                     errors.push(Spanned {
@@ -297,16 +311,14 @@ fn infer_binary(
                 None
             }
         }
-        (Some(lhs), Some(rhs)) => options.get(&(lhs, rhs)).cloned(),
+        (Some(lhs), Some(rhs)) => options.get(&(lhs, rhs)).cloned().map(|x| x.into()),
     }
 }
 
-fn infer_code(code: &[Expr], state: &mut State) {
-    state.namespace.push_stack();
-    for expr in code {
+fn infer_expressions(expressions: &[Expr], state: &mut State) {
+    for expr in expressions {
         infer_type(expr, state);
     }
-    state.namespace.pop_stack();
 }
 
 fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
@@ -342,46 +354,57 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
     };
     let variable = variable.clone().map(|x| x.to_string());
 
-    state.types.insert(variable.clone(), rhs_type);
+    state
+        .types
+        .insert(variable.clone(), rhs_type.as_ref().map(|x| x.type_()));
     state.namespace.insert(variable, rhs_type, is_private);
 }
 
-fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
+fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
     match expr {
-        Expr::Number(_) => Some(Type::Number),
-        Expr::String(_) => Some(Type::String),
-        Expr::Boolean(_) => Some(Type::Boolean),
+        Expr::Number(_) => Some(Type::Number.into()),
+        Expr::String(_) => Some(Type::String.into()),
+        Expr::Boolean(_) => Some(Type::Boolean.into()),
         Expr::Array(expr) => {
-            infer_code(&expr.inner, state);
-            Some(Type::Array)
+            infer_expressions(&expr.inner, state);
+            Some(Type::Array.into())
         }
         Expr::Code(code) => {
-            infer_code(&code.inner, state);
-            Some(Type::Code)
+            state.namespace.push_stack();
+            infer_expressions(&code.inner, state);
+            state.namespace.pop_stack();
+            let parameters = std::mem::take(&mut state.parameters);
+            if let Some(parameters) = parameters {
+                Some(Output::Code(parameters))
+            } else {
+                Some(Type::Code.into())
+            }
         }
         Expr::Nullary(variable) => {
             let name = variable.inner.to_ascii_lowercase();
-            NULLARY.get(name.as_str()).cloned()
+            NULLARY.get(name.as_str()).cloned().map(|x| x.into())
         }
         Expr::Variable(variable) => {
             let name = variable.inner.to_ascii_lowercase();
 
-            (name == "_this").then_some(Type::Anything).or_else(|| {
-                if let Some((origin, type_)) = state.namespace.get(&variable.inner) {
-                    state.origins.insert(variable.span, origin);
-                    type_
-                } else {
-                    None
-                }
-            })
+            (name == "_this")
+                .then_some(Type::Anything.into())
+                .or_else(|| {
+                    if let Some((origin, type_)) = state.namespace.get(&variable.inner) {
+                        state.origins.insert(variable.span, origin);
+                        type_
+                    } else {
+                        None
+                    }
+                })
         }
         Expr::Binary(lhs, op, rhs) => {
             if op.inner == "=" {
                 infer_assign(lhs, rhs, state);
-                Some(Type::Nothing)
+                Some(Type::Nothing.into())
             } else {
-                let lhs_type = infer_type(lhs, state);
-                let rhs_type = infer_type(rhs, state);
+                let lhs_type = infer_type(lhs, state).map(|x| x.type_());
+                let rhs_type = infer_type(rhs, state).map(|x| x.type_());
                 infer_binary(lhs_type, op, rhs_type, &mut state.errors)
             }
         }
@@ -404,6 +427,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
                     }
                 }
                 "params" => {
+                    // store the names of the variables to build the function's signature
+                    state.parameters = Some(vec![]);
                     if let Expr::Array(x) = rhs.as_ref() {
                         x.inner
                             .iter()
@@ -421,13 +446,34 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Type> {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Namespace {
-    pub stack: Vec<HashMap<String, (Span, Option<Type>)>>,
-    pub mission: HashMap<Arc<str>, (Origin, Option<Type>)>,
+    pub stack: Vec<HashMap<String, (Span, Option<Output>)>>,
+    pub mission: HashMap<Arc<str>, (Origin, Option<Output>)>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Output {
+    Type(Type),
+    Code(Vec<Parameter>),
+}
+
+impl Output {
+    pub fn type_(&self) -> Type {
+        match self {
+            Output::Type(t) => *t,
+            Output::Code(_) => Type::Code,
+        }
+    }
+}
+
+impl From<Type> for Output {
+    fn from(value: Type) -> Self {
+        Output::Type(value)
+    }
 }
 
 impl Namespace {
     #[allow(clippy::map_entry)]
-    pub fn insert(&mut self, key: Spanned<String>, value: Option<Type>, is_private: bool) {
+    pub fn insert(&mut self, key: Spanned<String>, value: Option<Output>, is_private: bool) {
         if is_private {
             self.stack
                 .last_mut()
@@ -454,10 +500,10 @@ impl Namespace {
         self.stack.pop();
     }
 
-    pub fn get(&self, key: &str) -> Option<(Origin, Option<Type>)> {
+    pub fn get(&self, key: &str) -> Option<(Origin, Option<Output>)> {
         for stack in self.stack.iter().rev() {
             if let Some((span, a)) = stack.get(key) {
-                return Some((Origin::File(*span), *a));
+                return Some((Origin::File(*span), a.clone()));
             }
         }
         self.mission.get(key).cloned()
@@ -475,6 +521,8 @@ pub struct State {
     pub types: HashMap<Spanned<String>, Option<Type>>,
     pub namespace: Namespace,
     pub origins: HashMap<Span, Origin>,
+    // parameters in the current scope (last call of `params []` in the scope)
+    pub parameters: Option<Vec<Parameter>>,
     pub errors: Vec<Error>,
 }
 

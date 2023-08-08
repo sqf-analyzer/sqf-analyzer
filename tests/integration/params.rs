@@ -1,4 +1,8 @@
-use sqf::{analyzer::State, span::Spanned, types::Type};
+use sqf::{
+    analyzer::{Parameter, State},
+    span::Spanned,
+    types::Type,
+};
 
 use crate::analyser::parse_analyze;
 
@@ -13,9 +17,13 @@ fn basic_no_errors() {
             span: (8, 12),
             inner: "_a".to_string(),
         },
-        Some(Type::Anything),
+        Some(Type::Anything.into()),
         true,
     );
+    expected.parameters = Some(vec![Parameter {
+        name: "_a".to_string(),
+        type_: Type::Anything,
+    }]);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -31,6 +39,7 @@ fn basic_error() {
         inner: "Argument must begin with _".to_string(),
         span: (8, 11),
     });
+    expected.parameters = Some(vec![]);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -47,9 +56,13 @@ fn with_default() {
             span: (9, 13),
             inner: "_a".to_string(),
         },
-        Some(Type::Anything),
+        Some(Type::Anything.into()),
         true,
     );
+    expected.parameters = Some(vec![Parameter {
+        name: "_a".to_string(),
+        type_: Type::Anything,
+    }]);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -66,9 +79,13 @@ fn with_default_and_type() {
             span: (9, 13),
             inner: "_a".to_string(),
         },
-        Some(Type::Boolean),
+        Some(Type::Boolean.into()),
         true,
     );
+    expected.parameters = Some(vec![Parameter {
+        name: "_a".to_string(),
+        type_: Type::Boolean,
+    }]);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -85,13 +102,17 @@ fn with_default_and_type_invalid_default() {
             span: (9, 13),
             inner: "_a".to_string(),
         },
-        Some(Type::Boolean),
+        Some(Type::Boolean.into()),
         true,
     );
     expected.errors.push(Spanned {
         inner: "params' default argument type \"Object\" is inconsistent with expected type \"Boolean\"".to_string(),
         span: (8, 31),
     });
+    expected.parameters = Some(vec![Parameter {
+        name: "_a".to_string(),
+        type_: Type::Boolean,
+    }]);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -108,9 +129,13 @@ fn with_two_types() {
             span: (9, 13),
             inner: "_a".to_string(),
         },
-        Some(Type::Anything),
+        Some(Type::Anything.into()),
         true,
     );
+    expected.parameters = Some(vec![Parameter {
+        name: "_a".to_string(),
+        type_: Type::Anything,
+    }]);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -127,9 +152,13 @@ fn basic_with_unknown_type() {
             span: (9, 13),
             inner: "_a".to_string(),
         },
-        Some(Type::Anything),
+        Some(Type::Anything.into()),
         true,
     );
+    expected.parameters = Some(vec![Parameter {
+        name: "_a".to_string(),
+        type_: Type::Anything,
+    }]);
     expected.errors.push(Spanned {
         inner: "params' third argument's elements must be typed".to_string(),
         span: (24, 28),

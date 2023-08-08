@@ -135,7 +135,7 @@ fn namespace_origin() {
         "A_fn_a".to_string().into(),
         (
             Origin::External("A_fn_a".to_string().into()),
-            Some(Type::Code),
+            Some(Type::Code.into()),
         ),
     );
     parse_analyze_s(case, &mut state);
@@ -152,7 +152,7 @@ fn namespace() {
 
     let expected = vec![HashMap::from([(
         "_a".to_string(),
-        ((8, 10), Some(Type::Side)),
+        ((8, 10), Some(Type::Side.into())),
     )])];
 
     let state = parse_analyze(case);
@@ -162,7 +162,7 @@ fn namespace() {
 
     let expected = vec![HashMap::from([(
         "_a".to_string(),
-        ((25, 27), Some(Type::Number)),
+        ((25, 27), Some(Type::Number.into())),
     )])];
 
     let state = parse_analyze(case);
@@ -172,7 +172,7 @@ fn namespace() {
 
     let expected = HashMap::from([(
         "_a".to_string().into(),
-        (Origin::File((6, 8)), Some(Type::Number)),
+        (Origin::File((6, 8)), Some(Type::Number.into())),
     )]);
 
     let state = parse_analyze(case);
