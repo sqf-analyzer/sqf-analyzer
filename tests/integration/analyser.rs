@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use sqf::analyzer::*;
 use sqf::parser;
 use sqf::preprocessor;
-use sqf::span::Spanned;
+use sqf::span::Span;
 use sqf::types::Type;
 
 pub fn parse_analyze_s(case: &str, state: &mut State) {
@@ -20,7 +20,7 @@ pub fn parse_analyze(case: &str) -> State {
     state
 }
 
-fn check_infer(case: &str, expected: HashMap<Spanned<String>, Option<Type>>) {
+fn check_infer(case: &str, expected: HashMap<Span, Option<Type>>) {
     let result = parse_analyze(case);
     assert_eq!(result.errors, vec![]);
     assert_eq!(result.types, expected);
@@ -30,13 +30,7 @@ fn check_infer(case: &str, expected: HashMap<Spanned<String>, Option<Type>>) {
 fn infer_number() {
     let case = "private _a = 1";
 
-    let expected = HashMap::from([(
-        Spanned {
-            inner: "_a".to_string(),
-            span: (8, 10),
-        },
-        Some(Type::Number),
-    )]);
+    let expected = HashMap::from([((8, 10), Some(Type::Number))]);
     check_infer(case, expected);
 }
 
@@ -44,13 +38,7 @@ fn infer_number() {
 fn infer_string() {
     let case = "private _a = \"1\"";
 
-    let expected = HashMap::from([(
-        Spanned {
-            inner: "_a".to_string(),
-            span: (8, 10),
-        },
-        Some(Type::String),
-    )]);
+    let expected = HashMap::from([((8, 10), Some(Type::String))]);
     check_infer(case, expected);
 }
 
@@ -58,13 +46,7 @@ fn infer_string() {
 fn infer_variable() {
     let case = "private _a = 1";
 
-    let expected = HashMap::from([(
-        Spanned {
-            inner: "_a".to_string(),
-            span: (8, 10),
-        },
-        Some(Type::Number),
-    )]);
+    let expected = HashMap::from([((8, 10), Some(Type::Number))]);
 
     check_infer(case, expected);
 }
@@ -73,13 +55,7 @@ fn infer_variable() {
 fn infer_unary() {
     let case = "private _a = params [\"_a\"]";
 
-    let expected = HashMap::from([(
-        Spanned {
-            inner: "_a".to_string(),
-            span: (8, 10),
-        },
-        Some(Type::Boolean),
-    )]);
+    let expected = HashMap::from([((8, 10), Some(Type::Boolean))]);
 
     check_infer(case, expected);
 }
@@ -88,13 +64,7 @@ fn infer_unary() {
 fn infer_binary() {
     let case = "private _a = 1 + 1";
 
-    let expected = HashMap::from([(
-        Spanned {
-            inner: "_a".to_string(),
-            span: (8, 10),
-        },
-        Some(Type::Number),
-    )]);
+    let expected = HashMap::from([((8, 10), Some(Type::Number))]);
 
     check_infer(case, expected);
 
@@ -106,13 +76,7 @@ fn infer_binary() {
 fn infer_nullary() {
     let case = "private _a = west";
 
-    let expected = HashMap::from([(
-        Spanned {
-            inner: "_a".to_string(),
-            span: (8, 10),
-        },
-        Some(Type::Side),
-    )]);
+    let expected = HashMap::from([((8, 10), Some(Type::Side))]);
 
     check_infer(case, expected);
 }
@@ -186,41 +150,11 @@ fn infer_example1() {
     let case = fs::read_to_string(path.clone()).unwrap();
 
     let expected = HashMap::from([
-        (
-            Spanned {
-                inner: "_dictionary".to_string(),
-                span: (274, 285),
-            },
-            None,
-        ),
-        (
-            Spanned {
-                inner: "_dictionary".to_string(),
-                span: (477, 488),
-            },
-            Some(Type::Anything),
-        ),
-        (
-            Spanned {
-                inner: "_key".to_string(),
-                span: (317, 321),
-            },
-            None,
-        ),
-        (
-            Spanned {
-                inner: "_value".to_string(),
-                span: (374, 380),
-            },
-            None,
-        ),
-        (
-            Spanned {
-                inner: "_i".to_string(),
-                span: (430, 434),
-            },
-            Some(Type::Number),
-        ),
+        ((274, 285), None),
+        ((477, 488), Some(Type::Anything)),
+        ((317, 321), None),
+        ((374, 380), None),
+        ((430, 434), Some(Type::Number)),
     ]);
 
     let iter = preprocessor::tokens(&case, Default::default(), path).unwrap();
@@ -231,6 +165,19 @@ fn infer_example1() {
     analyze(&expr, &mut state);
     assert_eq!(state.errors, vec![]);
     assert_eq!(state.types, expected);
+    assert_eq!(
+        state.signature,
+        Some(vec![
+            Parameter {
+                name: "_arguments".into(),
+                type_: Type::Anything
+            },
+            Parameter {
+                name: "_isGlobal".into(),
+                type_: Type::Anything,
+            }
+        ])
+    );
 }
 
 #[test]

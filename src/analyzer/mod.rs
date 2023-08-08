@@ -11,7 +11,7 @@ use crate::types::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parameter {
-    pub name: String,
+    pub name: Arc<str>,
     pub type_: Type,
 }
 
@@ -75,8 +75,8 @@ fn _is_private(v: &str) -> bool {
 
 fn process_param_variable(v: &str, span: Span, state: &mut State, type_: Type) {
     if _is_private(v) {
-        state.parameters.as_mut().unwrap().push(Parameter {
-            name: v.to_string(),
+        state.current_signature.as_mut().unwrap().push(Parameter {
+            name: v.into(),
             type_,
         });
         state.namespace.insert(
@@ -356,8 +356,27 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
 
     state
         .types
-        .insert(variable.clone(), rhs_type.as_ref().map(|x| x.type_()));
+        .insert(variable.span, rhs_type.as_ref().map(|x| x.type_()));
     state.namespace.insert(variable, rhs_type, is_private);
+}
+
+fn process_parameters(lhs: &Spanned<Vec<Expr>>, parameters: &[Parameter], state: &mut State) {
+    if lhs.inner.len() != parameters.len() {
+        state.errors.push(Error {
+            inner: format!(
+                "Function expects {} parameters, but received {}",
+                parameters.len(),
+                lhs.inner.len()
+            ),
+            span: lhs.span,
+        })
+    }
+    state.parameters.extend(
+        lhs.inner
+            .iter()
+            .zip(parameters.iter())
+            .map(|(lhs, param)| (lhs.span(), param.name.clone())),
+    );
 }
 
 fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
@@ -370,10 +389,13 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             Some(Type::Array.into())
         }
         Expr::Code(code) => {
+            if state.namespace.stack.len() == 1 && state.signature.is_none() {
+                state.signature = std::mem::take(&mut state.current_signature);
+            }
             state.namespace.push_stack();
             infer_expressions(&code.inner, state);
             state.namespace.pop_stack();
-            let parameters = std::mem::take(&mut state.parameters);
+            let parameters = std::mem::take(&mut state.current_signature);
             if let Some(parameters) = parameters {
                 Some(Output::Code(parameters))
             } else {
@@ -403,22 +425,24 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 infer_assign(lhs, rhs, state);
                 Some(Type::Nothing.into())
             } else {
-                let lhs_type = infer_type(lhs, state).map(|x| x.type_());
-                let rhs_type = infer_type(rhs, state).map(|x| x.type_());
-                infer_binary(lhs_type, op, rhs_type, &mut state.errors)
+                let rhs = infer_type(rhs, state);
+                if op.inner.to_ascii_lowercase() == "call" {
+                    if let Some(Output::Code(parameters)) = &rhs {
+                        if let Expr::Array(lhs) = lhs.as_ref() {
+                            // annotate parameters with the functions' signature if it is available
+                            process_parameters(lhs, parameters, state)
+                        }
+                    }
+                }
+                let lhs = infer_type(lhs, state).map(|x| x.type_());
+                infer_binary(lhs, op, rhs.map(|x| x.type_()), &mut state.errors)
             }
         }
         Expr::Unary(op, rhs) => {
             match op.inner.as_ref() {
                 "for" => {
                     if let Expr::String(x) = rhs.as_ref() {
-                        state.types.insert(
-                            Spanned {
-                                inner: x.inner.to_string(),
-                                span: x.span,
-                            },
-                            Some(Type::Number),
-                        );
+                        state.types.insert(x.span, Some(Type::Number));
                     } else {
                         state.errors.push(Spanned {
                             inner: "parameter of `for` must be a string".to_string(),
@@ -428,7 +452,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 }
                 "params" => {
                     // store the names of the variables to build the function's signature
-                    state.parameters = Some(vec![]);
+                    state.current_signature = Some(vec![]);
                     if let Expr::Array(x) = rhs.as_ref() {
                         x.inner
                             .iter()
@@ -516,13 +540,18 @@ pub enum Origin {
     External(Arc<str>),
 }
 
+pub type Types = HashMap<Span, Option<Type>>;
+pub type Parameters = HashMap<Span, Arc<str>>;
+
 #[derive(Debug, Default, PartialEq)]
 pub struct State {
-    pub types: HashMap<Spanned<String>, Option<Type>>,
+    pub types: Types,
+    pub parameters: Parameters,
     pub namespace: Namespace,
     pub origins: HashMap<Span, Origin>,
     // parameters in the current scope (last call of `params []` in the scope)
-    pub parameters: Option<Vec<Parameter>>,
+    pub current_signature: Option<Vec<Parameter>>,
+    pub signature: Option<Vec<Parameter>>,
     pub errors: Vec<Error>,
 }
 
@@ -531,11 +560,12 @@ pub struct Configuration {
     pub directory: PathBuf,
 }
 
-pub type Types = HashMap<Spanned<String>, Option<Type>>;
-
 pub fn analyze(program: &[Expr], state: &mut State) {
     state.namespace.push_stack();
     for expr in program {
         infer_type(expr, state);
+    }
+    if state.signature.is_none() {
+        state.signature = std::mem::take(&mut state.current_signature);
     }
 }

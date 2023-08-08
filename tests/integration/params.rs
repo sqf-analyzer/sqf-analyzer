@@ -20,8 +20,8 @@ fn basic_no_errors() {
         Some(Type::Anything.into()),
         true,
     );
-    expected.parameters = Some(vec![Parameter {
-        name: "_a".to_string(),
+    expected.signature = Some(vec![Parameter {
+        name: "_a".into(),
         type_: Type::Anything,
     }]);
 
@@ -39,7 +39,7 @@ fn basic_error() {
         inner: "Argument must begin with _".to_string(),
         span: (8, 11),
     });
-    expected.parameters = Some(vec![]);
+    expected.signature = Some(vec![]);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -59,8 +59,8 @@ fn with_default() {
         Some(Type::Anything.into()),
         true,
     );
-    expected.parameters = Some(vec![Parameter {
-        name: "_a".to_string(),
+    expected.signature = Some(vec![Parameter {
+        name: "_a".into(),
         type_: Type::Anything,
     }]);
 
@@ -82,8 +82,8 @@ fn with_default_and_type() {
         Some(Type::Boolean.into()),
         true,
     );
-    expected.parameters = Some(vec![Parameter {
-        name: "_a".to_string(),
+    expected.signature = Some(vec![Parameter {
+        name: "_a".into(),
         type_: Type::Boolean,
     }]);
 
@@ -109,8 +109,8 @@ fn with_default_and_type_invalid_default() {
         inner: "params' default argument type \"Object\" is inconsistent with expected type \"Boolean\"".to_string(),
         span: (8, 31),
     });
-    expected.parameters = Some(vec![Parameter {
-        name: "_a".to_string(),
+    expected.signature = Some(vec![Parameter {
+        name: "_a".into(),
         type_: Type::Boolean,
     }]);
 
@@ -132,8 +132,8 @@ fn with_two_types() {
         Some(Type::Anything.into()),
         true,
     );
-    expected.parameters = Some(vec![Parameter {
-        name: "_a".to_string(),
+    expected.signature = Some(vec![Parameter {
+        name: "_a".into(),
         type_: Type::Anything,
     }]);
 
@@ -155,8 +155,8 @@ fn basic_with_unknown_type() {
         Some(Type::Anything.into()),
         true,
     );
-    expected.parameters = Some(vec![Parameter {
-        name: "_a".to_string(),
+    expected.signature = Some(vec![Parameter {
+        name: "_a".into(),
         type_: Type::Anything,
     }]);
     expected.errors.push(Spanned {
