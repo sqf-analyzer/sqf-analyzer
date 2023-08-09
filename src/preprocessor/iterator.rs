@@ -19,21 +19,10 @@ pub(super) type Arguments = Vec<VecDeque<Spanned<String>>>;
 #[derive(Debug, Clone)]
 pub struct State {
     pub defines: Defines,
-    // stack of define that need to be evaluated. E.g.
-    /*
-    ```
-    #define C(B) C(B)##1
-    #define A(B) B##C(B)##1
-    ```
-    `A(a)` results in `aa11`
-
-    define is the stack of each of the defines that are being evaluated
-    `[], [A], [A, C], [A], []`
-    */
-    pub define: Option<(Define, Arguments)>,
+    // stack of processing macro call
+    pub macro_stack: Vec<(Define, Arguments, Spanned<MacroState>)>,
     pub stack: VecDeque<Spanned<String>>,
     pub path: PathBuf,
-    pub state: Spanned<MacroState>,
     pub errors: Vec<Error>,
 }
 
@@ -183,8 +172,7 @@ impl<'a> AstIterator<'a> {
             state: State {
                 defines,
                 path,
-                state: Spanned::new(MacroState::None, (0, 0)),
-                define: Default::default(),
+                macro_stack: vec![],
                 stack: Default::default(),
                 errors: Default::default(),
             },

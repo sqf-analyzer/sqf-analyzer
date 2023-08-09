@@ -98,6 +98,7 @@ unaries = [
     ("+", "Number", "Number"),
     ("+", "Array", "Array"),
     ("-", "Number", "Number"),
+    ("isnil", "Anything", "Boolean"),
 ]
 binaries = [
     ("Array", "#", "Number", "Anything"),

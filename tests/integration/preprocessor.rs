@@ -356,3 +356,11 @@ fn single_quoted() {
 fn hash_op() {
     assert("#define A(x) x\nA(_this#0)", vec!["_this", "#", "0"]);
 }
+
+#[test]
+fn nested_macro_call() {
+    let case = r#"#define A(a, b) a + b
+#define B(a) a
+A(B(1), 2)"#;
+    assert(case, vec!["1", "+", "2"]);
+}

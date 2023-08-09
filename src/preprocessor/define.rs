@@ -20,63 +20,56 @@ pub fn update<'a>(state: &mut State, item: &SpannedRef<'a>) -> Option<()> {
                 &mut state.errors,
                 &mut state.stack,
             );
-            return Some(());
         } else {
             // there is a define with this token => push it to the stack
-            state.define = Some((define.clone(), vec![]));
-
-            if state.state.inner != MacroState::None {
-                state.errors.push(Error {
-                    inner: "macro invoked inside another macro".to_string(),
-                    span: item.span,
-                });
-                state.state.inner = MacroState::None;
-            }
+            state.macro_stack.push((
+                define.clone(),
+                vec![],
+                Spanned::new(MacroState::ParenthesisStart, item.span),
+            ));
         }
-        state.state.inner = MacroState::ParenthesisStart;
-        state.state.span = item.span;
+
         return Some(());
     }
 
     // if no macro being operated on, continue
-    let Some((_, arguments)) = state.define.as_mut() else {
+    let Some((define, arguments, macro_state)) = state.macro_stack.last_mut() else {
         return None;
     };
 
-    match (state.state.inner, item.inner.as_ref()) {
+    match (macro_state.inner, item.inner.as_ref()) {
         (MacroState::Argument | MacroState::Coma, ")") => {
             // end state
-            state.state.inner = MacroState::None;
-            state.state.span.1 += item.span.1 - item.span.0;
+            macro_state.inner = MacroState::None;
+            macro_state.span.1 += item.span.1 - item.span.0;
             // evaluate define and push it to the stack
-            let (define, arguments) = state.define.as_mut().unwrap();
             state.stack.clear();
             evaluate(
                 define,
-                state.state.span,
+                macro_state.span,
                 arguments,
                 &state.defines,
                 &mut state.errors,
                 &mut state.stack,
             );
-            state.state.span = (0, 0);
-            state.define = None;
+            macro_state.span = (0, 0);
+            state.macro_stack.pop();
             Some(())
         }
         // start state
         (MacroState::ParenthesisStart | MacroState::Coma, _) => {
-            state.state.inner = MacroState::Argument;
-            state.state.span.1 += item.span.1 - item.span.0;
+            macro_state.inner = MacroState::Argument;
+            macro_state.span.1 += item.span.1 - item.span.0;
             Some(())
         }
         (MacroState::Argument, ",") => {
             arguments.push(Default::default());
-            state.state.span.1 += item.span.1 - item.span.0;
+            macro_state.span.1 += item.span.1 - item.span.0;
             Some(())
         }
         (MacroState::Argument, _) => {
             push_argument(arguments, item);
-            state.state.span.1 += item.span.1 - item.span.0;
+            macro_state.span.1 += item.span.1 - item.span.0;
             Some(())
         }
         (MacroState::None, _) => {

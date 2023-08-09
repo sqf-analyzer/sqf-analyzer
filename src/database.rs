@@ -2,7 +2,7 @@
 use crate::types::Signature::*;
 use crate::types::Type::*;
 use crate::types::*;
-pub const SIGNATURES: [Signature; 3158] = [
+pub const SIGNATURES: [Signature; 3159] = [
     Nullary("acctime", Number),
     Nullary("activatedaddons", Array),
     Nullary("agents", Array),
@@ -306,6 +306,7 @@ pub const SIGNATURES: [Signature; 3158] = [
     Unary("+", Number, Number),
     Unary("+", Array, Array),
     Unary("-", Number, Number),
+    Unary("isnil", Anything, Boolean),
     Unary("abs", Number, Number),
     Unary("acos", Number, Number),
     Unary("action", Array, Nothing),
