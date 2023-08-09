@@ -331,3 +331,16 @@ FIX_LINE_NUMBERS(a)
 
     assert_eq!(r, Vec::<String>::new());
 }
+
+#[test]
+fn other() {
+    let case = r#"#define A(a, b)
+A(a, b)"#;
+
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(ast.state.errors, vec![]);
+
+    assert_eq!(r, Vec::<String>::new());
+}

@@ -47,7 +47,7 @@ define = ${
 define_kw    = { "#define" }
 define_quote = { "##" | "#" }
 
-define_arguments =  { "(" ~ (word ~ ("," ~ word)*)? ~ ")" }
+define_arguments =  { "("~ " "* ~ (word~ " "* ~ (","~ " "* ~ word)*)?~ " "* ~ ")" }
 define_term      = _{ define_quote | "\\\n" | base_term | " " | "\t" | "\r" }
 
 end = _{ ("\n" | EOI) }
