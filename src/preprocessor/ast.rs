@@ -9,7 +9,9 @@ use crate::span::Spanned;
 pub struct Define {
     pub keyword: Spanned<String>,
     pub name: Spanned<String>,
-    pub arguments: Vec<Spanned<String>>,
+    // None => no arguments
+    // Some => zero or more arguments
+    pub arguments: Option<Vec<Spanned<String>>>,
     pub body: VecDeque<Spanned<String>>,
 }
 

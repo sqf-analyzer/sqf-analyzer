@@ -302,3 +302,17 @@ _b = A;
         ]
     );
 }
+
+#[test]
+fn define_empty_args() {
+    let case = r#"#define A() 1
+
+A()
+"#;
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(ast.state.errors, vec![]);
+
+    assert_eq!(r, vec!["1"]);
+}

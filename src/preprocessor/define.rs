@@ -10,7 +10,7 @@ use super::*;
 pub fn update<'a>(state: &mut State, item: &SpannedRef<'a>) -> Option<()> {
     if let Some(define) = state.defines.get(item.inner.as_ref()) {
         // start of the state machine
-        if define.arguments.is_empty() {
+        if define.arguments.is_none() {
             state.stack.clear();
             evaluate(
                 &mut define.clone(),
@@ -138,13 +138,17 @@ fn evaluate(
 ) {
     let body = std::mem::take(&mut define.body);
 
-    let body = replace(&define.arguments, arguments, body);
+    let body = if let Some(define_arguments) = &define.arguments {
+        replace(define_arguments, arguments, body)
+    } else {
+        body
+    };
 
     let mut tokens = body.into_iter();
 
     while let Some(item) = tokens.next() {
         if let Some(new_define) = defines.get(item.inner.as_str()) {
-            let arguments = if !new_define.arguments.is_empty() {
+            let arguments = if new_define.arguments.is_some() {
                 get_arguments(&mut tokens, defines, errors)
             } else {
                 vec![]
@@ -231,7 +235,7 @@ fn get_arguments(
             }
             (Argument, name) => {
                 if let Some(new_define) = defines.get(name) {
-                    let define_arguments = if !new_define.arguments.is_empty() {
+                    let define_arguments = if new_define.arguments.is_some() {
                         get_arguments(tokens, defines, errors)
                     } else {
                         vec![]

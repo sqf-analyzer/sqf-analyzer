@@ -66,7 +66,7 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
             let Some(args_or_body) = define.next() else {
                 return Ast::Define(Define {
                     keyword,
-                    name, arguments: Default::default(), body: Default::default()});
+                    name, arguments: None, body: Default::default()});
             };
             let is_arguments = matches!(args_or_body.as_rule(), Rule::define_arguments);
 
@@ -76,7 +76,7 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
                     .map(define_expr)
                     .collect();
 
-                let args = args_or_body.into_inner().map(|x| x.into()).collect();
+                let args = Some(args_or_body.into_inner().map(|x| x.into()).collect());
 
                 (args, body)
             } else {
