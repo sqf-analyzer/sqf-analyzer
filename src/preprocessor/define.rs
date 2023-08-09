@@ -144,7 +144,6 @@ fn evaluate(
 
     while let Some(item) = tokens.next() {
         if let Some(new_define) = defines.get(item.inner.as_str()) {
-            // replace tokens here!
             let arguments = if !new_define.arguments.is_empty() {
                 get_arguments(&mut tokens, defines, errors)
             } else {
@@ -176,11 +175,7 @@ fn evaluate(
                     let Spanned { inner, .. } = previous;
                     *inner = format!("{}{}", inner, token.inner);
                 } else {
-                    errors.push(Error {
-                        inner: "## cannot be at the start of the macro".to_string(),
-                        span: token.span,
-                    });
-                    break;
+                    merged.push_back(std::mem::take(token))
                 }
                 next_merges = false;
             } else {

@@ -72,7 +72,8 @@ fn print_errors(mut errors: Vec<Error>, path: &Path) {
     let mut fmt = source_span::fmt::Formatter::with_margin_color(source_span::fmt::Color::Blue);
     let buffer = source_span::SourceBuffer::new(chars, source_span::Position::default(), metrics);
 
-    errors.sort_by_key(|x| x.span.0);
+    errors.sort_by_key(|x| x.span);
+    errors.dedup_by_key(|x| x.span);
 
     let mut current: Span = Default::default();
 
@@ -82,15 +83,15 @@ fn print_errors(mut errors: Vec<Error>, path: &Path) {
         let c = c.unwrap();
         current.push(c, &metrics);
         for error in &errors {
-            if i == error.span.0 - 1 {
-                opened.insert(error.inner.as_str(), current.start());
+            if i == error.span.0 {
+                opened.insert(error.inner.as_str(), current.last());
             }
-            if i == error.span.1 - 1 {
+            if i == error.span.1.saturating_sub(1) {
                 let start = opened.remove(error.inner.as_str()).unwrap();
                 let span = Span::new(start, current.last(), current.end());
                 fmt.add(
                     span,
-                    Some(errors[0].inner.clone()),
+                    Some(error.inner.clone()),
                     source_span::fmt::Style::Error,
                 );
             }

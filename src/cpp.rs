@@ -176,7 +176,7 @@ fn token_to_expr(token: SpannedRef) -> Expr {
 enum Value {
     Number(f32),
     String(String),
-    Array(String),
+    Array(Vec<Spanned<Value>>),
 }
 
 type Assignments = HashMap<Arc<[Spanned<String>]>, HashMap<String, Spanned<Value>>>;
@@ -267,6 +267,28 @@ pub fn analyze(iter: AstIterator) -> (Functions, Vec<Error>) {
     (state.functions(), errors)
 }
 
+fn to_value(expr: Expr, errors: &mut Vec<Error>) -> Option<Spanned<Value>> {
+    match expr {
+        Expr::Number(number) => Some(number.map(Value::Number)),
+        Expr::String(string) => Some(string.map(|x| Value::String(x.to_string()))),
+        Expr::Code(expr) => Some(expr.map(|x| {
+            Value::Array(
+                x.into_iter()
+                    .filter(|e| !matches!(e, Expr::Token(_))) // todo: improve to parse "," correctly
+                    .filter_map(|expr| to_value(expr, errors))
+                    .collect(),
+            )
+        })),
+        _ => {
+            errors.push(Error {
+                inner: "Unexpected token".to_string(),
+                span: expr.span(),
+            });
+            None
+        }
+    }
+}
+
 fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<Error>) {
     let first = expr.pop_front();
 
@@ -287,7 +309,7 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
         let body = expr.pop_front();
         let Some(Expr::Token(name)) = name else {
             errors.push(Error {
-                inner: format!("class requires a name but \"{:?}\" is not one", name),
+                inner: "class requires a name".to_string(),
                 span: first.span,
             });
             return
@@ -322,40 +344,8 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
             return
         };
 
-        let value = match value {
-            Expr::Number(number) => Spanned {
-                inner: Value::Number(number.inner),
-                span: number.span,
-            },
-            Expr::String(string) => Spanned {
-                inner: Value::String(string.inner.to_string()),
-                span: string.span,
-            },
-            Expr::Code(expr) => Spanned {
-                inner: Value::Array(
-                    expr.inner
-                        .into_iter()
-                        .filter_map(|expr| {
-                            let Expr::String(string) = expr else {
-                        errors.push(Error {
-                            inner: "arrays must be composed of strings".to_string(),
-                            span: name.span,
-                        });
-                        return None;
-                    };
-                            Some(string.inner.to_string())
-                        })
-                        .collect(),
-                ),
-                span: expr.span,
-            },
-            other => {
-                errors.push(Error {
-                    inner: "assignment requires the right side to be a number, array or string but this is neither".to_string(),
-                    span: other.span(),
-                });
-                return;
-            }
+        let Some(value) = to_value(value, errors) else {
+            return
         };
 
         let lhs = state.namespaces.last().unwrap().clone();
@@ -383,6 +373,6 @@ pub fn analyze_addon(mut directory: PathBuf) -> Result<(Functions, Vec<Error>), 
 
     // it is an addon, parse the config.cpp to fetch list of functions
 
-    let iter = preprocessor::tokens(&content, Default::default(), Default::default()).unwrap();
+    let iter = preprocessor::tokens(&content, Default::default(), directory).unwrap();
     Ok(analyze(iter))
 }

@@ -112,6 +112,7 @@ class CfgFunctions
                 ext			= ".fsm";
                 preStart	= 1;
                 recompile	= 1;
+                a = {1};
             };
         };
     };

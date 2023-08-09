@@ -6,34 +6,32 @@ program = _{ SOI ~ term* ~ EOI }
 term = _{ include | undef | define | if_ | base_term }
 
 string    = @{ "\"" ~ ("\"\"" | (!"\"" ~ ANY))* ~ "\"" }
-number = @{
-    "-"?
-    ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
-    ~ ("." ~ ASCII_DIGIT*)?
+number    = @{
+    "-"? ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) ~ ("." ~ ASCII_DIGIT*)?
 }
 word      = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 symbol    =  { "&&" | "||" | "==" | "<=" | ">=" | "!=" | SYMBOL | PUNCTUATION | NUMBER }
 base_term =  { number | string | word | symbol }
 
 // #include
-include_kw        =  {"#include"}
+include_kw        =  { "#include" }
 include           = ${ include_kw ~ " " ~ include_str ~ end }
 include_str_inner = @{ (!("\"" | ">") ~ ANY)* }
 include_str       = _{ ("<" ~ include_str_inner ~ ">") | "\"" ~ include_str_inner ~ "\"" }
 
 // #undef
-undef_kw = {"#undef"}
-undef = ${ undef_kw ~ " " ~ word ~ end }
+undef_kw =  { "#undef" }
+undef    = ${ undef_kw ~ " " ~ word ~ end }
 
 // #if | #ifdef | #ifndef
-if_ = {
-    (ifdef_start | if_start) ~ if_body ~ (else_ ~ if_body)? ~ "#endif"
+if_ = ${
+    (ifdef_start | if_start) ~ if_body ~ (else_ ~ "\n" ~ if_body)? ~ "#endif" ~ "\n"
 }
 
 if_term     = _{ (!("#endif" | else_) ~ term) }
-if_body     =  { if_term* }
+if_body     =  { (WHITESPACE | COMMENT | if_term)* }
 else_       =  { "#else" }
-ifdef_start = ${ if_def_kw ~ " " ~ word ~ "\n" }
+ifdef_start = ${ if_def_kw ~ " "+ ~ word ~ "\n" }
 if_def_kw   =  { "#ifdef" | "#ifndef" }
 
 // #if
@@ -46,8 +44,8 @@ define = ${
     define_kw ~ " " ~ word ~ define_arguments? ~ " "* ~ define_term* ~ end
 }
 
-define_kw = {"#define"}
-define_quote = {"##" | "#"}
+define_kw    = { "#define" }
+define_quote = { "##" | "#" }
 
 define_arguments =  { "(" ~ word ~ ("," ~ word)* ~ ")" }
 define_term      = _{ define_quote | "\\\n" | base_term | " " | "\t" | "\r" }

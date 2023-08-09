@@ -30,6 +30,13 @@ pub fn parse(data: &str) -> Result<Ast, Error> {
     parser::pairs(data).map(parser::parse)
 }
 
-pub fn tokens(data: &str, defines: Defines, path: PathBuf) -> Result<AstIterator, Error> {
-    parse(data).map(|ast| AstIterator::new(ast, defines, path))
+pub fn tokens(
+    data: &str,
+    defines: Defines,
+    path: PathBuf,
+) -> Result<AstIterator, (Defines, Error)> {
+    match parse(data) {
+        Ok(ast) => Ok(AstIterator::new(ast, defines, path)),
+        Err(e) => Err((defines, e)),
+    }
 }

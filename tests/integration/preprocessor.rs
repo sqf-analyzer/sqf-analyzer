@@ -36,6 +36,20 @@ fn tokens1() {
 }
 
 #[test]
+fn if_comment() {
+    let case = r#"#ifndef A
+// comment
+    #define A
+#endif"#;
+
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let _ = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(ast.state.errors, vec![]);
+    assert_eq!(ast.state.defines.len(), 1);
+}
+
+#[test]
 fn tokens2() {
     use std::fs;
     let path = "tests/integration/examples/basic.cpp";
@@ -170,6 +184,20 @@ FNC_FILE_BASE(a)
     assert_eq!(ast.state.errors, vec![]);
 
     assert_eq!(r, vec!["\"dictionary\\fnc_a.sqf\""]);
+}
+
+#[test]
+fn define_eval_double_end() {
+    let case = r#"#define DOUBLES(var1,var2) ##var1##_##var2
+
+DOUBLES(a, b)
+"#;
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(ast.state.errors, vec![]);
+
+    assert_eq!(r, vec!["a_b"]);
 }
 
 #[test]

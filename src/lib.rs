@@ -21,7 +21,7 @@ pub fn check(path: &std::path::Path) -> Vec<error::Error> {
 
     let iter = match iter {
         Ok(iter) => iter,
-        Err(e) => return vec![e],
+        Err(e) => return vec![e.1],
     };
     let (expr, errors) = parser::parse(iter);
 
