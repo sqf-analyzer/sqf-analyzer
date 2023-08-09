@@ -20,7 +20,7 @@ fn basic_no_errors() {
         Some(Type::Anything.into()),
         true,
     );
-    expected.signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Anything,
     }]);
@@ -39,7 +39,6 @@ fn basic_error() {
         inner: "Argument must begin with _".to_string(),
         span: (8, 11),
     });
-    expected.signature = Some(vec![]);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -59,7 +58,7 @@ fn with_default() {
         Some(Type::Anything.into()),
         true,
     );
-    expected.signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Anything,
     }]);
@@ -82,7 +81,7 @@ fn with_default_and_type() {
         Some(Type::Boolean.into()),
         true,
     );
-    expected.signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Boolean,
     }]);
@@ -109,7 +108,7 @@ fn with_default_and_type_invalid_default() {
         inner: "params' default argument type \"Object\" is inconsistent with expected type \"Boolean\"".to_string(),
         span: (8, 31),
     });
-    expected.signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Boolean,
     }]);
@@ -132,7 +131,7 @@ fn with_two_types() {
         Some(Type::Anything.into()),
         true,
     );
-    expected.signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Anything,
     }]);
@@ -155,7 +154,7 @@ fn basic_with_unknown_type() {
         Some(Type::Anything.into()),
         true,
     );
-    expected.signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Anything,
     }]);
@@ -163,6 +162,30 @@ fn basic_with_unknown_type() {
         inner: "params' third argument's elements must be typed".to_string(),
         span: (24, 28),
     });
+
+    let state = parse_analyze(case);
+    assert_eq!(state, expected);
+}
+
+/// signatures are correct when used
+#[test]
+fn with_code() {
+    let case = r#"params [["_callback", {}, [{}]]];"#;
+
+    let mut expected = State::default();
+    expected.namespace.push_stack();
+    expected.namespace.insert(
+        Spanned {
+            span: (9, 20),
+            inner: "_callback".to_string(),
+        },
+        Some(Type::Code.into()),
+        true,
+    );
+    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
+        name: "_callback".into(),
+        type_: Type::Code,
+    }]);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);

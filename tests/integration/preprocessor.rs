@@ -210,17 +210,6 @@ DOUBLES(a, b)
 }
 
 #[test]
-fn define_quote_in_middle() {
-    let case = r#"#define A(a) #a
-#define B(a) b = A(a)
-
-B(a)
-"#;
-
-    assert(case, vec!["b", "=", "\"a\""]);
-}
-
-#[test]
 fn antistasi() {
     use std::fs;
     let path = "tests/integration/examples/antistasi.cpp";
@@ -335,10 +324,20 @@ A(a, b)"#;
 }
 
 #[test]
+fn define_quote_in_middle() {
+    let case = r#"#define A(a) #a
+#define B(a) b = A(a)
+
+B(a)
+"#;
+
+    assert(case, vec!["b", "=", "\"a\""]);
+}
+
+#[test]
 fn quoted_in_middle_with_break() {
     let case = r#"
     #define A(a) (isNil #a)
-    
     A(a)"#;
     assert(case, vec!["(", "isNil", "\"a\"", ")"]);
 }
@@ -351,4 +350,9 @@ fn exponent() {
 #[test]
 fn single_quoted() {
     assert("'a'", vec!["'a'"]);
+}
+
+#[test]
+fn hash_op() {
+    assert("#define A(x) x\nA(_this#0)", vec!["_this", "#", "0"]);
 }

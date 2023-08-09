@@ -164,8 +164,7 @@ fn expr_negative() {
         let r = tokens(case, Default::default(), Default::default());
         match r {
             Ok(r) => {
-                println!("{case}");
-                println!("{:#?}", r.clone().collect::<Vec<_>>());
+                println!("{case}\n{:#?}", r.clone().collect::<Vec<_>>());
                 let (_, e) = parse(r);
                 assert_eq!(&e, expected);
             }

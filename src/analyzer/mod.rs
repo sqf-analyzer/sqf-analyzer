@@ -75,10 +75,17 @@ fn _is_private(v: &str) -> bool {
 
 fn process_param_variable(v: &str, span: Span, state: &mut State, type_: Type) {
     if _is_private(v) {
-        state.current_signature.as_mut().unwrap().push(Parameter {
+        let p = Parameter {
             name: v.into(),
             type_,
-        });
+        };
+        let s = &mut state.namespace.stack.last_mut().unwrap().signature;
+        if let Some(s) = s {
+            s.push(p)
+        } else {
+            *s = Some(vec![p])
+        }
+
         state.namespace.insert(
             Spanned {
                 inner: v.to_owned(),
@@ -389,13 +396,11 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             Some(Type::Array.into())
         }
         Expr::Code(code) => {
-            if state.namespace.stack.len() == 1 && state.signature.is_none() {
-                state.signature = std::mem::take(&mut state.current_signature);
-            }
             state.namespace.push_stack();
             infer_expressions(&code.inner, state);
+            let parameters =
+                std::mem::take(&mut state.namespace.stack.last_mut().unwrap().signature);
             state.namespace.pop_stack();
-            let parameters = std::mem::take(&mut state.current_signature);
             if let Some(parameters) = parameters {
                 Some(Output::Code(parameters))
             } else {
@@ -452,7 +457,6 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 }
                 "params" => {
                     // store the names of the variables to build the function's signature
-                    state.current_signature = Some(vec![]);
                     if let Expr::Array(x) = rhs.as_ref() {
                         x.inner
                             .iter()
@@ -469,8 +473,14 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
+pub struct Stack {
+    pub variables: HashMap<String, (Span, Option<Output>)>,
+    pub signature: Option<Vec<Parameter>>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Namespace {
-    pub stack: Vec<HashMap<String, (Span, Option<Output>)>>,
+    pub stack: Vec<Stack>,
     pub mission: HashMap<Arc<str>, (Origin, Option<Output>)>,
 }
 
@@ -502,12 +512,13 @@ impl Namespace {
             self.stack
                 .last_mut()
                 .unwrap()
+                .variables
                 .insert(key.inner, (key.span, value));
         } else {
             for stack in self.stack.iter_mut().rev() {
-                if stack.contains_key(&key.inner) {
+                if stack.variables.contains_key(&key.inner) {
                     // entries API would require cloning, which is more expensive than this lookup
-                    stack.insert(key.inner, (key.span, value));
+                    stack.variables.insert(key.inner, (key.span, value));
                     return;
                 }
             }
@@ -526,7 +537,7 @@ impl Namespace {
 
     pub fn get(&self, key: &str) -> Option<(Origin, Option<Output>)> {
         for stack in self.stack.iter().rev() {
-            if let Some((span, a)) = stack.get(key) {
+            if let Some((span, a)) = stack.variables.get(key) {
                 return Some((Origin::File(*span), a.clone()));
             }
         }
@@ -550,10 +561,16 @@ pub struct State {
     pub namespace: Namespace,
     pub origins: HashMap<Span, Origin>,
     // parameters in the current scope (last call of `params []` in the scope)
-    current_signature: Option<Vec<Parameter>>,
+    //current_signature: Option<Vec<Parameter>>,
     // parameters in the root scope (last call of `params []` in the first stack)
-    pub signature: Option<Vec<Parameter>>,
+    //pub signature: Option<Vec<Parameter>>,
     pub errors: Vec<Error>,
+}
+
+impl State {
+    pub fn signature(&self) -> Option<&Vec<Parameter>> {
+        self.namespace.stack.last().unwrap().signature.as_ref()
+    }
 }
 
 #[derive(Debug)]
@@ -565,8 +582,5 @@ pub fn analyze(program: &[Expr], state: &mut State) {
     state.namespace.push_stack();
     for expr in program {
         infer_type(expr, state);
-    }
-    if state.signature.is_none() {
-        state.signature = std::mem::take(&mut state.current_signature);
     }
 }

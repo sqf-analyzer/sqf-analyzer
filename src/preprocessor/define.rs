@@ -102,34 +102,56 @@ fn push_argument<'a>(arguments: &mut Arguments, item: &SpannedRef<'a>) {
     };
 }
 
+fn quote(tokens: &VecDeque<Spanned<String>>) -> String {
+    let mut quoted = String::new();
+    quoted.push('\"');
+    for token in tokens {
+        quoted.push_str(token.inner.as_str());
+    }
+    quoted.push('\"');
+    quoted
+}
+
+/// replaces all define arguments by arguments
 fn replace(
     define_arguments: &[Spanned<String>],
     arguments: &[VecDeque<Spanned<String>>],
     tokens: VecDeque<Spanned<String>>,
 ) -> VecDeque<Spanned<String>> {
     // todo : check number of arguments is the same
-    let replace = |arg: &String| {
+    let replace = |arg: &str| {
         define_arguments
             .iter()
             .zip(arguments.iter())
-            .find(|x| &x.0.inner == arg)
+            .find(|(key, _)| key.inner == arg)
             .map(|x| x.1)
     };
 
     let mut new_tokens: VecDeque<Spanned<String>> = Default::default();
     for token in tokens {
-        if let Some(tokens) = replace(&token.inner) {
-            new_tokens.extend(tokens.iter().cloned())
+        let is_quote = token.inner.starts_with('#') && token.inner != "##" && token.inner != "#";
+        let key = if is_quote {
+            token.inner.get(1..).unwrap_or("")
+        } else {
+            &token.inner
+        };
+        if let Some(tokens) = replace(key) {
+            if is_quote {
+                new_tokens.push_back(Spanned {
+                    inner: quote(tokens),
+                    span: (tokens.get(0).map(|x| x.span).unwrap_or((0, 0))),
+                })
+            } else {
+                new_tokens.extend(tokens.iter().cloned())
+            }
+        } else if is_quote {
+            new_tokens.push_back(token.map(|s| format!("\"{s}\"")))
         } else {
             new_tokens.push_back(token)
-        }
+        };
     }
 
     new_tokens
-}
-
-fn _breaks_quote(v: &str) -> bool {
-    matches!(v, "(" | ")" | "[" | "]" | "+" | "-")
 }
 
 fn evaluate(
@@ -192,40 +214,6 @@ fn evaluate(
         }
         *new_tokens = merged;
     };
-
-    if let Some(start) = new_tokens
-        .iter()
-        .enumerate()
-        .find_map(|(i, x)| (x.inner.as_str() == "#").then_some(i))
-    {
-        // join tokens within "#" into a sigle one.
-        // e.g. ["(", "isNil", "#", "a", ")"] => ["(", "isNil", "\"a\"", ")"]
-        let end = new_tokens
-            .iter()
-            .enumerate()
-            .skip(start + 1)
-            .find_map(|(i, x)| _breaks_quote(&x.inner).then_some(i - 1))
-            .unwrap_or(new_tokens.len() - 1);
-
-        let mut quoted = String::new();
-
-        let mut tokens = new_tokens
-            .iter()
-            .take(start)
-            .cloned()
-            .collect::<VecDeque<_>>();
-        quoted.push('\"');
-        for token in new_tokens.iter().skip(start + 1).take(end - start) {
-            quoted.push_str(token.inner.as_str());
-        }
-        quoted.push('\"');
-        tokens.push_back(Spanned {
-            inner: quoted,
-            span: (new_tokens[start].span.0, new_tokens[end - 1].span.1),
-        });
-        tokens.extend(new_tokens.iter().skip(end + 1).cloned());
-        *new_tokens = tokens;
-    }
 
     new_tokens.iter_mut().for_each(|t| t.span = span);
 }

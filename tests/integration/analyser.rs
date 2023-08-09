@@ -114,23 +114,17 @@ fn namespace_origin() {
 fn namespace() {
     let case = "private _a = west; call {private _a = 2}";
 
-    let expected = vec![HashMap::from([(
-        "_a".to_string(),
-        ((8, 10), Some(Type::Side.into())),
-    )])];
+    let expected = HashMap::from([("_a".to_string(), ((8, 10), Some(Type::Side.into())))]);
 
     let state = parse_analyze(case);
-    assert_eq!(state.namespace.stack, expected);
+    assert_eq!(state.namespace.stack[0].variables, expected);
 
     let case = "private _a = west; call {_a = 2}";
 
-    let expected = vec![HashMap::from([(
-        "_a".to_string(),
-        ((25, 27), Some(Type::Number.into())),
-    )])];
+    let expected = HashMap::from([("_a".to_string(), ((25, 27), Some(Type::Number.into())))]);
 
     let state = parse_analyze(case);
-    assert_eq!(state.namespace.stack, expected);
+    assert_eq!(state.namespace.stack[0].variables, expected);
 
     let case = "call {_a = 2}";
 
@@ -166,8 +160,8 @@ fn infer_example1() {
     assert_eq!(state.errors, vec![]);
     assert_eq!(state.types, expected);
     assert_eq!(
-        state.signature,
-        Some(vec![
+        state.signature(),
+        Some(&vec![
             Parameter {
                 name: "_arguments".into(),
                 type_: Type::Anything
