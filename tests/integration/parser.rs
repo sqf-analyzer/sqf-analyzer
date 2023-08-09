@@ -76,6 +76,22 @@ fn parse_macros_call() {
 }
 
 #[test]
+fn if_after_semi_colon() {
+    assert_eq!(
+        parse(tokens("; if !(isServer)", Default::default(), Default::default(),).unwrap(),).1,
+        vec![]
+    );
+}
+
+#[test]
+fn semi_colon() {
+    assert_eq!(
+        parse(tokens("1;;;1", Default::default(), Default::default(),).unwrap(),).1,
+        vec![]
+    );
+}
+
+#[test]
 fn two_signatures() {
     parse(tokens("call A; [] call A;", Default::default(), Default::default()).unwrap());
 }
@@ -198,7 +214,7 @@ fn parenthesis() {
     let ast = tokens(&case, Default::default(), Default::default()).unwrap();
 
     let (_, errors) = parse(ast);
-    assert!(errors.is_empty());
+    assert_eq!(errors, vec![]);
 }
 
 #[test]

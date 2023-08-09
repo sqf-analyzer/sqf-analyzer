@@ -1,5 +1,14 @@
 use sqf::{preprocessor::tokens, span::Spanned};
 
+fn assert(case: &str, expected: Vec<&str>) {
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(ast.state.errors, vec![]);
+
+    assert_eq!(r, expected);
+}
+
 #[test]
 fn pairs_() {
     use std::fs;
@@ -207,12 +216,8 @@ fn define_quote_in_middle() {
 
 B(a)
 "#;
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
-
-    assert_eq!(r, vec!["b", "=", "\"a\""]);
+    assert(case, vec!["b", "=", "\"a\""]);
 }
 
 #[test]
@@ -309,12 +314,7 @@ fn define_empty_args() {
 
 A()
 "#;
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
-
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
-
-    assert_eq!(r, vec!["1"]);
+    assert(case, vec!["1"]);
 }
 
 #[test]
@@ -324,25 +324,14 @@ fn line() {
 
 FIX_LINE_NUMBERS(a)
 "#;
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
-
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
-
-    assert_eq!(r, Vec::<String>::new());
+    assert(case, vec![]);
 }
 
 #[test]
 fn other() {
     let case = r#"#define A(a, b)
 A(a, b)"#;
-
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
-
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
-
-    assert_eq!(r, Vec::<String>::new());
+    assert(case, vec![]);
 }
 
 #[test]
@@ -351,10 +340,15 @@ fn quoted_in_middle_with_break() {
     #define A(a) (isNil #a)
     
     A(a)"#;
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+    assert(case, vec!["(", "isNil", "\"a\"", ")"]);
+}
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+#[test]
+fn exponent() {
+    assert("1e6", vec!["1e6"]);
+}
 
-    assert_eq!(r, vec!["(", "isNil", "\"a\"", ")"]);
+#[test]
+fn single_quoted() {
+    assert("'a'", vec!["'a'"]);
 }

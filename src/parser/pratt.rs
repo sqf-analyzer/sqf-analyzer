@@ -87,7 +87,9 @@ fn atom_to_expr(token: SpannedRef) -> Expr {
         .or_else(|| {
             // string
             let bytes = token.inner.as_bytes();
-            if bytes.first() == Some(&b'"') && bytes.last() == Some(&b'"') && bytes.len() >= 2 {
+            let quoted = (bytes.first() == Some(&b'"') && bytes.last() == Some(&b'"'))
+                | (bytes.first() == Some(&b'\'') && bytes.last() == Some(&b'\''));
+            if quoted && bytes.len() >= 2 {
                 Some(Expr::String(
                     token
                         .as_ref()
@@ -120,12 +122,17 @@ fn code<'a, I: Iterator<Item = SpannedRef<'a>>>(
     };
 
     while iter.peek().is_some() {
+        while matches(iter.peek(), ";") {
+            iter.next().unwrap();
+        }
+
         let expression = expr_bp(iter, 0, errors);
         expressions.push(expression);
 
-        if matches(iter.peek(), ";") {
+        while matches(iter.peek(), ";") {
             iter.next().unwrap();
         }
+
         if matches(iter.peek(), "}") {
             break;
         }
@@ -177,11 +184,11 @@ fn matches(token: Option<&SpannedRef>, v: &str) -> bool {
 /// 2. Reached an operator with a binding power < min_bp
 /// 3. Reached a ";" or ","
 fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
-    lexer: &mut Peekable<I>,
+    iter: &mut Peekable<I>,
     min_bp: u8,
     errors: &mut Vec<Error>,
 ) -> Expr<'a> {
-    let mut lhs = match lexer.next() {
+    let mut lhs = match iter.next() {
         None => {
             errors.push(Error {
                 inner: "Un-expected end of file".to_string(),
@@ -191,9 +198,9 @@ fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
         }
         Some(Spanned { inner, span }) => match inner.as_ref() {
             "(" => {
-                let lhs = expr_bp(lexer, 0, errors);
+                let lhs = expr_bp(iter, 0, errors);
 
-                if !matches(lexer.next().as_ref(), ")") {
+                if !matches(iter.next().as_ref(), ")") {
                     errors.push(Error {
                         inner: "\"(\" is not closed".to_string(),
                         span,
@@ -202,14 +209,10 @@ fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
 
                 lhs
             }
-            ";" => Expr::Code(Spanned {
-                inner: vec![],
-                span,
-            }),
             "{" => {
-                let expr = code(lexer, errors);
+                let expr = code(iter, errors);
 
-                let last = lexer.next();
+                let last = iter.next();
                 if !matches(last.as_ref(), "}") {
                     errors.push(Error {
                         inner: "\"{\" is not closed".to_string(),
@@ -225,9 +228,9 @@ fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
                 })
             }
             "[" => {
-                let expr = array(lexer, errors);
+                let expr = array(iter, errors);
 
-                let last = lexer.next();
+                let last = iter.next();
                 if !matches(last.as_ref(), "]") {
                     errors.push(Error {
                         inner: "\"[\" is not closed".to_string(),
@@ -244,7 +247,7 @@ fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
             }
             op => {
                 if let Some(((), r_bp)) = prefix_binding_power(op) {
-                    let rhs = expr_bp(lexer, r_bp, errors);
+                    let rhs = expr_bp(iter, r_bp, errors);
                     Expr::Unary(Spanned { inner, span }, Box::new(rhs))
                 } else {
                     atom_to_expr(Spanned { inner, span })
@@ -254,7 +257,7 @@ fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
     };
 
     loop {
-        let op = match lexer.peek() {
+        let op = match iter.peek() {
             None => break,
             Some(op) => {
                 if op.inner == ";" || op.inner == "," {
@@ -268,9 +271,9 @@ fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
             if l_bp < min_bp {
                 break;
             }
-            lexer.next();
+            iter.next();
 
-            let rhs = expr_bp(lexer, r_bp, errors);
+            let rhs = expr_bp(iter, r_bp, errors);
             lhs = Expr::Binary(Box::new(lhs), op, Box::new(rhs));
             continue;
         } else if op.inner == "}" || op.inner == "]" || op.inner == ")" {
@@ -279,7 +282,7 @@ fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
                 inner: format!("\"{}\" is not a valid binary operator", op.inner),
                 span: op.span,
             });
-            lexer.next();
+            iter.next();
             return lhs;
         }
 
