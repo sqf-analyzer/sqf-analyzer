@@ -1,9 +1,9 @@
 // This file is generated automatically by `build_database.py`. Change it there.
-    use crate::types::Signature::*;
-    use crate::types::Type::*;
-    use crate::types::*;
-pub const SIGNATURES: [Signature; 3150] = [
-        Nullary("acctime", Number),
+use crate::types::Signature::*;
+use crate::types::Type::*;
+use crate::types::*;
+pub const SIGNATURES: [Signature; 3158] = [
+    Nullary("acctime", Number),
     Nullary("activatedaddons", Array),
     Nullary("agents", Array),
     Nullary("airdensitycurvertd", Array),
@@ -1779,6 +1779,14 @@ pub const SIGNATURES: [Signature; 3150] = [
     Binary(Number, "^", Number, Number),
     Binary(Boolean, "||", Boolean, Boolean),
     Binary(Boolean, "||", Code, Boolean),
+    Binary(HashMap, "get", Number, Anything),
+    Binary(HashMap, "get", Boolean, Anything),
+    Binary(HashMap, "get", String, Anything),
+    Binary(HashMap, "get", Code, Anything),
+    Binary(HashMap, "get", Side, Anything),
+    Binary(HashMap, "get", Config, Anything),
+    Binary(HashMap, "get", Namespace, Anything),
+    Binary(HashMap, "get", Array, Anything),
     Binary(Object, "action", Array, Nothing),
     Binary(Object, "actionparams", Number, Array),
     Binary(Number, "add3denlayer", String, Number),
@@ -1842,7 +1850,12 @@ pub const SIGNATURES: [Signature; 3150] = [
     Binary(Object, "addweaponitem", Array, Nothing),
     Binary(Object, "addweaponturret", Array, Nothing),
     Binary(Object, "addweaponwithattachmentscargo", Array, Nothing),
-    Binary(Object, "addweaponwithattachmentscargoglobal", Array, Nothing),
+    Binary(
+        Object,
+        "addweaponwithattachmentscargoglobal",
+        Array,
+        Nothing,
+    ),
     Binary(Object, "aimedattarget", Array, Number),
     Binary(Object, "alldiaryrecords", String, Array),
     Binary(Number, "allobjects", Number, Array),
@@ -3152,5 +3165,5 @@ pub const SIGNATURES: [Signature; 3150] = [
     Binary(Object, "weaponstate", String, Array),
     Binary(Object, "weaponsturret", Array, Array),
     Binary(Object, "worldtomodel", Array, Array),
-    Binary(Object, "worldtomodelvisual", Array, Array)
+    Binary(Object, "worldtomodelvisual", Array, Array),
 ];

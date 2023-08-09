@@ -149,6 +149,9 @@ binaries = [
     ("Boolean", "||", "Code", "Boolean"),
 ]
 
+for t in ["Number", "Boolean", "String", "Code", "Side", "Config", "Namespace", "Array"]:
+    binaries.append(["HashMap", "get", t, "Anything"])
+
 expressions = []
 for line in data:
     if not line.startswith('static '):
@@ -227,7 +230,7 @@ def _write_rs():
 
 
     # Expressions that use symbols are hardcoded since they aren't present in the parsed file
-    symbols = r'''pub const SIGNATURES: [Signature; 3150] = [
+    symbols = r'''pub const SIGNATURES: [Signature; 3158] = [
     '''
 
 
