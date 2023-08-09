@@ -63,22 +63,22 @@ class CfgFunctions
         HashMap::from([
             (
                 "TAG_fnc_myFunction".to_string().into(),
-                Spanned::new("Category\\fn_myFunction.sqf".to_string(), (93, 103)),
+                Spanned::new("Category/fn_myFunction.sqf".to_string().into(), (93, 103)),
             ),
             (
                 "TAG_fnc_myFunction1".to_string().into(),
                 Spanned::new(
-                    "My\\Category\\Path\\fn_myFunction1.sqf".to_string(),
+                    "My/Category/Path/fn_myFunction1.sqf".to_string().into(),
                     (215, 226)
                 ),
             ),
             (
                 "TAG_fnc_myDataFunction".to_string().into(),
-                Spanned::new("My\\Function\\Filepath.sqf".to_string(), (528, 542)),
+                Spanned::new("My/Function/Filepath.sqf".to_string().into(), (528, 542)),
             ),
             (
                 "SOME_fnc_myFunction".to_string().into(),
-                Spanned::new("Category\\fn_myFunction.sqf".to_string(), (807, 817)),
+                Spanned::new("Category/fn_myFunction.sqf".to_string().into(), (807, 817)),
             ),
         ])
     );
@@ -173,7 +173,8 @@ fn addon_basic() {
         .map(|x| {
             (
                 format!("DICT_fnc_{x}").into(),
-                format!("dictionary\\fnc_{x}.sqf"),
+                format!("tests/integration/dictionary/addons/dictionary/dictionary/fnc_{x}.sqf")
+                    .into(),
             )
         })
         .collect::<HashMap<_, _>>();

@@ -188,15 +188,20 @@ pub struct State {
     assignments: Assignments,
 }
 
-pub type Functions = HashMap<Arc<str>, Spanned<String>>;
+pub type Functions = HashMap<Arc<str>, Spanned<PathBuf>>;
 
 impl State {
-    fn functions(&self) -> Functions {
+    fn functions(&self, cpp_path: PathBuf) -> Functions {
         let mut r = HashMap::default();
         for namespace in &self.namespaces {
             if namespace.len() != 4 {
                 continue;
             }
+
+            if &namespace[0].inner != "CfgFunctions" {
+                continue;
+            }
+
             let tag = self
                 .assignments
                 .get(&namespace[..2])
@@ -248,13 +253,17 @@ impl State {
                     }
                 }
             };
-            r.insert(name.into(), path);
+            r.insert(
+                name.into(),
+                path.map(|x| preprocessor::build_path(cpp_path.clone(), x.as_str())),
+            );
         }
         r
     }
 }
 
 pub fn analyze(iter: AstIterator) -> (Functions, Vec<Error>) {
+    let path = iter.state.path.clone();
     let (mut expr, mut errors) = parse(iter);
 
     let mut state = State::default();
@@ -264,7 +273,7 @@ pub fn analyze(iter: AstIterator) -> (Functions, Vec<Error>) {
         process_code(&mut expr, &mut state, &mut errors);
     }
 
-    (state.functions(), errors)
+    (state.functions(path), errors)
 }
 
 fn to_value(expr: Expr, errors: &mut Vec<Error>) -> Option<Spanned<Value>> {

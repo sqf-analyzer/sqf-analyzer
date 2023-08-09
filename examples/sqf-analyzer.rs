@@ -42,15 +42,10 @@ fn main() {
         if !errors.is_empty() {
             print_errors(errors, &directory.join("config.cpp"))
         }
-        for (_, mut path) in functions {
-            path.inner = path.inner.replace('\\', "/");
-            let mut base = directory.clone();
-            base.pop();
-
-            let path: PathBuf = base.join(path.inner);
-            let errors = sqf::check(&path);
+        for (_, path) in functions {
+            let errors = sqf::check(&path.inner);
             if !errors.is_empty() {
-                print_errors(errors, &path)
+                print_errors(errors, &path.inner)
             }
         }
     }
