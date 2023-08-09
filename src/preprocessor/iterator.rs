@@ -146,7 +146,19 @@ fn pop_stack<'a>(stack: &mut VecDeque<Spanned<String>>) -> (bool, Option<Spanned
 
 // pulls a new item from terms, evaluating the different functions
 fn next<'a>(terms: &mut VecDeque<Ast<'a>>, state: &mut State) -> Option<SpannedRef<'a>> {
-    let item = match evaluate_terms(terms, state) {
+    let (mut has_more, mut item) = evaluate_terms(terms, state);
+    if let Some(may_line) = &item {
+        if may_line.inner.as_ref() == "#line" {
+            // pop the line
+            evaluate_terms(terms, state);
+            // pop the file
+            evaluate_terms(terms, state);
+
+            (has_more, item) = evaluate_terms(terms, state);
+        }
+    }
+
+    let item = match (has_more, item) {
         (true, None) => next(terms, state)?,
         (false, None) => return None,
         (true, Some(item)) => item,

@@ -316,3 +316,18 @@ A()
 
     assert_eq!(r, vec!["1"]);
 }
+
+#[test]
+fn line() {
+    let case = r#"#define FIX_LINE_NUMBERS2(sharp) sharp##line __LINE__ __FILE__
+#define FIX_LINE_NUMBERS() FIX_LINE_NUMBERS2(#)
+
+FIX_LINE_NUMBERS(a)
+"#;
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(ast.state.errors, vec![]);
+
+    assert_eq!(r, Vec::<String>::new());
+}
