@@ -344,3 +344,17 @@ A(a, b)"#;
 
     assert_eq!(r, Vec::<String>::new());
 }
+
+#[test]
+fn quoted_in_middle_with_break() {
+    let case = r#"
+    #define A(a) (isNil #a)
+    
+    A(a)"#;
+    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+
+    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(ast.state.errors, vec![]);
+
+    assert_eq!(r, vec!["(", "isNil", "\"a\"", ")"]);
+}
