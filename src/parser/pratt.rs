@@ -278,10 +278,17 @@ fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
             continue;
         } else if op.inner == "}" || op.inner == "]" || op.inner == ")" {
         } else {
-            errors.push(Error {
-                inner: format!("\"{}\" is not a valid binary operator", op.inner),
-                span: op.span,
-            });
+            let error = match (op.inner.as_ref(), &lhs) {
+                ("(", Expr::Variable(v)) => Error {
+                    inner: format!("Macro \"{}\" undefined", v.inner.as_ref()),
+                    span: v.span,
+                },
+                _ => Error {
+                    inner: format!("\"{}\" is not a valid binary operator", op.inner),
+                    span: op.span,
+                },
+            };
+            errors.push(error);
             iter.next();
             return lhs;
         }

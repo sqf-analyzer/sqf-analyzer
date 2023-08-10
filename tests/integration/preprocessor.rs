@@ -364,3 +364,12 @@ fn nested_macro_call() {
 A(B(1), 2)"#;
     assert(case, vec!["1", "+", "2"]);
 }
+
+#[test]
+fn macro_arg_with_parenthesis() {
+    let case = r#"
+#define A(a)
+{A(((a) b))}
+"#;
+    assert(case, vec!["{", "}"]);
+}

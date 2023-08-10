@@ -52,7 +52,7 @@ define_quote = {"#"}
 define_quoted = ${ define_quote ~ word }
 define_concat = { "##" }
 
-define_arguments =  { "("~ " "* ~ (word~ " "* ~ (","~ " "* ~ word)*)?~ " "* ~ ")" }
+define_arguments =  { "("~ " "* ~ (word ~ (" "* ~ ","~ " "* ~ word)*)?~ " "* ~ ")" }
 define_term      = _{ define_quoted | define_concat | "\\\n" | base_term | " " | "\t" | "\r" }
 
 end = _{ ("\n" | EOI) }

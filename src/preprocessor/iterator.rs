@@ -77,10 +77,9 @@ pub enum MacroState {
     None,
     /// found a macro and it is waiting for "("
     ParenthesisStart,
-    /// consumed argument and is waiting for a coma or ")"
-    Coma,
     /// consumed "(" or "," and it expects an argument
-    Argument,
+    /// inner counts the number of openned parenthesis inside arguments
+    Argument(i32),
 }
 
 /// returns (whether the AST has more terms, the next term in the AST, if any)

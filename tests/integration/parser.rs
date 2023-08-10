@@ -266,6 +266,19 @@ fn errors() {
                 },
             ],
         ),
+        (
+            r#"A(1, 2)"#,
+            vec![
+                Error {
+                    inner: "Macro \"A\" undefined".to_string(),
+                    span: (0, 1),
+                },
+                Error {
+                    inner: "\"2\" is not a valid binary operator".to_string(),
+                    span: (5, 6),
+                },
+            ],
+        ),
     ];
 
     for (case, expected) in case {

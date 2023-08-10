@@ -38,7 +38,7 @@ pub fn update<'a>(state: &mut State, item: &SpannedRef<'a>) -> Option<()> {
     };
 
     match (macro_state.inner, item.inner.as_ref()) {
-        (MacroState::Argument | MacroState::Coma, ")") => {
+        (MacroState::Argument(0), ")") => {
             // end state
             macro_state.inner = MacroState::None;
             macro_state.span.1 += item.span.1 - item.span.0;
@@ -57,19 +57,25 @@ pub fn update<'a>(state: &mut State, item: &SpannedRef<'a>) -> Option<()> {
             Some(())
         }
         // start state
-        (MacroState::ParenthesisStart | MacroState::Coma, _) => {
-            macro_state.inner = MacroState::Argument;
+        (MacroState::ParenthesisStart, _) => {
+            macro_state.inner = MacroState::Argument(0);
             macro_state.span.1 += item.span.1 - item.span.0;
             Some(())
         }
-        (MacroState::Argument, ",") => {
+        (MacroState::Argument(_), ",") => {
             arguments.push(Default::default());
             macro_state.span.1 += item.span.1 - item.span.0;
             Some(())
         }
-        (MacroState::Argument, _) => {
+        (MacroState::Argument(other), v) => {
             push_argument(arguments, item);
             macro_state.span.1 += item.span.1 - item.span.0;
+            if v == "(" {
+                macro_state.inner = MacroState::Argument(other + 1)
+            };
+            if v == ")" {
+                macro_state.inner = MacroState::Argument(other - 1)
+            };
             Some(())
         }
         (MacroState::None, _) => {
@@ -221,17 +227,19 @@ fn get_arguments(
     let mut arguments = vec![];
     while let Some(item) = tokens.next() {
         match (state, item.inner.as_str()) {
-            (Argument | Coma, ")") => break, // end state
+            (Argument(0), ")") => {
+                break;
+            }
             (ParenthesisStart, "(") => {
                 // start state
-                state = Argument;
+                state = Argument(0);
                 arguments.push(Default::default());
             }
-            (Argument, ",") => {
+            (Argument(i), ",") => {
                 arguments.push(Default::default());
-                state = Argument;
+                state = Argument(i);
             }
-            (Argument, name) => {
+            (Argument(other), name) => {
                 if let Some(new_define) = defines.get(name) {
                     let define_arguments = if new_define.arguments.is_some() {
                         get_arguments(tokens, defines, errors)
@@ -249,6 +257,12 @@ fn get_arguments(
                     )
                     // evaluate define and push into arguments
                 } else {
+                    if item.inner == "(" {
+                        state = Argument(other + 1);
+                    }
+                    if item.inner == ")" {
+                        state = Argument(other - 1);
+                    }
                     arguments.last_mut().unwrap().push_back(item);
                 }
             }
