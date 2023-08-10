@@ -311,7 +311,7 @@ fn infer_binary(
                         span: name.span,
                         inner: format!(
                             "No binary operator named \"{}\" with lhs of type \"{:?}\"",
-                            name.inner, rhs
+                            name.inner, lhs
                         ),
                     });
                 }

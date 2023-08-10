@@ -132,6 +132,7 @@ binaries = [
     ("Number", "==", "Number", "Boolean"),
     ("String", "==", "String", "Boolean"),
     ("Object", "==", "Object", "Boolean"),
+    ("Array", "==", "Array", "Boolean"),
     ("Group", "==", "Group", "Boolean"),
     ("Side", "==", "Side", "Boolean"),
     ("String", "==", "String", "Boolean"),
@@ -231,7 +232,7 @@ def _write_rs():
 
 
     # Expressions that use symbols are hardcoded since they aren't present in the parsed file
-    symbols = r'''pub const SIGNATURES: [Signature; 3158] = [
+    symbols = f'''pub const SIGNATURES: [Signature; {len(expressions)}] = [
     '''
 
 
