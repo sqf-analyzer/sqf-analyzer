@@ -181,3 +181,34 @@ fn addon_basic() {
 
     assert_eq!(functions, expected);
 }
+
+#[test]
+fn versions() {
+    let case = r#"
+#define QUOTE(var1) #var1
+#define MAJOR 3
+#define MINOR 3
+#define PATCHLVL 3
+#define VERSION MAJOR.MINOR.PATCHLVL
+#define VERSION_AR MAJOR,MINOR,PATCHLVL
+#define VERSION_CONFIG version = VERSION; versionStr = QUOTE(VERSION); versionAr[] = {VERSION_AR}
+class CfgPatches {
+    class A{
+        authorUrl = "";
+        version = 3.1.1;
+        version = VERSION; versionStr = QUOTE(VERSION); versionAr[] = {VERSION_AR}
+};
+};
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    println!(
+        "{:?}",
+        iter.clone()
+            .into_iter()
+            .map(|x| x.inner)
+            .collect::<Vec<_>>()
+    );
+    let (functions, errors) = analyze(iter);
+    assert!(functions.is_empty());
+    assert_eq!(errors, vec![]);
+}

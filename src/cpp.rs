@@ -175,6 +175,7 @@ fn token_to_expr(token: SpannedRef) -> Expr {
 #[derive(Debug, Clone)]
 enum Value {
     Number(f32),
+    Version(String),
     String(String),
     Array(Vec<Spanned<Value>>),
 }
@@ -298,6 +299,43 @@ fn to_value(expr: Expr, errors: &mut Vec<Error>) -> Option<Spanned<Value>> {
     }
 }
 
+fn _process_v<A: std::fmt::Display>(
+    expr: &mut VecDeque<Expr>,
+    v: A,
+    span: Span,
+) -> Option<Spanned<Value>> {
+    if let Some(Expr::Token(a)) = expr.front() {
+        if matches(Some(a), ".") {
+            expr.pop_front();
+            if let Some(Expr::Number(a)) = expr.pop_front() {
+                let value = Spanned::new(
+                    Value::Version(format!("{v:.1}.{}", a.inner)),
+                    (span.0, a.span.1),
+                );
+                return Some(process_version(expr, value));
+            }
+        }
+    }
+    None
+}
+
+fn process_version(expr: &mut VecDeque<Expr>, value: Spanned<Value>) -> Spanned<Value> {
+    if let Spanned {
+        inner: Value::Number(number),
+        span,
+    } = value
+    {
+        return _process_v(expr, number, span).unwrap_or(value);
+    } else if let Spanned {
+        inner: Value::Version(number),
+        span,
+    } = &value
+    {
+        return _process_v(expr, number, *span).unwrap_or(value);
+    }
+    value
+}
+
 fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<Error>) {
     let first = expr.pop_front();
 
@@ -353,9 +391,11 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
             return
         };
 
-        let Some(value) = to_value(value, errors) else {
+        let Some(mut value) = to_value(value, errors) else {
             return
         };
+
+        value = process_version(expr, value);
 
         let lhs = state.namespaces.last().unwrap().clone();
         let key = name.inner.to_string();
