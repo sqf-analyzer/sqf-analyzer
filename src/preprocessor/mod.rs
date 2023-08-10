@@ -1,5 +1,6 @@
+use std::path::Component;
 use std::path::PathBuf;
-use std::{borrow::Cow, path::Component};
+use std::sync::Arc;
 
 use pest::iterators::Pair;
 
@@ -15,9 +16,7 @@ mod parser;
 pub use ast::{Ast, Define, Defines};
 pub use iterator::AstIterator;
 
-pub type SpannedRef<'a> = Spanned<Cow<'a, str>>;
-
-impl<'a> From<Pair<'a, parser::Rule>> for SpannedRef<'a> {
+impl<'a> From<Pair<'a, parser::Rule>> for Spanned<Arc<str>> {
     fn from(value: Pair<'a, parser::Rule>) -> Self {
         Self {
             span: (value.as_span().start(), value.as_span().end()),

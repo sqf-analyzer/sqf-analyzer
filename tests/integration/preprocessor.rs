@@ -1,10 +1,13 @@
 use sqf::{preprocessor::tokens, span::Spanned};
 
 fn assert(case: &str, expected: Vec<&str>) {
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
 
     assert_eq!(r, expected);
 }
@@ -33,10 +36,13 @@ fn tokens1() {
     let path = "tests/integration/examples/basic_if.sqf";
     let case = fs::read_to_string(path).unwrap();
 
-    let mut ast = tokens(&case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(&case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
 
     assert_eq!(
         r,
@@ -51,11 +57,11 @@ fn if_comment() {
     #define A
 #endif"#;
 
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
 
-    let _ = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
-    assert_eq!(ast.state.defines.len(), 1);
+    let _ = iter.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
+    assert_eq!(iter.state.defines.len(), 1);
 }
 
 #[test]
@@ -64,10 +70,13 @@ fn tokens2() {
     let path = "tests/integration/examples/basic.cpp";
     let case = fs::read_to_string(path).unwrap();
 
-    let mut ast = tokens(&case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(&case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
 
     let expected: Vec<&str> = vec![];
 
@@ -82,10 +91,13 @@ NAME = [toLower KEY, toUpper KEY, DEF_VALUE, RETNIL(_this)] call CBA_fnc_getArg;
 TRACE_3("KEY_PARAM",KEY,NAME,DEF_VALUE)
 "#;
 
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
 
     let expected: Vec<&str> = vec![];
 
@@ -96,10 +108,13 @@ TRACE_3("KEY_PARAM",KEY,NAME,DEF_VALUE)
 fn define_use_with_args() {
     let case = "#define A(B) var##B\n1 + A(1);";
 
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
 
     assert_eq!(r, vec!["1", "+", "var1", ";"]);
 }
@@ -108,10 +123,13 @@ fn define_use_with_args() {
 fn define_use() {
     let case = "#define A (1 + 1)\n1 + A";
 
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
 
     assert_eq!(r, vec!["1", "+", "(", "1", "+", "1", ")"]);
 }
@@ -120,10 +138,13 @@ fn define_use() {
 fn define_no_args() {
     let case = "#define B a\nB";
 
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
 
     assert_eq!(r, vec!["a"]);
 }
@@ -132,10 +153,13 @@ fn define_no_args() {
 fn macro_nested_no_args() {
     let case = "#define B b\n#define A a\\B\nA";
 
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
 
     assert_eq!(r, vec!["a", "\\", "b"]);
 }
@@ -147,7 +171,10 @@ fn macro_with_concat() {
     let mut iter: sqf::preprocessor::AstIterator<'_> =
         tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = iter.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
     assert_eq!(iter.state.errors, vec![]);
 
     assert_eq!(r, vec!["a", "\\b"]);
@@ -160,7 +187,10 @@ fn macro_with_arg() {
     let mut iter: sqf::preprocessor::AstIterator<'_> =
         tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = iter.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
     assert_eq!(iter.state.errors, vec![]);
 
     assert_eq!(r, vec!["a", "\\b"]);
@@ -173,7 +203,10 @@ fn macro_with_arg_nested() {
     let mut iter: sqf::preprocessor::AstIterator<'_> =
         tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = iter.by_ref().map(|x| x.inner).collect::<Vec<_>>();
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
     assert_eq!(iter.state.errors, vec![]);
 
     assert_eq!(r, vec!["a", "\\b"]);
@@ -187,10 +220,13 @@ fn define_double() {
 
 FNC_FILE_BASE(a)
 "#;
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
 
     assert_eq!(r, vec!["\"dictionary\\fnc_a.sqf\""]);
 }
@@ -201,10 +237,13 @@ fn define_eval_double_end() {
 
 DOUBLES(a, b)
 "#;
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
 
     assert_eq!(r, vec!["a_b"]);
 }
@@ -215,10 +254,13 @@ fn antistasi() {
     let path = "tests/integration/examples/antistasi.cpp";
     let case = fs::read_to_string(path).unwrap();
 
-    let mut ast = tokens(&case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(&case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
 
     let expected: Vec<&str> = vec![];
 
@@ -231,10 +273,13 @@ fn macro_with_composite_arg() {
 
 A(call b)
 "#;
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = ast.by_ref().map(|x| x.inner).collect::<Vec<_>>();
-    assert_eq!(ast.state.errors, vec![]);
+    let r = iter
+        .by_ref()
+        .map(|x| x.inner.to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(iter.state.errors, vec![]);
 
     assert_eq!(r, vec!["call", "b"]);
 }
@@ -246,9 +291,9 @@ _a = 1;
 _b = A;
 "#;
 
-    let mut ast = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
 
-    let r = ast
+    let r = iter
         .by_ref()
         .map(|x| x.map(|x| x.to_string()))
         .collect::<Vec<_>>();

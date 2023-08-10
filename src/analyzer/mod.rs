@@ -5,7 +5,6 @@ use std::sync::Arc;
 use crate::database::SIGNATURES;
 use crate::error::Error;
 use crate::parser::Expr;
-use crate::preprocessor::SpannedRef;
 use crate::span::{Span, Spanned};
 use crate::types::*;
 
@@ -203,7 +202,7 @@ fn process_params_variable(param: &Expr, state: &mut State) {
 
 /// infers the type of a bynary expression by considering all possible options
 fn infer_unary(
-    name: &SpannedRef,
+    name: &Spanned<Arc<str>>,
     rhs: Option<Output>,
     errors: &mut Vec<Spanned<String>>,
 ) -> Option<Output> {
@@ -252,7 +251,7 @@ fn infer_unary(
 /// infers the type of a bynary expression by considering all possible options
 fn infer_binary(
     lhs: Option<Type>,
-    name: &SpannedRef,
+    name: &Spanned<Arc<str>>,
     rhs: Option<Type>,
     errors: &mut Vec<Spanned<String>>,
 ) -> Option<Output> {
@@ -424,7 +423,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 })
         }
         Expr::Binary(lhs, op, rhs) => {
-            if op.inner == "=" {
+            if op.inner.as_ref() == "=" {
                 infer_assign(lhs, rhs, state);
                 Some(Type::Nothing.into())
             } else {

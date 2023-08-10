@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 use crate::error::Error;
 use crate::preprocessor::iterator::MacroState;
@@ -8,9 +9,9 @@ use super::iterator::{Arguments, DefineState, State};
 use super::*;
 
 /// returns whether the token is consumed
-fn advance_state<B: AsRef<str>>(
+fn advance_state(
     define_state: &mut DefineState,
-    item: &Spanned<B>,
+    item: &Spanned<Arc<str>>,
     errors: &mut Vec<Error>,
 ) {
     let mut macro_state = &mut define_state.2;
@@ -55,7 +56,7 @@ fn advance_state<B: AsRef<str>>(
 }
 
 /// Returns whether the token is consumed by this update or not
-pub fn update<'a>(state: &mut State, item: &SpannedRef<'a>) -> bool {
+pub fn update(state: &mut State, item: &Spanned<Arc<str>>) -> bool {
     let consumed = update_(
         &mut state.other,
         &mut state.errors,
@@ -69,12 +70,12 @@ pub fn update<'a>(state: &mut State, item: &SpannedRef<'a>) -> bool {
 
 /// fills the stack with items based on the state and set of defines
 /// E.g. items ["A", "(", "1", ")"] will result in the stack with the body of macro A with corresponding replacement.
-pub fn update_<B: AsRef<str>>(
+pub fn update_(
     state: &mut Option<DefineState>,
     errors: &mut Vec<Error>,
     defines: &Defines,
-    item: &Spanned<B>,
-    stack: &mut VecDeque<Spanned<String>>,
+    item: &Spanned<Arc<str>>,
+    stack: &mut VecDeque<Spanned<Arc<str>>>,
 ) -> bool {
     if let Some(def) = state {
         advance_state(def, item, errors);
@@ -119,24 +120,24 @@ pub fn update_<B: AsRef<str>>(
 }
 
 /// re-writes tokens by concatenating tokens
-fn concat(tokens: &mut VecDeque<Spanned<String>>) {
-    if tokens.iter().any(|x| x.inner == "##") {
+fn concat(tokens: &mut VecDeque<Spanned<Arc<str>>>) {
+    if tokens.iter().any(|x| x.inner.as_ref() == "##") {
         // join tokens in pairs
         let mut merged = VecDeque::new();
         let mut next_merges = false;
         for token in tokens.iter_mut() {
-            if token.inner == "##" {
+            if token.inner.as_ref() == "##" {
                 next_merges = true;
             } else if next_merges {
                 if let Some(previous) = merged.back_mut() {
                     let Spanned { inner, .. } = previous;
-                    *inner = format!("{}{}", inner, token.inner);
+                    *inner = format!("{}{}", inner, token.inner).into();
                 } else {
-                    merged.push_back(std::mem::take(token))
+                    merged.push_back(token.clone())
                 }
                 next_merges = false;
             } else {
-                merged.push_back(std::mem::take(token))
+                merged.push_back(token.clone())
             }
         }
         *tokens = merged;
@@ -144,7 +145,7 @@ fn concat(tokens: &mut VecDeque<Spanned<String>>) {
 }
 
 /// Expands the arguments by evaluating macros inside them and replacing them
-fn expand_(tokens: &mut VecDeque<Spanned<String>>, defines: &Defines, errors: &mut Vec<Error>) {
+fn expand_(tokens: &mut VecDeque<Spanned<Arc<str>>>, defines: &Defines, errors: &mut Vec<Error>) {
     let taken_tokens = std::mem::take(tokens);
 
     let mut new_tokens = VecDeque::new();
@@ -165,32 +166,30 @@ fn expand(defines: &Defines, arguments: &mut Arguments, errors: &mut Vec<Error>)
     }
 }
 
-fn push_argument<B: AsRef<str>>(arguments: &mut Arguments, item: &Spanned<B>) {
+fn push_argument(arguments: &mut Arguments, item: &Spanned<Arc<str>>) {
     // get the top of the stack missing arguments
     if let Some(last) = arguments.last_mut() {
-        last.push_back(item.as_ref().map(|x| x.as_ref().to_string()))
+        last.push_back(item.clone())
     } else {
-        arguments.push(VecDeque::from([item
-            .as_ref()
-            .map(|x| x.as_ref().to_string())]))
+        arguments.push(VecDeque::from([item.clone()]))
     };
 }
 
-fn quote(tokens: &VecDeque<Spanned<String>>) -> String {
+fn quote(tokens: &VecDeque<Spanned<Arc<str>>>) -> Arc<str> {
     let mut quoted = String::new();
     quoted.push('\"');
     for token in tokens {
-        quoted.push_str(token.inner.as_str());
+        quoted.push_str(token.inner.as_ref());
     }
     quoted.push('\"');
-    quoted
+    quoted.into()
 }
 
 /// replaces all macro arguments by its corresponding arguments, quoting (# -> "") any argument accordingly
 fn replace_(
-    tokens: &mut VecDeque<Spanned<String>>,
-    define_arguments: &Option<Vec<Spanned<String>>>,
-    arguments: &[VecDeque<Spanned<String>>],
+    tokens: &mut VecDeque<Spanned<Arc<str>>>,
+    define_arguments: &Option<Vec<Spanned<Arc<str>>>>,
+    arguments: &[VecDeque<Spanned<Arc<str>>>],
 ) {
     let Some(args) = &define_arguments else {
         return;
@@ -201,13 +200,15 @@ fn replace_(
     let replace = |arg: &str| {
         args.iter()
             .zip(arguments.iter())
-            .find(|(key, _)| key.inner == arg)
+            .find(|(key, _)| key.inner.as_ref() == arg)
             .map(|x| x.1)
     };
 
-    let mut new_tokens: VecDeque<Spanned<String>> = Default::default();
+    let mut new_tokens: VecDeque<Spanned<Arc<str>>> = Default::default();
     for token in taken_tokens {
-        let is_quote = token.inner.starts_with('#') && token.inner != "##" && token.inner != "#";
+        let is_quote = token.inner.starts_with('#')
+            && token.inner.as_ref() != "##"
+            && token.inner.as_ref() != "#";
         let key = if is_quote {
             token.inner.get(1..).unwrap_or("")
         } else {
@@ -223,7 +224,7 @@ fn replace_(
                 new_tokens.extend(tokens.iter().cloned())
             }
         } else if is_quote {
-            new_tokens.push_back(token.as_ref().map(|s| format!("\"{s}\"")))
+            new_tokens.push_back(token.as_ref().map(|s| format!("\"{s}\"").into()))
         } else {
             new_tokens.push_back(token.clone())
         };

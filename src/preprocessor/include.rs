@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::error::Error;
 use crate::span::{Span, Spanned};
@@ -12,7 +13,7 @@ fn parse_file(
     content: String,
     state: &mut State,
     path: PathBuf,
-) -> Option<VecDeque<Spanned<String>>> {
+) -> Option<VecDeque<Spanned<Arc<str>>>> {
     // parse into VecDeque<Spanned<String>> due to no lifetime management
     let defines = std::mem::take(&mut state.defines);
 
@@ -35,7 +36,7 @@ fn parse_file(
         }
     };
 
-    let tokens = ast.by_ref().map(|x| x.map(|x| x.into_owned())).collect();
+    let tokens = ast.by_ref().collect();
     // collect errors and defines
     state.errors.extend(ast.state.errors);
     state.defines = ast.state.defines;
@@ -46,7 +47,7 @@ fn parse_file(
 pub fn process_include(
     name: &Spanned<&str>,
     state: &mut State,
-) -> Option<VecDeque<Spanned<String>>> {
+) -> Option<VecDeque<Spanned<Arc<str>>>> {
     if name.inner.starts_with("\\A3") || name.inner.starts_with("\\a3") {
         return None;
     };

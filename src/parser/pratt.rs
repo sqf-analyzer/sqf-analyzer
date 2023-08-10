@@ -1,14 +1,10 @@
 /// Inspired by https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
-use std::{collections::HashSet, iter::Peekable};
+use std::{collections::HashSet, iter::Peekable, sync::Arc};
 
 use super::Expr;
 
 use crate::{
-    database::SIGNATURES,
-    error::Error,
-    preprocessor::{AstIterator, SpannedRef},
-    span::Spanned,
-    types::Signature,
+    database::SIGNATURES, error::Error, preprocessor::AstIterator, span::Spanned, types::Signature,
 };
 
 lazy_static::lazy_static! {
@@ -51,18 +47,18 @@ fn to_lower_case(v: &str) -> String {
     v.to_ascii_lowercase()
 }
 
-fn atom_to_expr(token: SpannedRef) -> Expr {
+fn atom_to_expr(token: Spanned<Arc<str>>) -> Expr {
     NULLARY
         .contains(to_lower_case(token.inner.as_ref()).as_str())
         .then(|| Expr::Nullary(token.clone()))
         .or_else(|| {
             // bool
-            if token.inner == "true" {
+            if token.inner.as_ref() == "true" {
                 Some(Expr::Boolean(Spanned {
                     inner: true,
                     span: token.span,
                 }))
-            } else if token.inner == "false" {
+            } else if token.inner.as_ref() == "false" {
                 Some(Expr::Boolean(Spanned {
                     inner: false,
                     span: token.span,
@@ -112,10 +108,10 @@ fn _is_op(token: &str) -> bool {
         )
 }
 
-fn code<'a, I: Iterator<Item = SpannedRef<'a>>>(
+fn code<I: Iterator<Item = Spanned<Arc<str>>>>(
     iter: &mut Peekable<I>,
     errors: &mut Vec<Error>,
-) -> Vec<Expr<'a>> {
+) -> Vec<Expr> {
     let mut expressions = vec![];
     if matches(iter.peek(), "}") {
         return expressions;
@@ -140,10 +136,10 @@ fn code<'a, I: Iterator<Item = SpannedRef<'a>>>(
     expressions
 }
 
-fn array<'a, I: Iterator<Item = SpannedRef<'a>>>(
+fn array<I: Iterator<Item = Spanned<Arc<str>>>>(
     iter: &mut Peekable<I>,
     errors: &mut Vec<Error>,
-) -> Vec<Expr<'a>> {
+) -> Vec<Expr> {
     let mut expressions = vec![];
     if matches(iter.peek(), "]") {
         return expressions;
@@ -171,9 +167,9 @@ pub fn parse(mut iter: AstIterator) -> (Vec<Expr>, Vec<Error>) {
 }
 
 #[inline]
-fn matches(token: Option<&SpannedRef>, v: &str) -> bool {
+fn matches(token: Option<&Spanned<Arc<str>>>, v: &str) -> bool {
     if let Some(Spanned { inner, .. }) = token {
-        *inner == v
+        inner.as_ref() == v
     } else {
         false
     }
@@ -183,11 +179,11 @@ fn matches(token: Option<&SpannedRef>, v: &str) -> bool {
 /// 1. Reached end of file
 /// 2. Reached an operator with a binding power < min_bp
 /// 3. Reached a ";" or ","
-fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
+fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
     iter: &mut Peekable<I>,
     min_bp: u8,
     errors: &mut Vec<Error>,
-) -> Expr<'a> {
+) -> Expr {
     let mut lhs = match iter.next() {
         None => {
             errors.push(Error {
@@ -260,7 +256,7 @@ fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
         let op = match iter.peek() {
             None => break,
             Some(op) => {
-                if op.inner == ";" || op.inner == "," {
+                if op.inner.as_ref() == ";" || op.inner.as_ref() == "," {
                     break;
                 }
                 op.clone()
@@ -276,7 +272,7 @@ fn expr_bp<'a, I: Iterator<Item = SpannedRef<'a>>>(
             let rhs = expr_bp(iter, r_bp, errors);
             lhs = Expr::Binary(Box::new(lhs), op, Box::new(rhs));
             continue;
-        } else if op.inner == "}" || op.inner == "]" || op.inner == ")" {
+        } else if matches!(op.inner.as_ref(), "}" | "]" | ")") {
         } else {
             let error = match (op.inner.as_ref(), &lhs) {
                 ("(", Expr::Variable(v)) => Error {

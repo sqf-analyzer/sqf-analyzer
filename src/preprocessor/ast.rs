@@ -1,4 +1,7 @@
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+};
 
 use crate::span::Spanned;
 
@@ -7,15 +10,15 @@ use crate::span::Spanned;
 /// that have been opened with diferent lifetimes
 #[derive(Debug, Clone)]
 pub struct Define {
-    pub keyword: Spanned<String>,
-    pub name: Spanned<String>,
+    pub keyword: Spanned<Arc<str>>,
+    pub name: Spanned<Arc<str>>,
     // None => no arguments
     // Some => zero or more arguments
-    pub arguments: Option<Vec<Spanned<String>>>,
-    pub body: VecDeque<Spanned<String>>,
+    pub arguments: Option<Vec<Spanned<Arc<str>>>>,
+    pub body: VecDeque<Spanned<Arc<str>>>,
 }
 
-pub type Defines = HashMap<String, Define>;
+pub type Defines = HashMap<Arc<str>, Define>;
 
 /// The preprocessor's abstract syntatic tree (AST)
 #[derive(Debug, Clone)]

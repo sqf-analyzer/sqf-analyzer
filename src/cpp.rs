@@ -6,21 +6,21 @@ use std::sync::Arc;
 use crate::preprocessor;
 use crate::{
     error::Error,
-    preprocessor::{AstIterator, SpannedRef},
+    preprocessor::AstIterator,
     span::{Span, Spanned},
 };
 
 #[derive(Clone, Debug)]
-pub enum Expr<'a> {
+pub enum Expr {
     Number(Spanned<f32>),
-    String(SpannedRef<'a>),
-    Token(SpannedRef<'a>),
-    Code(Spanned<VecDeque<Expr<'a>>>),
-    Array(Spanned<VecDeque<Expr<'a>>>),
+    String(Spanned<Arc<str>>),
+    Token(Spanned<Arc<str>>),
+    Code(Spanned<VecDeque<Expr>>),
+    Array(Spanned<VecDeque<Expr>>),
     Nil(Span),
 }
 
-impl Expr<'_> {
+impl Expr {
     fn span(&self) -> Span {
         match self {
             Expr::Token(o) | Expr::String(o) => o.span,
@@ -31,10 +31,10 @@ impl Expr<'_> {
     }
 }
 
-fn code<'a, I: Iterator<Item = SpannedRef<'a>>>(
+fn code<I: Iterator<Item = Spanned<Arc<str>>>>(
     iter: &mut Peekable<I>,
     errors: &mut Vec<Error>,
-) -> VecDeque<Expr<'a>> {
+) -> VecDeque<Expr> {
     let mut expressions = Default::default();
     if matches(iter.peek(), "}") {
         return expressions;
@@ -54,17 +54,17 @@ fn code<'a, I: Iterator<Item = SpannedRef<'a>>>(
     expressions
 }
 
-fn expr<'a, I: Iterator<Item = SpannedRef<'a>>>(
+fn expr<I: Iterator<Item = Spanned<Arc<str>>>>(
     iter: &mut Peekable<I>,
     errors: &mut Vec<Error>,
-) -> Expr<'a> {
+) -> Expr {
     match iter.next() {
         None => {
             errors.push(Error {
                 inner: "Un-expected end of file".to_string(),
                 span: (0, 0),
             });
-            return Expr::Nil((0, 0));
+            Expr::Nil((0, 0))
         }
         Some(Spanned { inner, span }) => match inner.as_ref() {
             ";" => Expr::Code(Spanned {
@@ -118,10 +118,10 @@ fn parse(mut iter: AstIterator) -> (VecDeque<Expr>, Vec<Error>) {
     (expr, errors)
 }
 
-fn array<'a, I: Iterator<Item = SpannedRef<'a>>>(
+fn array<I: Iterator<Item = Spanned<Arc<str>>>>(
     iter: &mut Peekable<I>,
     errors: &mut Vec<Error>,
-) -> VecDeque<Expr<'a>> {
+) -> VecDeque<Expr> {
     let mut expressions = Default::default();
     if matches(iter.peek(), "]") {
         return expressions;
@@ -141,15 +141,15 @@ fn array<'a, I: Iterator<Item = SpannedRef<'a>>>(
 }
 
 #[inline]
-fn matches(token: Option<&SpannedRef>, v: &str) -> bool {
+fn matches(token: Option<&Spanned<Arc<str>>>, v: &str) -> bool {
     if let Some(Spanned { inner, .. }) = token {
-        *inner == v
+        inner.as_ref() == v
     } else {
         false
     }
 }
 
-fn token_to_expr(token: SpannedRef) -> Expr {
+fn token_to_expr(token: Spanned<Arc<str>>) -> Expr {
     let bytes = token.inner.as_bytes();
     if bytes.first() == Some(&b'"') && bytes.last() == Some(&b'"') {
         Expr::String(
@@ -359,7 +359,7 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
         return;
     };
 
-    if first.inner == "class" {
+    if first.inner.as_ref() == "class" {
         let name = expr.pop_front();
         let Some(Expr::Token(mut name)) = name else {
             errors.push(Error {

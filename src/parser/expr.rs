@@ -1,23 +1,22 @@
-use crate::{
-    preprocessor::SpannedRef,
-    span::{Span, Spanned},
-};
+use std::sync::Arc;
+
+use crate::span::{Span, Spanned};
 
 #[derive(Debug, Clone)]
-pub enum Expr<'a> {
-    String(SpannedRef<'a>),
+pub enum Expr {
+    String(Spanned<Arc<str>>),
     Number(Spanned<i64>),
-    Nullary(SpannedRef<'a>),
+    Nullary(Spanned<Arc<str>>),
     Boolean(Spanned<bool>),
-    Variable(SpannedRef<'a>),
-    Unary(SpannedRef<'a>, Box<Expr<'a>>),
-    Binary(Box<Expr<'a>>, SpannedRef<'a>, Box<Expr<'a>>),
-    Code(Spanned<Vec<Expr<'a>>>),
-    Array(Spanned<Vec<Expr<'a>>>),
+    Variable(Spanned<Arc<str>>),
+    Unary(Spanned<Arc<str>>, Box<Expr>),
+    Binary(Box<Expr>, Spanned<Arc<str>>, Box<Expr>),
+    Code(Spanned<Vec<Expr>>),
+    Array(Spanned<Vec<Expr>>),
     Nil(Span), // returned on error
 }
 
-impl<'a> Expr<'a> {
+impl Expr {
     pub fn span(&self) -> Span {
         match self {
             Self::String(a) => a.span,

@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::error::Error;
 use crate::span::Spanned;
@@ -14,7 +15,7 @@ pub struct AstIterator<'a> {
     pub state: State,
 }
 
-pub(super) type Arguments = Vec<VecDeque<Spanned<String>>>;
+pub(super) type Arguments = Vec<VecDeque<Spanned<Arc<str>>>>;
 
 pub(super) type DefineState = (Define, Arguments, Spanned<MacroState>);
 
@@ -24,7 +25,7 @@ pub struct State {
     // stack of processing macro call
     pub macro_stack: Vec<(Define, Arguments, Spanned<MacroState>)>,
     pub other: Option<DefineState>,
-    pub stack: VecDeque<Spanned<String>>,
+    pub stack: VecDeque<Spanned<Arc<str>>>,
     pub path: PathBuf,
     pub errors: Vec<Error>,
 }
@@ -32,7 +33,7 @@ pub struct State {
 fn evaluate_terms<'a>(
     terms: &mut VecDeque<Ast<'a>>,
     state: &mut State,
-) -> (bool, Option<SpannedRef<'a>>) {
+) -> (bool, Option<Spanned<Arc<str>>>) {
     let (has_more, item) = pop_stack(&mut state.stack);
     if item.is_some() {
         return (has_more, item);
@@ -89,7 +90,7 @@ pub enum MacroState {
 /// Examples:
 /// * comment: (false, None)
 /// * token: (false, Some(...))
-fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<SpannedRef<'a>>) {
+fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<Spanned<Arc<str>>>) {
     match ast {
         Ast::Ifndef(_, term, else_, then) | Ast::Ifdef(_, term, then, else_) => {
             if state.defines.contains_key(term.inner) {
@@ -129,15 +130,15 @@ fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<SpannedR
     }
 }
 
-fn pop_stack<'a>(stack: &mut VecDeque<Spanned<String>>) -> (bool, Option<SpannedRef<'a>>) {
+fn pop_stack(stack: &mut VecDeque<Spanned<Arc<str>>>) -> (bool, Option<Spanned<Arc<str>>>) {
     stack
         .pop_front()
-        .map(|x| (stack.is_empty(), Some(x.map(|x| x.into()))))
+        .map(|x| (stack.is_empty(), Some(x)))
         .unwrap_or((false, None))
 }
 
 // pulls a new item from terms, evaluating the different functions
-fn next<'a>(terms: &mut VecDeque<Ast<'a>>, state: &mut State) -> Option<SpannedRef<'a>> {
+fn next<'a>(terms: &mut VecDeque<Ast<'a>>, state: &mut State) -> Option<Spanned<Arc<str>>> {
     let (mut has_more, mut item) = evaluate_terms(terms, state);
     if let Some(may_line) = &item {
         if may_line.inner.as_ref() == "#line" {
@@ -185,7 +186,7 @@ impl<'a> AstIterator<'a> {
 }
 
 impl<'a> Iterator for AstIterator<'a> {
-    type Item = SpannedRef<'a>;
+    type Item = Spanned<Arc<str>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         next(&mut self.base, &mut self.state)

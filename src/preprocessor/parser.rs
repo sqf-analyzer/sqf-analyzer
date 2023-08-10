@@ -51,10 +51,6 @@ fn parse_if(pair: Pair<'_, Rule>) -> Ast<'_> {
     }
 }
 
-fn define_expr(x: Pair<'_, Rule>) -> Spanned<String> {
-    x.into()
-}
-
 fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
     match pair.as_rule() {
         Rule::if_ => parse_if(pair),
@@ -73,7 +69,7 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
             let (arguments, body) = if is_arguments {
                 let body = define
                     .filter(|x| x.as_rule() != Rule::EOI)
-                    .map(define_expr)
+                    .map(|x| x.into())
                     .collect();
 
                 let args = Some(args_or_body.into_inner().map(|x| x.into()).collect());
@@ -82,8 +78,12 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
             } else {
                 (
                     Default::default(),
-                    std::iter::once(define_expr(args_or_body))
-                        .chain(define.filter(|x| x.as_rule() != Rule::EOI).map(define_expr))
+                    std::iter::once(args_or_body.into())
+                        .chain(
+                            define
+                                .filter(|x| x.as_rule() != Rule::EOI)
+                                .map(|x| x.into()),
+                        )
                         .collect(),
                 )
             };
