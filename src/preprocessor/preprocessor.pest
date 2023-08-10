@@ -1,5 +1,5 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
-COMMENT    =  { ("//" ~ (!"\n" ~ ANY)*) | ("/*" ~ (!"*/" ~ ANY)* ~ "*/") }
+COMMENT    =  { ("//" ~ (!"\n" ~ ANY)*) | ("/*" ~ (!"*/" ~ ANY)* ~ "*/"?) }
 
 program = _{ SOI ~ term* ~ EOI }
 
@@ -24,7 +24,7 @@ base_term =  { string | word | number | symbol }
 
 // #include
 include_kw        =  { "#include" }
-include           = ${ include_kw ~ " " ~ include_str ~ end }
+include           = ${ include_kw ~ " " ~ include_str ~ " "* ~ (end | COMMENT) }
 include_str_inner = @{ (!("\"" | ">") ~ ANY)* }
 include_str       = _{ ("<" ~ include_str_inner ~ ">") | "\"" ~ include_str_inner ~ "\"" }
 

@@ -113,7 +113,8 @@ fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<SpannedR
             (false, None)
         }
         Ast::Include(_, name) => match process_include(name, state) {
-            Some(include) => {
+            Some(mut include) => {
+                include.iter_mut().for_each(|x| x.span = name.span);
                 state.stack = include;
                 pop_stack(&mut state.stack)
             }
