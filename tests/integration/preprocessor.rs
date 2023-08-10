@@ -348,6 +348,16 @@ fn exponent() {
 }
 
 #[test]
+fn number1() {
+    assert("10", vec!["10"]);
+    assert("10.0", vec!["10.0"]);
+    assert("1.0", vec!["1.0"]);
+    assert(".1", vec![".1"]);
+    assert("0.1", vec!["0.1"]);
+    assert(".65", vec![".65"]);
+}
+
+#[test]
 fn single_quoted() {
     assert("'a'", vec!["'a'"]);
 }

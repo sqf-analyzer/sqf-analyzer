@@ -239,7 +239,8 @@ fn infer_unary(
                     span: name.span,
                     inner: format!(
                         "\"{}\" does not support a rhs of type \"{:?}\"",
-                        name.inner, rhs
+                        name.inner,
+                        rhs.type_()
                     ),
                 });
                 None

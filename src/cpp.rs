@@ -315,6 +315,14 @@ fn _process_v<A: std::fmt::Display>(
                 return Some(process_version(expr, value));
             }
         }
+    } else if let Some(Expr::Number(_)) = expr.front() {
+        if let Some(Expr::Number(a)) = expr.pop_front() {
+            let value = Spanned::new(
+                Value::Version(format!("{v:.1}.{}", a.inner)),
+                (span.0, a.span.1),
+            );
+            return Some(process_version(expr, value));
+        }
     }
     None
 }
