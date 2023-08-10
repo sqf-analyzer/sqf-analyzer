@@ -23,6 +23,7 @@ fn basic_no_errors() {
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Anything,
+        has_default: false,
     }]);
 
     let state = parse_analyze(case);
@@ -55,12 +56,13 @@ fn with_default() {
             span: (9, 13),
             inner: "_a".to_string(),
         },
-        Some(Type::Anything.into()),
+        Some(Type::Boolean.into()),
         true,
     );
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
-        type_: Type::Anything,
+        type_: Type::Boolean,
+        has_default: true,
     }]);
 
     let state = parse_analyze(case);
@@ -84,6 +86,7 @@ fn with_default_and_type() {
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Boolean,
+        has_default: true,
     }]);
 
     let state = parse_analyze(case);
@@ -111,6 +114,7 @@ fn with_default_and_type_invalid_default() {
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Boolean,
+        has_default: true,
     }]);
 
     let state = parse_analyze(case);
@@ -134,6 +138,7 @@ fn with_two_types() {
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Anything,
+        has_default: true,
     }]);
 
     let state = parse_analyze(case);
@@ -157,6 +162,7 @@ fn basic_with_unknown_type() {
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Anything,
+        has_default: true,
     }]);
     expected.errors.push(Spanned {
         inner: "params' third argument's elements must be typed".to_string(),
@@ -185,6 +191,7 @@ fn with_code() {
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_callback".into(),
         type_: Type::Code,
+        has_default: true,
     }]);
 
     let state = parse_analyze(case);

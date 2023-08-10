@@ -13,6 +13,7 @@ use crate::types::*;
 pub struct Parameter {
     pub name: Arc<str>,
     pub type_: Type,
+    pub has_default: bool,
 }
 
 fn _build_binary() -> HashMap<&'static str, HashMap<(Type, Type), Type>> {
@@ -73,11 +74,12 @@ fn _is_private(v: &str) -> bool {
     v.as_bytes().first() == Some(&b'_')
 }
 
-fn process_param_variable(v: &str, span: Span, state: &mut State, type_: Type) {
+fn process_param_variable(v: &str, span: Span, state: &mut State, type_: Type, has_default: bool) {
     if _is_private(v) {
         let p = Parameter {
             name: v.into(),
             type_,
+            has_default,
         };
         let s = &mut state.namespace.stack.last_mut().unwrap().signature;
         if let Some(s) = s {
@@ -102,19 +104,7 @@ fn process_param_variable(v: &str, span: Span, state: &mut State, type_: Type) {
     }
 }
 
-fn process_param_types(
-    name: &str,
-    name_span: Span,
-    types: Option<&Expr>,
-    state: &mut State,
-) -> Option<Type> {
-    let types = if let Some(types) = types {
-        types
-    } else {
-        process_param_variable(name, name_span, state, Type::Anything);
-        return None;
-    };
-
+fn process_param_types(types: &Expr, state: &mut State) -> Option<Type> {
     let (types, span) = if let Expr::Array(expr) = &types {
         (expr, expr.span)
     } else {
@@ -146,7 +136,7 @@ fn process_param_types(
 
 fn process_params_variable(param: &Expr, state: &mut State) {
     if let Expr::String(v) = &param {
-        process_param_variable(&v.inner, param.span(), state, Type::Anything);
+        process_param_variable(&v.inner, param.span(), state, Type::Anything, false);
         return;
     }
 
@@ -185,14 +175,19 @@ fn process_params_variable(param: &Expr, state: &mut State) {
     };
 
     let Some(default) = default else {
-        process_param_variable(name, name_span, state, Type::Anything);
+        process_param_variable(name, name_span, state, Type::Anything, false);
         return;
     };
     let default_type = infer_type(default, state)
         .map(|x| x.type_())
         .unwrap_or(Type::Anything);
 
-    let Some(type_) = process_param_types(name, name_span, types, state) else {
+    let Some(types) = types else {
+        process_param_variable(name, name_span, state, default_type, true);
+        return;
+    };
+
+    let Some(type_) = process_param_types(types, state) else {
         return
     };
 
@@ -203,7 +198,7 @@ fn process_params_variable(param: &Expr, state: &mut State) {
         });
     }
 
-    process_param_variable(name, name_span, state, type_)
+    process_param_variable(name, name_span, state, type_, true)
 }
 
 /// infers the type of a bynary expression by considering all possible options
@@ -368,7 +363,9 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
 }
 
 fn process_parameters(lhs: &Spanned<Vec<Expr>>, parameters: &[Parameter], state: &mut State) {
-    if lhs.inner.len() != parameters.len() {
+    let required_args = parameters.iter().filter(|x| !x.has_default).count();
+
+    if lhs.inner.len() < required_args || lhs.inner.len() > parameters.len() {
         state.errors.push(Error {
             inner: format!(
                 "Function expects {} parameters, but received {}",

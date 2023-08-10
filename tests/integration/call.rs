@@ -43,6 +43,7 @@ fn call_annotate_ext() {
             Some(Output::Code(vec![Parameter {
                 name: "_a".into(),
                 type_: Type::Anything,
+                has_default: false,
             }])),
         ),
     );
@@ -52,4 +53,12 @@ fn call_annotate_ext() {
         HashMap::from([((9, 15), Origin::External("A_fn_a".to_string().into()))])
     );
     assert_eq!(state.parameters, HashMap::from([((1, 2), "_a".into())]));
+}
+
+#[test]
+fn used_default_arg() {
+    let case = r#"private _a = {params ["_a", ["_b", []]]}; [1] call _a;"#;
+
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
 }

@@ -201,13 +201,6 @@ class CfgPatches {
 };
 "#;
     let iter = tokens(case, Default::default(), Default::default()).unwrap();
-    println!(
-        "{:?}",
-        iter.clone()
-            .into_iter()
-            .map(|x| x.inner)
-            .collect::<Vec<_>>()
-    );
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);

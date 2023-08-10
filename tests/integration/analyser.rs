@@ -164,11 +164,13 @@ fn infer_example1() {
         Some(&vec![
             Parameter {
                 name: "_arguments".into(),
-                type_: Type::Anything
+                type_: Type::Anything,
+                has_default: false,
             },
             Parameter {
                 name: "_isGlobal".into(),
                 type_: Type::Anything,
+                has_default: false,
             }
         ])
     );
@@ -193,10 +195,12 @@ fn infer_example3() {
                 Parameter {
                     name: "_arguments".into(),
                     type_: Type::Anything,
+                    has_default: false,
                 },
                 Parameter {
                     name: "_isGlobal".into(),
                     type_: Type::Anything,
+                    has_default: false,
                 },
             ])),
         ),
