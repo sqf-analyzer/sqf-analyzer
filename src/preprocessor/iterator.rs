@@ -16,11 +16,14 @@ pub struct AstIterator<'a> {
 
 pub(super) type Arguments = Vec<VecDeque<Spanned<String>>>;
 
+pub(super) type DefineState = (Define, Arguments, Spanned<MacroState>);
+
 #[derive(Debug, Clone)]
 pub struct State {
     pub defines: Defines,
     // stack of processing macro call
     pub macro_stack: Vec<(Define, Arguments, Spanned<MacroState>)>,
+    pub other: Option<DefineState>,
     pub stack: VecDeque<Spanned<String>>,
     pub path: PathBuf,
     pub errors: Vec<Error>,
@@ -154,7 +157,7 @@ fn next<'a>(terms: &mut VecDeque<Ast<'a>>, state: &mut State) -> Option<SpannedR
         (false, Some(item)) => item,
     };
 
-    if let Some(()) = define::update(state, &item) {
+    if define::update(state, &item) {
         // token consumed, take next
         return next(terms, state);
     }
@@ -172,6 +175,7 @@ impl<'a> AstIterator<'a> {
             state: State {
                 defines,
                 path,
+                other: None,
                 macro_stack: vec![],
                 stack: Default::default(),
                 errors: Default::default(),

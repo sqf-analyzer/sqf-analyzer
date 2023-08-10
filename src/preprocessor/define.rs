@@ -2,73 +2,38 @@ use std::collections::VecDeque;
 
 use crate::error::Error;
 use crate::preprocessor::iterator::MacroState;
-use crate::span::{Span, Spanned};
+use crate::span::Spanned;
 
-use super::iterator::{Arguments, State};
+use super::iterator::{Arguments, DefineState, State};
 use super::*;
 
-pub fn update<'a>(state: &mut State, item: &SpannedRef<'a>) -> Option<()> {
-    if let Some(define) = state.defines.get(item.inner.as_ref()) {
-        // start of the state machine
-        if define.arguments.is_none() {
-            state.stack.clear();
-            evaluate(
-                &mut define.clone(),
-                item.span,
-                &[],
-                &state.defines,
-                &mut state.errors,
-                &mut state.stack,
-            );
-        } else {
-            // there is a define with this token => push it to the stack
-            state.macro_stack.push((
-                define.clone(),
-                vec![],
-                Spanned::new(MacroState::ParenthesisStart, item.span),
-            ));
-        }
-
-        return Some(());
-    }
-
-    // if no macro being operated on, continue
-    let Some((define, arguments, macro_state)) = state.macro_stack.last_mut() else {
-        return None;
-    };
-
+/// returns whether the token is consumed
+fn advance_state<B: AsRef<str>>(
+    define_state: &mut DefineState,
+    item: &Spanned<B>,
+    errors: &mut Vec<Error>,
+) {
+    let mut macro_state = &mut define_state.2;
     match (macro_state.inner, item.inner.as_ref()) {
         (MacroState::Argument(0), ")") => {
             // end state
             macro_state.inner = MacroState::None;
             macro_state.span.1 += item.span.1 - item.span.0;
-            // evaluate define and push it to the stack
-            state.stack.clear();
-            evaluate(
-                define,
-                macro_state.span,
-                arguments,
-                &state.defines,
-                &mut state.errors,
-                &mut state.stack,
-            );
-            macro_state.span = (0, 0);
-            state.macro_stack.pop();
-            Some(())
         }
         // start state
-        (MacroState::ParenthesisStart, _) => {
+        (MacroState::ParenthesisStart, "(") => {
             macro_state.inner = MacroState::Argument(0);
             macro_state.span.1 += item.span.1 - item.span.0;
-            Some(())
         }
-        (MacroState::Argument(_), ",") => {
-            arguments.push(Default::default());
+        (MacroState::ParenthesisStart, _) => {
+            todo!()
+        }
+        (MacroState::Argument(0), ",") => {
+            define_state.1.push(Default::default());
             macro_state.span.1 += item.span.1 - item.span.0;
-            Some(())
         }
         (MacroState::Argument(other), v) => {
-            push_argument(arguments, item);
+            push_argument(&mut define_state.1, item);
             macro_state.span.1 += item.span.1 - item.span.0;
             if v == "(" {
                 macro_state.inner = MacroState::Argument(other + 1)
@@ -76,28 +41,138 @@ pub fn update<'a>(state: &mut State, item: &SpannedRef<'a>) -> Option<()> {
             if v == ")" {
                 macro_state.inner = MacroState::Argument(other - 1)
             };
-            Some(())
         }
         (MacroState::None, _) => {
-            state.errors.push(Error {
+            errors.push(Error {
                 inner: format!(
                     "Token {} un-expected while parsing macro arguments",
                     item.inner.as_ref()
                 ),
                 span: item.span,
             });
-            None // assumed - unknown correct behavior due to errro
         }
     }
 }
 
-fn push_argument<'a>(arguments: &mut Arguments, item: &SpannedRef<'a>) {
-    // get the top of the stack missing arguments
+/// Returns whether the token is consumed by this update or not
+pub fn update<'a>(state: &mut State, item: &SpannedRef<'a>) -> bool {
+    let consumed = update_(
+        &mut state.other,
+        &mut state.errors,
+        &state.defines,
+        item,
+        &mut state.stack,
+    );
+    concat(&mut state.stack);
+    consumed
+}
 
+/// fills the stack with items based on the state and set of defines
+/// E.g. items ["A", "(", "1", ")"] will result in the stack with the body of macro A with corresponding replacement.
+pub fn update_<B: AsRef<str>>(
+    state: &mut Option<DefineState>,
+    errors: &mut Vec<Error>,
+    defines: &Defines,
+    item: &Spanned<B>,
+    stack: &mut VecDeque<Spanned<String>>,
+) -> bool {
+    if let Some(def) = state {
+        advance_state(def, item, errors);
+        if def.2.inner == MacroState::None {
+            let (mut define, mut arguments, state) = std::mem::take(state).unwrap();
+            // expand each of the arguments of the macro with other macro calls
+            expand(defines, &mut arguments, errors);
+
+            // replace arguments of define in its body
+            replace_(&mut define.body, &define.arguments, &arguments);
+
+            // expand the body with other macro calls
+            expand_(&mut define.body, defines, errors);
+
+            define.body.iter_mut().for_each(|x| x.span = state.span);
+
+            stack.extend(define.body);
+        }
+        return true; // we consume all tokens until we are done
+    };
+
+    if let Some(define) = defines.get(item.inner.as_ref()) {
+        if define.arguments.is_none() {
+            let mut tokens = define.body.clone();
+            expand_(&mut tokens, defines, errors);
+
+            tokens.iter_mut().for_each(|x| x.span = item.span);
+
+            stack.extend(tokens);
+        } else {
+            // enter the start of a define
+            *state = Some((
+                define.clone(),
+                Default::default(),
+                Spanned::new(MacroState::ParenthesisStart, define.keyword.span),
+            ));
+        }
+
+        return true; // we consumed the macro token
+    };
+    false
+}
+
+/// re-writes tokens by concatenating tokens
+fn concat(tokens: &mut VecDeque<Spanned<String>>) {
+    if tokens.iter().any(|x| x.inner == "##") {
+        // join tokens in pairs
+        let mut merged = VecDeque::new();
+        let mut next_merges = false;
+        for token in tokens.iter_mut() {
+            if token.inner == "##" {
+                next_merges = true;
+            } else if next_merges {
+                if let Some(previous) = merged.back_mut() {
+                    let Spanned { inner, .. } = previous;
+                    *inner = format!("{}{}", inner, token.inner);
+                } else {
+                    merged.push_back(std::mem::take(token))
+                }
+                next_merges = false;
+            } else {
+                merged.push_back(std::mem::take(token))
+            }
+        }
+        *tokens = merged;
+    };
+}
+
+/// Expands the arguments by evaluating macros inside them and replacing them
+fn expand_(tokens: &mut VecDeque<Spanned<String>>, defines: &Defines, errors: &mut Vec<Error>) {
+    let taken_tokens = std::mem::take(tokens);
+
+    let mut new_tokens = VecDeque::new();
+    let mut state = None;
+    for token in taken_tokens {
+        if !update_(&mut state, errors, defines, &token, &mut new_tokens) {
+            new_tokens.push_back(token)
+        }
+    }
+    *tokens = new_tokens;
+}
+
+/// Expands the arguments by evaluating macros inside them.
+fn expand(defines: &Defines, arguments: &mut Arguments, errors: &mut Vec<Error>) {
+    for argument in arguments {
+        expand_(argument, defines, errors);
+        concat(argument);
+    }
+}
+
+fn push_argument<B: AsRef<str>>(arguments: &mut Arguments, item: &Spanned<B>) {
+    // get the top of the stack missing arguments
     if let Some(last) = arguments.last_mut() {
-        last.push_back(item.clone().map(|x| x.to_string()))
+        last.push_back(item.as_ref().map(|x| x.as_ref().to_string()))
     } else {
-        arguments.push(VecDeque::from([item.clone().map(|x| x.to_string())]))
+        arguments.push(VecDeque::from([item
+            .as_ref()
+            .map(|x| x.as_ref().to_string())]))
     };
 }
 
@@ -111,23 +186,27 @@ fn quote(tokens: &VecDeque<Spanned<String>>) -> String {
     quoted
 }
 
-/// replaces all define arguments by arguments
-fn replace(
-    define_arguments: &[Spanned<String>],
+/// replaces all macro arguments by its corresponding arguments, quoting (# -> "") any argument accordingly
+fn replace_(
+    tokens: &mut VecDeque<Spanned<String>>,
+    define_arguments: &Option<Vec<Spanned<String>>>,
     arguments: &[VecDeque<Spanned<String>>],
-    tokens: VecDeque<Spanned<String>>,
-) -> VecDeque<Spanned<String>> {
+) {
+    let Some(args) = &define_arguments else {
+        return;
+    };
+    let taken_tokens = std::mem::take(tokens);
+
     // todo : check number of arguments is the same
     let replace = |arg: &str| {
-        define_arguments
-            .iter()
+        args.iter()
             .zip(arguments.iter())
             .find(|(key, _)| key.inner == arg)
             .map(|x| x.1)
     };
 
     let mut new_tokens: VecDeque<Spanned<String>> = Default::default();
-    for token in tokens {
+    for token in taken_tokens {
         let is_quote = token.inner.starts_with('#') && token.inner != "##" && token.inner != "#";
         let key = if is_quote {
             token.inner.get(1..).unwrap_or("")
@@ -144,138 +223,11 @@ fn replace(
                 new_tokens.extend(tokens.iter().cloned())
             }
         } else if is_quote {
-            new_tokens.push_back(token.map(|s| format!("\"{s}\"")))
+            new_tokens.push_back(token.as_ref().map(|s| format!("\"{s}\"")))
         } else {
-            new_tokens.push_back(token)
+            new_tokens.push_back(token.clone())
         };
     }
 
-    new_tokens
-}
-
-fn evaluate(
-    define: &mut Define,
-    span: Span,
-    arguments: &[VecDeque<Spanned<String>>],
-    defines: &Defines,
-    errors: &mut Vec<Error>,
-    new_tokens: &mut VecDeque<Spanned<String>>,
-) {
-    let body = std::mem::take(&mut define.body);
-
-    let body = if let Some(define_arguments) = &define.arguments {
-        replace(define_arguments, arguments, body)
-    } else {
-        body
-    };
-
-    let mut tokens = body.into_iter();
-
-    while let Some(item) = tokens.next() {
-        if let Some(new_define) = defines.get(item.inner.as_str()) {
-            let arguments = if new_define.arguments.is_some() {
-                get_arguments(&mut tokens, defines, errors)
-            } else {
-                vec![]
-            };
-
-            evaluate(
-                &mut new_define.clone(),
-                span,
-                &arguments,
-                defines,
-                errors,
-                new_tokens,
-            );
-        } else {
-            new_tokens.push_back(item)
-        }
-    }
-
-    if new_tokens.iter().any(|x| x.inner == "##") {
-        // join tokens in pairs
-        let mut merged = VecDeque::new();
-        let mut next_merges = false;
-        for token in new_tokens.iter_mut() {
-            if token.inner == "##" {
-                next_merges = true;
-            } else if next_merges {
-                if let Some(previous) = merged.back_mut() {
-                    let Spanned { inner, .. } = previous;
-                    *inner = format!("{}{}", inner, token.inner);
-                } else {
-                    merged.push_back(std::mem::take(token))
-                }
-                next_merges = false;
-            } else {
-                merged.push_back(std::mem::take(token))
-            }
-        }
-        *new_tokens = merged;
-    };
-
-    new_tokens.iter_mut().for_each(|t| t.span = span);
-}
-
-fn get_arguments(
-    tokens: &mut impl Iterator<Item = Spanned<String>>,
-    defines: &Defines,
-    errors: &mut Vec<Error>,
-) -> Vec<VecDeque<Spanned<String>>> {
-    use MacroState::*;
-    let mut state = ParenthesisStart;
-    let mut arguments = vec![];
-    while let Some(item) = tokens.next() {
-        match (state, item.inner.as_str()) {
-            (Argument(0), ")") => {
-                break;
-            }
-            (ParenthesisStart, "(") => {
-                // start state
-                state = Argument(0);
-                arguments.push(Default::default());
-            }
-            (Argument(i), ",") => {
-                arguments.push(Default::default());
-                state = Argument(i);
-            }
-            (Argument(other), name) => {
-                if let Some(new_define) = defines.get(name) {
-                    let define_arguments = if new_define.arguments.is_some() {
-                        get_arguments(tokens, defines, errors)
-                    } else {
-                        vec![]
-                    };
-
-                    evaluate(
-                        &mut new_define.clone(),
-                        (0, 0),
-                        &define_arguments,
-                        defines,
-                        errors,
-                        arguments.last_mut().unwrap(),
-                    )
-                    // evaluate define and push into arguments
-                } else {
-                    if item.inner == "(" {
-                        state = Argument(other + 1);
-                    }
-                    if item.inner == ")" {
-                        state = Argument(other - 1);
-                    }
-                    arguments.last_mut().unwrap().push_back(item);
-                }
-            }
-            _ => {
-                errors.push(Error {
-                    inner: format!(
-                        "Un-expected token {} while parsing macro arguments",
-                        item.inner.as_str()
-                    ),
-                    span: item.span,
-                });
-            }
-        }
-    }
-    arguments
+    *tokens = new_tokens;
 }
