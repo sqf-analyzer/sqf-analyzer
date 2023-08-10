@@ -361,21 +361,54 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
 
     if first.inner == "class" {
         let name = expr.pop_front();
-        let body = expr.pop_front();
-        let Some(Expr::Token(name)) = name else {
+        let Some(Expr::Token(mut name)) = name else {
             errors.push(Error {
                 inner: "class requires a name".to_string(),
                 span: first.span,
             });
             return
         };
-        let Some(Expr::Code(mut body)) = body else {
-            errors.push(Error {
-                inner: "class requires a body".to_string(),
-                span: first.span,
-            });
-            return
+        let body = expr.pop_front();
+        let mut body = match body {
+            Some(Expr::Code(body)) => body,
+            Some(Expr::Token(other)) => {
+                if matches(Some(&other), ":") {
+                    let Some(Expr::Token(n)) = expr.pop_front() else {
+                        errors.push(Error {
+                            inner: "class subclass requires a name".to_string(),
+                            span: first.span,
+                        });
+                        return;
+                    };
+                    name = n;
+                    let body = expr.pop_front();
+                    match body {
+                        Some(Expr::Code(body)) => body,
+                        _ => {
+                            errors.push(Error {
+                                inner: "class requires a body".to_string(),
+                                span: first.span,
+                            });
+                            return;
+                        }
+                    }
+                } else {
+                    errors.push(Error {
+                        inner: "class requires a body".to_string(),
+                        span: first.span,
+                    });
+                    return;
+                }
+            }
+            _ => {
+                errors.push(Error {
+                    inner: "class requires a body".to_string(),
+                    span: first.span,
+                });
+                return;
+            }
         };
+
         state.namespace.push(name.map(|x| x.to_string()));
         state.namespaces.push(state.namespace.clone().into());
         while !body.inner.is_empty() {
@@ -423,13 +456,18 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
 /// retrieve the list of function names and corresponding paths in the addon
 pub fn analyze_addon(mut directory: PathBuf) -> Result<(Functions, Vec<Error>), String> {
     directory.push("config.cpp");
+    analyze_file(directory)
+}
 
-    let Ok(content) = std::fs::read_to_string(directory.clone()) else {
-        return Err(format!("File \"{directory:?}\" not found"))
+/// Given a directory, it tries to open the file "config.cpp" and
+/// retrieve the list of function names and corresponding paths in the addon
+pub fn analyze_file(path: PathBuf) -> Result<(Functions, Vec<Error>), String> {
+    let Ok(content) = std::fs::read_to_string(path.clone()) else {
+        return Err(format!("File \"{path:?}\" not found"))
     };
 
     // it is an addon, parse the config.cpp to fetch list of functions
 
-    let iter = preprocessor::tokens(&content, Default::default(), directory).unwrap();
+    let iter = preprocessor::tokens(&content, Default::default(), path).unwrap();
     Ok(analyze(iter))
 }

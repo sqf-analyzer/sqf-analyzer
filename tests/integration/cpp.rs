@@ -17,6 +17,17 @@ class CfgFunctions {};
 }
 
 #[test]
+fn subclass() {
+    let case = r#"
+class CfgFunctions : A {};
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (functions, errors) = analyze(iter);
+    assert!(functions.is_empty());
+    assert_eq!(errors, vec![]);
+}
+
+#[test]
 fn general() {
     // https://community.bistudio.com/wiki/Arma_3:_Functions_Library
     let case = r#"

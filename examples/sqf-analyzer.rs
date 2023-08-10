@@ -18,14 +18,32 @@ fn main() {
                 .value_parser(value_parser!(PathBuf)),
         )
         .arg(
-            arg!(--file <file_path>)
-                .id("file")
+            arg!(--sqf <file_path>)
+                .id("sqf")
+                .value_parser(value_parser!(PathBuf)),
+        )
+        .arg(
+            arg!(--config <file_path>)
+                .id("config")
                 .value_parser(value_parser!(PathBuf)),
         )
         .get_matches();
 
-    if let Some(path) = matches.get_one::<PathBuf>("file") {
+    if let Some(path) = matches.get_one::<PathBuf>("sqf") {
         let errors = sqf::check(path);
+        if !errors.is_empty() {
+            print_errors(errors, path)
+        }
+    }
+
+    if let Some(path) = matches.get_one::<PathBuf>("config") {
+        let (_, errors) = match cpp::analyze_file(path.clone()) {
+            Ok((functions, errors)) => (functions, errors),
+            Err(error) => {
+                println!("{error}");
+                return;
+            }
+        };
         if !errors.is_empty() {
             print_errors(errors, path)
         }
