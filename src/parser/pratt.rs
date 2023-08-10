@@ -303,7 +303,7 @@ fn prefix_binding_power(op: &str) -> Option<((), u8)> {
     let op = op.as_str();
 
     if UNARY.contains(op) {
-        // https://foxhound.international/precedence-arma-3-sqf.html
+        // https://community.bistudio.com/wiki/Operators#Order_of_Precedence
         Some(((), 50))
     } else {
         None
@@ -314,7 +314,7 @@ fn infix_binding_power(op: &str) -> Option<(u8, u8)> {
     let op = op.to_owned().to_lowercase();
     let op = op.as_str();
 
-    // https://foxhound.international/precedence-arma-3-sqf.html
+    // https://community.bistudio.com/wiki/Operators#Order_of_Precedence
     let res = match op {
         ";" => (1, 2),
         "=" => (19, 20), // assign op has the least binding power
@@ -326,6 +326,7 @@ fn infix_binding_power(op: &str) -> Option<(u8, u8)> {
         "+" | "-" | "max" | "min" => (31, 32),
         "*" | "/" | "%" | "mod" | "atan2" => (33, 34),
         "^" => (34, 35),
+        "#" => (36, 37),
         _ => {
             if !BINARY.contains(op) {
                 return None;

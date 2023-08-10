@@ -72,17 +72,17 @@ fn print_errors(mut errors: Vec<Error>, path: &Path) {
 
     let mut current: Span = Default::default();
 
-    let mut opened = HashMap::<&str, Position>::default();
+    let mut opened = HashMap::<sqf::span::Span, Position>::default();
 
     for (i, c) in buffer.iter().enumerate() {
         let c = c.unwrap();
         current.push(c, &metrics);
         for error in &errors {
             if i == error.span.0 {
-                opened.insert(error.inner.as_str(), current.last());
+                opened.insert(error.span, current.last());
             }
             if i == error.span.1.saturating_sub(1) {
-                let start = opened.remove(error.inner.as_str()).unwrap();
+                let start = opened.remove(&error.span).unwrap();
                 let span = Span::new(start, current.last(), current.end());
                 fmt.add(
                     span,
