@@ -383,3 +383,9 @@ fn macro_arg_with_parenthesis() {
 "#;
     assert(case, vec!["{", "}"]);
 }
+
+#[test]
+fn include_a3() {
+    let case = r#"#include "\A3\Ui_f\hpp\defineResinclDesign.inc""#;
+    assert(case, vec![]);
+}

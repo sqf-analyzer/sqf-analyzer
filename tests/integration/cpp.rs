@@ -17,6 +17,18 @@ class CfgFunctions {};
 }
 
 #[test]
+fn start_with_number() {
+    let case = r#"
+    class 3CBF_TKC {};
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    println!("{:?}", iter.clone().collect::<Vec<_>>());
+    let (functions, errors) = analyze(iter);
+    assert!(functions.is_empty());
+    assert_eq!(errors, vec![]);
+}
+
+#[test]
 fn subclass() {
     let case = r#"
 class CfgFunctions : A {};

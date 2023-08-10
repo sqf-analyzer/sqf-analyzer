@@ -47,6 +47,9 @@ pub fn process_include(
     name: &Spanned<&str>,
     state: &mut State,
 ) -> Option<VecDeque<Spanned<String>>> {
+    if name.inner.starts_with("\\A3") || name.inner.starts_with("\\a3") {
+        return None;
+    };
     let path = build_path(state.path.clone(), name.inner);
 
     match std::fs::read_to_string(path.clone()) {

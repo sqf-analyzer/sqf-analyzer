@@ -468,6 +468,6 @@ pub fn analyze_file(path: PathBuf) -> Result<(Functions, Vec<Error>), String> {
 
     // it is an addon, parse the config.cpp to fetch list of functions
 
-    let iter = preprocessor::tokens(&content, Default::default(), path).unwrap();
+    let iter = preprocessor::tokens(&content, Default::default(), path).map_err(|e| e.1.inner)?;
     Ok(analyze(iter))
 }
