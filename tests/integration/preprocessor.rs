@@ -452,3 +452,15 @@ fn if_has_include() {
 "#;
     assert(case, vec![]);
 }
+
+#[test]
+fn ifndef_def() {
+    let case = r#"
+#ifndef A
+#define A 1
+#endif
+
+A
+"#;
+    assert(case, vec!["1"]);
+}

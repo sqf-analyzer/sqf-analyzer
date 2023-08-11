@@ -289,6 +289,16 @@ fn to_value(expr: Expr, errors: &mut Vec<Error>) -> Option<Spanned<Value>> {
                     .collect(),
             )
         })),
+        Expr::Token(a) => {
+            errors.push(Error {
+                inner: format!(
+                    "Unexpected assignment to \"{}\" (undefined macro?)",
+                    a.inner.as_ref()
+                ),
+                span: a.span,
+            });
+            None
+        }
         _ => {
             errors.push(Error {
                 inner: "Unexpected token".to_string(),

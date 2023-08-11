@@ -102,8 +102,14 @@ fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<Spanned<
     match ast {
         Ast::Ifndef(IfDefined {
             term, else_, then, ..
-        })
-        | Ast::Ifdef(IfDefined {
+        }) => {
+            if !state.defines.contains_key(term.inner) {
+                evaluate_terms(then, state)
+            } else {
+                evaluate_terms(else_, state)
+            }
+        }
+        Ast::Ifdef(IfDefined {
             term, then, else_, ..
         }) => {
             if state.defines.contains_key(term.inner) {
