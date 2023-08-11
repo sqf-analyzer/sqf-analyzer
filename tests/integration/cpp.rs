@@ -17,6 +17,40 @@ class CfgFunctions {};
 }
 
 #[test]
+fn with_expressions() {
+    let case = r#"
+    class set_params {
+        idd=-1;
+        movingenable=false;
+    
+        class controls {
+            class HQ_frame: A3A_core_BattleMenuFrame
+            {
+                x = 0.254979 * safezoneW + safezoneX;
+                y = 0.233941 * safezoneH + safezoneY;
+            };
+        };
+};
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (functions, errors) = analyze(iter);
+    assert!(functions.is_empty());
+    assert_eq!(errors, vec![]);
+}
+
+#[test]
+fn debug() {
+    let case = r#"
+    class flag_NATO;
+    class a3a_flag_cdf: flag_NATO {};
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (functions, errors) = analyze(iter);
+    assert!(functions.is_empty());
+    assert_eq!(errors, vec![]);
+}
+
+#[test]
 fn start_with_number() {
     let case = r#"
     class 3CBF_TKC {};

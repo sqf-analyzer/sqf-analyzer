@@ -260,7 +260,7 @@ fn infer_binary(
     let Some(options) = BINARY.get(lower.as_str()) else {
         errors.push(Spanned {
             span: name.span,
-            inner: format!("No binary operator named \"{}\"", name.inner),
+            inner: format!("\"{}\" is not a binnary operator", name.inner),
         });
         return None;
     };
@@ -305,7 +305,7 @@ fn infer_binary(
                     errors.push(Spanned {
                         span: name.span,
                         inner: format!(
-                            "No binary operator named \"{}\" with lhs of type \"{:?}\"",
+                            "\"{}\" does not support a left side of type \"{:?}\"",
                             name.inner, lhs
                         ),
                     });

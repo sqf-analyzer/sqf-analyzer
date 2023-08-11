@@ -426,28 +426,33 @@ fn process_subclass(
     state: &mut State,
     errors: &mut Vec<Error>,
 ) {
-    if matches!(expr.front(), Some(Expr::Token(_))) {
-        let Some(Expr::Token(colon)) = expr.pop_front() else {
-            unreachable!()
-        };
-        if colon.inner.as_ref() != ":" {
-            errors.push(Error {
-                inner: "subclass requires a colon".to_string(),
-                span: colon.span,
-            });
-            return;
-        }
+    let Some(Expr::Token(colon)) = expr.front() else {
+        process_body(name, expr, state, errors);
+        return
+    };
+    if colon.inner.as_ref() != ":" {
+        process_body(name, expr, state, errors);
+        return;
+    }
+    expr.pop_front();
+    let Some(Expr::Token(name)) = expr.pop_front() else {
+        errors.push(Error {
+            inner: "subclass requires a name".to_string(),
+            span: name.span,
+        });
+        return
+    };
+    process_body(name, expr, state, errors)
+}
 
-        let Some(Expr::Token(name)) = expr.pop_front() else {
-            errors.push(Error {
-                inner: "subclass requires a name".to_string(),
-                span: name.span,
-            });
-            return
-        };
-        process_body(name, expr, state, errors)
-    } else {
-        process_body(name, expr, state, errors)
+fn skip_until(expr: &mut VecDeque<Expr>, tokens: [&str; 2]) {
+    while !expr.is_empty() {
+        if let Some(Expr::Token(first)) = expr.front() {
+            if first.inner.as_ref() == tokens[0] || first.inner.as_ref() == tokens[1] {
+                return;
+            }
+        }
+        expr.pop_front();
     }
 }
 
@@ -501,6 +506,7 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
             }
         };
     }
+    skip_until(expr, [";", "class"]);
 }
 
 /// Given a directory, it tries to open the file "config.cpp" and
