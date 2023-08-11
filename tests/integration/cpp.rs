@@ -72,6 +72,28 @@ class CfgFunctions : A {};
 }
 
 #[test]
+fn empty_class() {
+    let case = r#"
+class A;
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (functions, errors) = analyze(iter);
+    assert!(functions.is_empty());
+    assert_eq!(errors, vec![]);
+}
+
+#[test]
+fn empty_subclass() {
+    let case = r#"
+class A: B;
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (functions, errors) = analyze(iter);
+    assert!(functions.is_empty());
+    assert_eq!(errors, vec![]);
+}
+
+#[test]
 fn general() {
     // https://community.bistudio.com/wiki/Arma_3:_Functions_Library
     let case = r#"

@@ -401,6 +401,56 @@ fn process_value(
     Some(value)
 }
 
+fn process_body(
+    name: Spanned<Arc<str>>,
+    expr: &mut VecDeque<Expr>,
+    state: &mut State,
+    errors: &mut Vec<Error>,
+) {
+    if matches!(expr.front(), Some(Expr::Code(_))) {
+        let Some(Expr::Code(mut body)) = expr.pop_front() else {
+            unreachable!()
+        };
+        state.namespace.push(name.map(|x| x.to_string()));
+        state.namespaces.push(state.namespace.clone().into());
+        while !body.inner.is_empty() {
+            process_code(&mut body.inner, state, errors);
+        }
+        state.namespace.pop();
+    }
+}
+
+fn process_subclass(
+    name: Spanned<Arc<str>>,
+    expr: &mut VecDeque<Expr>,
+    state: &mut State,
+    errors: &mut Vec<Error>,
+) {
+    if matches!(expr.front(), Some(Expr::Token(_))) {
+        let Some(Expr::Token(colon)) = expr.pop_front() else {
+            unreachable!()
+        };
+        if colon.inner.as_ref() != ":" {
+            errors.push(Error {
+                inner: "subclass requires a colon".to_string(),
+                span: colon.span,
+            });
+            return;
+        }
+
+        let Some(Expr::Token(name)) = expr.pop_front() else {
+            errors.push(Error {
+                inner: "subclass requires a name".to_string(),
+                span: name.span,
+            });
+            return
+        };
+        process_body(name, expr, state, errors)
+    } else {
+        process_body(name, expr, state, errors)
+    }
+}
+
 fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<Error>) {
     let first = expr.pop_front();
 
@@ -418,60 +468,14 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
 
     if first.inner.as_ref() == "class" {
         let name = expr.pop_front();
-        let Some(Expr::Token(mut name)) = name else {
+        let Some(Expr::Token(name)) = name else {
             errors.push(Error {
                 inner: "class requires a name".to_string(),
                 span: first.span,
             });
             return
         };
-        let body = expr.pop_front();
-        let mut body = match body {
-            Some(Expr::Code(body)) => body,
-            Some(Expr::Token(other)) => {
-                if matches(Some(&other), ":") {
-                    let Some(Expr::Token(n)) = expr.pop_front() else {
-                        errors.push(Error {
-                            inner: "class subclass requires a name".to_string(),
-                            span: first.span,
-                        });
-                        return;
-                    };
-                    name = n;
-                    let body = expr.pop_front();
-                    match body {
-                        Some(Expr::Code(body)) => body,
-                        _ => {
-                            errors.push(Error {
-                                inner: "class requires a body".to_string(),
-                                span: first.span,
-                            });
-                            return;
-                        }
-                    }
-                } else {
-                    errors.push(Error {
-                        inner: "class requires a body".to_string(),
-                        span: first.span,
-                    });
-                    return;
-                }
-            }
-            _ => {
-                errors.push(Error {
-                    inner: "class requires a body".to_string(),
-                    span: first.span,
-                });
-                return;
-            }
-        };
-
-        state.namespace.push(name.map(|x| x.to_string()));
-        state.namespaces.push(state.namespace.clone().into());
-        while !body.inner.is_empty() {
-            process_code(&mut body.inner, state, errors);
-        }
-        state.namespace.pop();
+        process_subclass(name, expr, state, errors);
     } else {
         // assign
         let name = first;
