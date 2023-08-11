@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::error::Error;
 use crate::span::Spanned;
 
+use super::ast::IfDefined;
 use super::include::process_include;
 use super::*;
 
@@ -92,7 +93,12 @@ pub enum MacroState {
 /// * token: (false, Some(...))
 fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<Spanned<Arc<str>>>) {
     match ast {
-        Ast::Ifndef(_, term, else_, then) | Ast::Ifdef(_, term, then, else_) => {
+        Ast::Ifndef(IfDefined {
+            term, else_, then, ..
+        })
+        | Ast::Ifdef(IfDefined {
+            term, then, else_, ..
+        }) => {
             if state.defines.contains_key(term.inner) {
                 evaluate_terms(then, state)
             } else {

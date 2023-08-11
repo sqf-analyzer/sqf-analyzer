@@ -21,32 +21,53 @@ fn parse_if(pair: Pair<'_, Rule>) -> Ast<'_> {
     let mut if_start = if_.next().unwrap().into_inner();
     let if_body = if_.next().unwrap().into_inner();
     let if_body = (if_body.len() != 0).then_some(if_body);
-    let else_ = if if_.len() > 0 {
-        let _ = if_.next(); // #else
-        if_.next()
-            .map(|else_| else_.into_inner())
-            .and_then(|else_| (else_.len() != 0).then_some(else_))
-    } else {
-        None
-    };
 
-    let body = if_body.map(_parse).unwrap_or_default();
+    let mut else_keyword = None;
+    let maybe_else = if_.next();
+    let (endif_keyword, else_) =
+        if matches!(maybe_else.as_ref().map(|x| x.as_rule()), Some(Rule::else_)) {
+            else_keyword = maybe_else;
+            let else_ = if_
+                .next()
+                .map(|else_| else_.into_inner())
+                .and_then(|else_| (else_.len() != 0).then_some(else_));
+            let endif_keyword = if_.next().unwrap();
+            (endif_keyword, else_)
+        } else {
+            (maybe_else.unwrap(), None)
+        };
+
+    let then = if_body.map(_parse).unwrap_or_default();
     let else_ = else_.map(_parse).unwrap_or_default();
 
     let if_type = if_start.next().unwrap();
     match if_type.as_str() {
         "#ifndef" => {
             let name = if_start.next().unwrap();
-            Ast::Ifndef(if_type.into(), name.into(), body, else_)
+            Ast::Ifndef(IfDefined {
+                keyword: if_type.into(),
+                term: name.into(),
+                then,
+                else_keyword: else_keyword.map(|x| x.into()),
+                else_,
+                endif_keyword: endif_keyword.into(),
+            })
         }
         "#ifdef" => {
             let name = if_start.next().unwrap();
-            Ast::Ifdef(if_type.into(), name.into(), body, else_)
+            Ast::Ifdef(IfDefined {
+                keyword: if_type.into(),
+                term: name.into(),
+                then,
+                else_keyword: else_keyword.map(|x| x.into()),
+                else_,
+                endif_keyword: endif_keyword.into(),
+            })
         }
         _ => {
             assert!(matches!(if_type.as_rule(), Rule::if_expr));
             let expr = if_type.into_inner().map(|x| x.into()).collect();
-            Ast::If(expr, body, else_)
+            Ast::If(expr, then, else_)
         }
     }
 }

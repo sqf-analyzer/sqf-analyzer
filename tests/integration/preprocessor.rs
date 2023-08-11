@@ -31,12 +31,21 @@ fn basic_functionality() {
 }
 
 #[test]
-fn tokens1() {
-    use std::fs;
-    let path = "tests/integration/examples/basic_if.sqf";
-    let case = fs::read_to_string(path).unwrap();
+fn if_across_code() {
+    let case = r#"
+if a then {
+    b
+#ifdef A
+};
+#else
+} else {
+    c
+};
+#endif
+d
+"#;
 
-    let mut iter = tokens(&case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
 
     let r = iter
         .by_ref()

@@ -26,14 +26,15 @@ undef    = ${ undef_kw ~ " " ~ word ~ end }
 
 // #if | #ifdef | #ifndef
 if_ = ${
-    (ifdef_start | if_start) ~ if_body ~ (else_ ~ "\n" ~ if_body)? ~ "#endif" ~ "\n"
+    (ifdef_start | if_start) ~ if_body ~ (else_ ~ "\n" ~ if_body)? ~ endif_kw ~ "\n"
 }
 
-if_term     = _{ (!("#endif" | else_) ~ term) }
+if_term     = _{ (!(endif_kw | else_) ~ term) }
 if_body     =  { (WHITESPACE | COMMENT | if_term)* }
 else_       =  { "#else" }
-ifdef_start = ${ if_def_kw ~ " "+ ~ word ~ "\n" }
+ifdef_start = ${ if_def_kw ~ " " + ~ word ~ "\n" }
 if_def_kw   =  { "#ifdef" | "#ifndef" }
+endif_kw = { "#endif" }
 
 // #if
 if_start = ${ "#if" ~ " " ~ if_expr ~ "\n" }
