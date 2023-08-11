@@ -49,7 +49,6 @@ pub enum Ast<'a> {
     Define(Define),
     Undefine(Spanned<&'a str>, Spanned<&'a str>),
     Include(Spanned<&'a str>, Spanned<&'a str>),
-    Body(VecDeque<Ast<'a>>),
     Comment(Spanned<&'a str>),
     Term(Spanned<&'a str>),
 }

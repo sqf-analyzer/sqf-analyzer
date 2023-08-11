@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::path::Component;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -31,7 +32,7 @@ impl<'a> From<Pair<'a, parser::Rule>> for Spanned<Arc<str>> {
     }
 }
 
-pub fn parse(data: &str) -> Result<Ast, Error> {
+pub fn parse(data: &str) -> Result<VecDeque<Ast<'_>>, Error> {
     parser::pairs(data).map(parser::parse)
 }
 

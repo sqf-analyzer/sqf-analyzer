@@ -460,6 +460,17 @@ fn if_has_include() {
 }
 
 #[test]
+fn if_else() {
+    let case = r#"
+#if 0
+#else
+1
+#endif
+"#;
+    assert(case, vec!["1"]);
+}
+
+#[test]
 fn ifndef_def() {
     let case = r#"
 #ifndef A
@@ -478,9 +489,9 @@ aaa
 */"#;
     assert_eq!(
         parse(case).unwrap(),
-        Ast::Body(VecDeque::from([Ast::Comment(Spanned {
+        VecDeque::from([Ast::Comment(Spanned {
             inner: "/*\naaa  \n*/",
             span: (0, 11),
-        })]))
+        })])
     );
 }

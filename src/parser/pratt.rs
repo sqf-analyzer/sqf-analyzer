@@ -109,16 +109,6 @@ fn atom_to_expr(token: Spanned<Arc<str>>) -> Expr {
         .unwrap_or_else(|| Expr::Variable(token))
 }
 
-fn _is_op(token: &str) -> bool {
-    let token = token.to_owned().to_ascii_lowercase();
-    UNARY.contains(token.as_str())
-        || BINARY.contains(token.as_str())
-        || matches!(
-            token.as_str(),
-            "}" | ")" | "]" | "{" | "(" | "[" | ";" | "=" | ","
-        )
-}
-
 fn code<I: Iterator<Item = Spanned<Arc<str>>>>(
     iter: &mut Peekable<I>,
     errors: &mut Vec<Error>,

@@ -147,8 +147,8 @@ fn _parse(pairs: Pairs<'_, Rule>) -> VecDeque<Ast<'_>> {
         .collect()
 }
 
-pub fn parse(pairs: Pairs<'_, Rule>) -> Ast<'_> {
-    Ast::Body(_parse(pairs))
+pub fn parse(pairs: Pairs<'_, Rule>) -> VecDeque<Ast<'_>> {
+    _parse(pairs)
 }
 
 impl From<pest::error::Error<Rule>> for Error {

@@ -149,7 +149,6 @@ fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<Spanned<
             }
             None => (false, None),
         },
-        Ast::Body(terms) => evaluate_terms(terms, state),
         Ast::Term(term) => (false, Some(term.map(|x| x.to_owned().into()))),
         Ast::Comment(_) => (false, None),
     }
@@ -192,10 +191,7 @@ fn next<'a>(terms: &mut VecDeque<Ast<'a>>, state: &mut State) -> Option<Spanned<
 }
 
 impl<'a> AstIterator<'a> {
-    pub fn new(base: Ast<'a>, defines: Defines, path: PathBuf) -> Self {
-        let Ast::Body(base) = base else {
-            panic!()
-        };
+    pub fn new(base: VecDeque<Ast<'a>>, defines: Defines, path: PathBuf) -> Self {
         Self {
             base,
             state: State {
