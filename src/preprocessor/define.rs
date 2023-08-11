@@ -58,7 +58,7 @@ fn advance_state(
 /// Returns whether the token is consumed by this update or not
 pub fn update(state: &mut State, item: &Spanned<Arc<str>>) -> bool {
     let consumed = update_(
-        &mut state.other,
+        &mut state.current_macro,
         &mut state.errors,
         &state.defines,
         item,

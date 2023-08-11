@@ -23,9 +23,7 @@ pub(super) type DefineState = (Define, Arguments, Spanned<MacroState>);
 #[derive(Debug, Clone)]
 pub struct State {
     pub defines: Defines,
-    // stack of processing macro call
-    pub macro_stack: Vec<(Define, Arguments, Spanned<MacroState>)>,
-    pub other: Option<DefineState>,
+    pub current_macro: Option<DefineState>,
     pub stack: VecDeque<Spanned<Arc<str>>>,
     pub path: PathBuf,
     pub errors: Vec<Error>,
@@ -182,8 +180,7 @@ impl<'a> AstIterator<'a> {
             state: State {
                 defines,
                 path,
-                other: None,
-                macro_stack: vec![],
+                current_macro: None,
                 stack: Default::default(),
                 errors: Default::default(),
             },
