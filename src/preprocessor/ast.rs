@@ -24,8 +24,16 @@ pub type Defines = HashMap<Arc<str>, Define>;
 pub struct IfDefined<'a> {
     pub keyword: Spanned<&'a str>,
     pub term: Spanned<&'a str>,
-    // None => no arguments
-    // Some => zero or more arguments
+    pub then: VecDeque<Ast<'a>>,
+    pub else_keyword: Option<Spanned<&'a str>>,
+    pub else_: VecDeque<Ast<'a>>,
+    pub endif_keyword: Spanned<&'a str>,
+}
+
+#[derive(Debug, Clone)]
+pub struct If<'a> {
+    pub keyword: Spanned<&'a str>,
+    pub expr: VecDeque<Ast<'a>>,
     pub then: VecDeque<Ast<'a>>,
     pub else_keyword: Option<Spanned<&'a str>>,
     pub else_: VecDeque<Ast<'a>>,
@@ -37,11 +45,7 @@ pub struct IfDefined<'a> {
 pub enum Ast<'a> {
     Ifdef(IfDefined<'a>),
     Ifndef(IfDefined<'a>),
-    If(
-        VecDeque<Spanned<&'a str>>,
-        VecDeque<Ast<'a>>,
-        VecDeque<Ast<'a>>,
-    ),
+    If(If<'a>),
     Define(Define),
     Undefine(Spanned<&'a str>, Spanned<&'a str>),
     Include(Spanned<&'a str>, Spanned<&'a str>),

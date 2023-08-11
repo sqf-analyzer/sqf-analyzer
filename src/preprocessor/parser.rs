@@ -64,11 +64,18 @@ fn parse_if(pair: Pair<'_, Rule>) -> Ast<'_> {
                 endif_keyword: endif_keyword.into(),
             })
         }
-        _ => {
-            assert!(matches!(if_type.as_rule(), Rule::if_expr));
-            let expr = if_type.into_inner().map(|x| x.into()).collect();
-            Ast::If(expr, then, else_)
+        "#if" => {
+            let expr = _parse(if_start);
+            Ast::If(If {
+                keyword: if_type.into(),
+                expr,
+                then,
+                else_keyword: else_keyword.map(|x| x.into()),
+                else_,
+                endif_keyword: endif_keyword.into(),
+            })
         }
+        _ => unreachable!(),
     }
 }
 

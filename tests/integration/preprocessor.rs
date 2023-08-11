@@ -443,3 +443,12 @@ fn include_a3() {
     let case = r#"#include "\A3\Ui_f\hpp\defineResinclDesign.inc""#;
     assert(case, vec![]);
 }
+
+#[test]
+fn if_has_include() {
+    let case = r#"
+#if __has_include("something")
+#endif
+"#;
+    assert(case, vec![]);
+}

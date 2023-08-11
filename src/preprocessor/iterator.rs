@@ -1,11 +1,11 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::error::Error;
-use crate::span::Spanned;
+use crate::span::{Span, Spanned};
 
-use super::ast::IfDefined;
+use super::ast::{If, IfDefined};
 use super::include::process_include;
 use super::*;
 
@@ -24,6 +24,7 @@ pub(super) type DefineState = (Define, Arguments, Spanned<MacroState>);
 pub struct State {
     pub defines: Defines,
     pub current_macro: Option<DefineState>,
+    pub if_results: HashMap<Span, bool>,
     pub stack: VecDeque<Spanned<Arc<str>>>,
     pub path: PathBuf,
     pub errors: Vec<Error>,
@@ -51,20 +52,28 @@ fn evaluate_terms<'a>(
     }
 }
 
-fn evaluate_if(expr: &VecDeque<Spanned<&str>>, defines: &Defines) -> bool {
-    match expr.len() {
-        1 => {
-            let def_name = expr.front().unwrap().inner;
-            defines
-                .get(def_name)
-                .and_then(|_| todo!("compute bool from variable"))
-                .unwrap_or_default()
+#[allow(clippy::needless_bool)]
+fn evaluate_if<'a>(
+    span: Span,
+    expr: &VecDeque<Ast<'a>>,
+    _defines: &Defines,
+    if_results: &mut HashMap<Span, bool>,
+) -> bool {
+    // todo: evaluate the tokens using AstIterator.collect()
+    *if_results.entry(span).or_insert_with(|| {
+        let first = expr.clone().pop_front();
+        if matches!(
+            first,
+            Some(Ast::Term(Spanned {
+                inner: "__has_include",
+                ..
+            }))
+        ) {
+            true
+        } else {
+            false
         }
-        3 => {
-            todo!("compute op from variable")
-        }
-        _ => unreachable!(),
-    }
+    })
 }
 
 /// State machine to identify macro calls
@@ -103,8 +112,14 @@ fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<Spanned<
                 evaluate_terms(else_, state)
             }
         }
-        Ast::If(expr, then, else_) => {
-            if evaluate_if(expr, &state.defines) {
+        Ast::If(If {
+            keyword,
+            expr,
+            then,
+            else_,
+            ..
+        }) => {
+            if evaluate_if(keyword.span, expr, &state.defines, &mut state.if_results) {
                 evaluate_terms(then, state)
             } else {
                 evaluate_terms(else_, state)
@@ -180,6 +195,7 @@ impl<'a> AstIterator<'a> {
             state: State {
                 defines,
                 path,
+                if_results: Default::default(),
                 current_macro: None,
                 stack: Default::default(),
                 errors: Default::default(),
