@@ -451,6 +451,18 @@ fn include_a3() {
 }
 
 #[test]
+fn include_slash_file() {
+    let case = r#"#include ".\tests\integration\examples\basic.cpp""#;
+    assert(case, vec![]);
+}
+
+#[test]
+fn include_forward_slash_file() {
+    let case = r#"#include "./tests/integration/examples/basic.cpp""#;
+    assert(case, vec![]);
+}
+
+#[test]
 fn if_has_include() {
     let case = r#"
 #if __has_include("something")

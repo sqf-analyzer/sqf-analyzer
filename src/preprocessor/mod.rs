@@ -49,15 +49,19 @@ pub fn tokens(
 
 fn string_to_path(path: &str) -> PathBuf {
     let mut new: PathBuf = PathBuf::new();
-    for path in path.split('\\') {
-        new.push(path)
+    if path.contains('/') {
+        for path in path.split('/') {
+            new.push(path)
+        }
+    } else {
+        for path in path.split('\\') {
+            new.push(path)
+        }
     }
     new
 }
 
 pub fn build_path(mut file_path: PathBuf, include_path: &str) -> PathBuf {
-    file_path.pop();
-    file_path.push(include_path);
     if include_path.starts_with(r"\x\") {
         // need to identify the root based on the file_path
         let include_path = string_to_path(include_path);
