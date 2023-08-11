@@ -8,7 +8,7 @@ use crate::span::Spanned;
 /// # Note
 /// This struct cannot have an associated lifetime because it can be shared between files,
 /// that have been opened with diferent lifetimes
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Define {
     pub keyword: Spanned<Arc<str>>,
     pub name: Spanned<Arc<str>>,
@@ -20,7 +20,7 @@ pub struct Define {
 
 pub type Defines = HashMap<Arc<str>, Define>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IfDefined<'a> {
     pub keyword: Spanned<&'a str>,
     pub term: Spanned<&'a str>,
@@ -30,7 +30,7 @@ pub struct IfDefined<'a> {
     pub endif_keyword: Spanned<&'a str>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct If<'a> {
     pub keyword: Spanned<&'a str>,
     pub expr: VecDeque<Ast<'a>>,
@@ -41,7 +41,7 @@ pub struct If<'a> {
 }
 
 /// The preprocessor's abstract syntatic tree (AST)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Ast<'a> {
     Ifdef(IfDefined<'a>),
     Ifndef(IfDefined<'a>),

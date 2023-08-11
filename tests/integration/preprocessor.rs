@@ -1,4 +1,10 @@
-use sqf::{preprocessor::tokens, span::Spanned};
+use std::collections::VecDeque;
+
+use sqf::{
+    preprocessor::parse,
+    preprocessor::{tokens, Ast},
+    span::Spanned,
+};
 
 fn assert(case: &str, expected: Vec<&str>) {
     let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
@@ -463,4 +469,18 @@ fn ifndef_def() {
 A
 "#;
     assert(case, vec!["1"]);
+}
+
+#[test]
+fn comment_span() {
+    let case = r#"/*
+aaa  
+*/"#;
+    assert_eq!(
+        parse(case).unwrap(),
+        Ast::Body(VecDeque::from([Ast::Comment(Spanned {
+            inner: "/*\naaa  \n*/",
+            span: (0, 11),
+        })]))
+    );
 }
