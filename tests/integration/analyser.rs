@@ -73,6 +73,15 @@ fn infer_binary() {
 }
 
 #[test]
+fn infer_hexa() {
+    let case = "private _a = 0xa";
+
+    let expected = HashMap::from([((8, 10), Some(Type::Number))]);
+
+    check_infer(case, expected);
+}
+
+#[test]
 fn infer_nullary() {
     let case = "private _a = west";
 

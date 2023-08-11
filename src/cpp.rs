@@ -3,7 +3,7 @@ use std::iter::Peekable;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::preprocessor;
+use crate::preprocessor::{self, parse_hexadecimal};
 use crate::{
     error::Error,
     preprocessor::AstIterator,
@@ -13,6 +13,7 @@ use crate::{
 #[derive(Clone, Debug)]
 pub enum Expr {
     Number(Spanned<f32>),
+    Boolean(Spanned<bool>),
     String(Spanned<Arc<str>>),
     Token(Spanned<Arc<str>>),
     Code(Spanned<VecDeque<Expr>>),
@@ -26,6 +27,7 @@ impl Expr {
             Expr::Token(o) | Expr::String(o) => o.span,
             Expr::Array(o) | Expr::Code(o) => o.span,
             Expr::Number(o) => o.span,
+            Expr::Boolean(o) => o.span,
             Expr::Nil(s) => *s,
         }
     }
@@ -157,24 +159,29 @@ fn token_to_expr(token: Spanned<Arc<str>>) -> Expr {
                 .as_ref()
                 .map(|x| x.get(1..x.len() - 1).unwrap().to_owned().into()),
         )
+    } else if bytes == b"true" {
+        Expr::Boolean(token.map(|_| true))
+    } else if bytes == b"false" {
+        Expr::Boolean(token.map(|_| false))
+    } else if let Ok(number) = token.inner.parse::<f32>() {
+        Expr::Number(Spanned {
+            inner: number,
+            span: token.span,
+        })
+    } else if let Some(int) = parse_hexadecimal(&token.inner) {
+        Expr::Number(Spanned {
+            inner: int as f32,
+            span: token.span,
+        })
     } else {
-        token
-            .clone()
-            .inner
-            .parse::<f32>()
-            .map(|x| Spanned {
-                inner: x,
-                span: token.span,
-            })
-            .map(Expr::Number)
-            .ok()
-            .unwrap_or(Expr::Token(token))
+        Expr::Token(token)
     }
 }
 
 #[derive(Debug, Clone)]
 enum Value {
     Number(f32),
+    Boolean(bool),
     Version(String),
     String(String),
     Array(Vec<Spanned<Value>>),
@@ -277,15 +284,20 @@ pub fn analyze(iter: AstIterator) -> (Functions, Vec<Error>) {
     (state.functions(path), errors)
 }
 
-fn to_value(expr: Expr, errors: &mut Vec<Error>) -> Option<Spanned<Value>> {
+fn to_value(expr: Expr, errors: &mut Vec<Error>, is_negative: bool) -> Option<Spanned<Value>> {
     match expr {
-        Expr::Number(number) => Some(number.map(Value::Number)),
+        Expr::Number(number) => Some(
+            number
+                .map(|x| x * (1.0 - 2.0 * is_negative as i32 as f32))
+                .map(Value::Number),
+        ),
+        Expr::Boolean(value) => Some(value.map(Value::Boolean)),
         Expr::String(string) => Some(string.map(|x| Value::String(x.to_string()))),
         Expr::Code(expr) => Some(expr.map(|x| {
             Value::Array(
                 x.into_iter()
                     .filter(|e| !matches!(e, Expr::Token(_))) // todo: improve to parse "," correctly
-                    .filter_map(|expr| to_value(expr, errors))
+                    .filter_map(|expr| to_value(expr, errors, true))
                     .collect(),
             )
         })),
@@ -352,6 +364,41 @@ fn process_version(expr: &mut VecDeque<Expr>, value: Spanned<Value>) -> Spanned<
         return _process_v(expr, number, *span).unwrap_or(value);
     }
     value
+}
+
+fn process_value(
+    span: Span,
+    expr: &mut VecDeque<Expr>,
+    errors: &mut Vec<Error>,
+) -> Option<Spanned<Value>> {
+    let Some(mut value) = expr.pop_front() else {
+        errors.push(Error {
+            inner: "assignment requires a right side".to_string(),
+            span,
+        });
+        return None
+    };
+
+    let mut is_negative = false;
+    if let Expr::Token(token) = &value {
+        if matches(Some(token), "-") {
+            value = match expr.pop_front() {
+                Some(e) => e,
+                None => {
+                    errors.push(Error {
+                        inner: "assignment requires a right side".to_string(),
+                        span,
+                    });
+                    return None;
+                }
+            };
+            is_negative = true
+        }
+    };
+
+    let mut value = to_value(value, errors, is_negative)?;
+    value = process_version(expr, value);
+    Some(value)
 }
 
 fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<Error>) {
@@ -434,19 +481,9 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
             expr.pop_front(); // "="
         };
 
-        let Some(value) = expr.pop_front() else {
-            errors.push(Error {
-                inner: "assignment requires a right side".to_string(),
-                span: name.span,
-            });
+        let Some(value) = process_value(name.span, expr, errors) else {
             return
         };
-
-        let Some(mut value) = to_value(value, errors) else {
-            return
-        };
-
-        value = process_version(expr, value);
 
         let lhs = state.namespaces.last().unwrap().clone();
         let key = name.inner.to_string();

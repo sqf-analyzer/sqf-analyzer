@@ -16,6 +16,12 @@ mod parser;
 pub use ast::{Ast, Define, Defines};
 pub use iterator::AstIterator;
 
+pub(crate) fn parse_hexadecimal(v: &str) -> Option<usize> {
+    v.starts_with("0x")
+        .then(|| usize::from_str_radix(v.trim_start_matches("0x"), 16).ok())
+        .flatten()
+}
+
 impl<'a> From<Pair<'a, parser::Rule>> for Spanned<Arc<str>> {
     fn from(value: Pair<'a, parser::Rule>) -> Self {
         Self {

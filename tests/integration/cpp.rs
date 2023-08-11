@@ -28,6 +28,39 @@ fn start_with_number() {
 }
 
 #[test]
+fn negative_number() {
+    let case = r#"
+    class AA {a = -1};
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (functions, errors) = analyze(iter);
+    assert!(functions.is_empty());
+    assert_eq!(errors, vec![]);
+}
+
+#[test]
+fn boolean() {
+    let case = r#"
+    class AA {a = false; b = true;};
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (functions, errors) = analyze(iter);
+    assert!(functions.is_empty());
+    assert_eq!(errors, vec![]);
+}
+
+#[test]
+fn hexadecimal() {
+    let case = r#"
+    class AA {a = 0x10;};
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (functions, errors) = analyze(iter);
+    assert!(functions.is_empty());
+    assert_eq!(errors, vec![]);
+}
+
+#[test]
 fn subclass() {
     let case = r#"
 class CfgFunctions : A {};

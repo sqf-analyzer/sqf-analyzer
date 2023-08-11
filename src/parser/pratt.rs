@@ -4,7 +4,11 @@ use std::{collections::HashSet, iter::Peekable, sync::Arc};
 use super::Expr;
 
 use crate::{
-    database::SIGNATURES, error::Error, preprocessor::AstIterator, span::Spanned, types::Signature,
+    database::SIGNATURES,
+    error::Error,
+    preprocessor::{parse_hexadecimal, AstIterator},
+    span::Spanned,
+    types::Signature,
 };
 
 lazy_static::lazy_static! {
@@ -70,7 +74,6 @@ fn atom_to_expr(token: Spanned<Arc<str>>) -> Expr {
         .or_else(|| {
             // number
             token
-                .clone()
                 .inner
                 .parse::<i64>()
                 .map(|x| Spanned {
@@ -79,6 +82,14 @@ fn atom_to_expr(token: Spanned<Arc<str>>) -> Expr {
                 })
                 .map(Expr::Number)
                 .ok()
+        })
+        .or_else(|| {
+            parse_hexadecimal(&token.inner)
+                .map(|x| Spanned {
+                    inner: x as i64,
+                    span: token.span,
+                })
+                .map(Expr::Number)
         })
         .or_else(|| {
             // string
