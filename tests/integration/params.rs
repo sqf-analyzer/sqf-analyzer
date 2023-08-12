@@ -203,6 +203,34 @@ fn basic_with_invalid_param() {
     assert_eq!(state, expected);
 }
 
+#[test]
+fn error_too_many_params() {
+    let case = "params [['_a', 1, [1], 5, 6]]";
+
+    let state = parse_analyze(case);
+    assert_eq!(
+        state.errors,
+        vec![Spanned {
+            inner: "params' arguments only accept up to 4 arguments".to_string(),
+            span: (26, 27),
+        }]
+    );
+}
+
+#[test]
+fn basic_with_invalid_param_array() {
+    let case = "params [[1]]";
+
+    let state = parse_analyze(case);
+    assert_eq!(
+        state.errors,
+        vec![Spanned {
+            inner: "params' first argument must be a string".to_string(),
+            span: (8, 11),
+        }]
+    );
+}
+
 /// signatures are correct when used
 #[test]
 fn with_code() {

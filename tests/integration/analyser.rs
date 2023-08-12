@@ -256,8 +256,16 @@ fn infer_example2() {
 }
 
 #[test]
-fn error_binary_unsuppported() {
-    let cases = ["call + 1", "{} + a", "a + {}"];
+fn errors() {
+    let cases = [
+        "call + 1",
+        "{} + a",
+        "a + {}",
+        "for 1",
+        "call _a = 1",
+        "1 = 1",
+        "private 1 = 1",
+    ];
     for case in cases {
         let state = parse_analyze(case);
         assert!(!state.errors.is_empty());

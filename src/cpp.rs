@@ -83,68 +83,60 @@ fn expr<I: Iterator<Item = Spanned<Arc<str>>>>(
     iter: &mut Peekable<I>,
     errors: &mut Vec<Error>,
 ) -> Expr {
-    match iter.next() {
-        None => {
-            errors.push(Error {
-                inner: "Un-expected end of file".to_string(),
-                span: (0, 0),
-            });
-            Expr::Nil((0, 0))
+    let Spanned { inner, span } = iter.next().expect("function invariant");
+    match inner.as_ref() {
+        ";" => Expr::Code(Spanned {
+            inner: Default::default(),
+            span,
+        }),
+        "{" => {
+            let expr = code(iter, errors);
+            let last = iter.next();
+            if !matches(last.as_ref(), "}") {
+                errors.push(Error {
+                    inner: "\"{\" is not closed".to_string(),
+                    span,
+                })
+            }
+            let start = span.0;
+            let end = last.map(|x| x.span.1).unwrap_or(start);
+
+            Expr::Code(Spanned {
+                inner: expr,
+                span: (start, end),
+            })
         }
-        Some(Spanned { inner, span }) => match inner.as_ref() {
-            ";" => Expr::Code(Spanned {
-                inner: Default::default(),
-                span,
-            }),
-            "{" => {
-                let expr = code(iter, errors);
-                let last = iter.next();
-                if !matches(last.as_ref(), "}") {
-                    errors.push(Error {
-                        inner: "\"{\" is not closed".to_string(),
-                        span,
-                    })
-                }
-                let start = span.0;
-                let end = last.map(|x| x.span.1).unwrap_or(start);
-
-                Expr::Code(Spanned {
-                    inner: expr,
-                    span: (start, end),
+        "[" => {
+            let last = iter.next();
+            if !matches(last.as_ref(), "]") {
+                errors.push(Error {
+                    inner: "\"[\" is not closed".to_string(),
+                    span,
                 })
             }
-            "[" => {
-                let last = iter.next();
-                if !matches(last.as_ref(), "]") {
-                    errors.push(Error {
-                        inner: "\"[\" is not closed".to_string(),
-                        span,
-                    })
-                }
-                let start = span.0;
-                let end = last.map(|x| x.span.1).unwrap_or(start);
+            let start = span.0;
+            let end = last.map(|x| x.span.1).unwrap_or(start);
 
-                Expr::Array((start, end))
-            }
-            "(" => {
-                let expr = expression(iter, errors);
-                let last = iter.next();
-                if !matches(last.as_ref(), ")") {
-                    errors.push(Error {
-                        inner: "\"(\" is not closed".to_string(),
-                        span,
-                    })
-                }
-                let start = span.0;
-                let end = last.map(|x| x.span.1).unwrap_or(start);
-
-                Expr::Expr(Spanned {
-                    inner: expr,
-                    span: (start, end),
+            Expr::Array((start, end))
+        }
+        "(" => {
+            let expr = expression(iter, errors);
+            let last = iter.next();
+            if !matches(last.as_ref(), ")") {
+                errors.push(Error {
+                    inner: "\"(\" is not closed".to_string(),
+                    span,
                 })
             }
-            _ => token_to_expr(Spanned { inner, span }),
-        },
+            let start = span.0;
+            let end = last.map(|x| x.span.1).unwrap_or(start);
+
+            Expr::Expr(Spanned {
+                inner: expr,
+                span: (start, end),
+            })
+        }
+        _ => token_to_expr(Spanned { inner, span }),
     }
 }
 

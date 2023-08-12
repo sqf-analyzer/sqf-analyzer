@@ -388,7 +388,6 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
     match expr {
         Expr::Number(_) => Some(Type::Number.into()),
         Expr::String(_) => Some(Type::String.into()),
-        Expr::Boolean(_) => Some(Type::Boolean.into()),
         Expr::Array(expr) => {
             infer_expressions(&expr.inner, state);
             Some(Type::Array.into())

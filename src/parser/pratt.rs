@@ -56,22 +56,6 @@ fn atom_to_expr(token: Spanned<Arc<str>>) -> Expr {
         .contains(to_lower_case(token.inner.as_ref()).as_str())
         .then(|| Expr::Nullary(token.clone()))
         .or_else(|| {
-            // bool
-            if token.inner.as_ref() == "true" {
-                Some(Expr::Boolean(Spanned {
-                    inner: true,
-                    span: token.span,
-                }))
-            } else if token.inner.as_ref() == "false" {
-                Some(Expr::Boolean(Spanned {
-                    inner: false,
-                    span: token.span,
-                }))
-            } else {
-                None
-            }
-        })
-        .or_else(|| {
             // number
             token
                 .inner

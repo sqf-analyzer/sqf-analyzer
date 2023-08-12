@@ -7,7 +7,6 @@ pub enum Expr {
     String(Spanned<Arc<str>>),
     Number(Spanned<i64>),
     Nullary(Spanned<Arc<str>>),
-    Boolean(Spanned<bool>),
     Variable(Spanned<Arc<str>>),
     Unary(Spanned<Arc<str>>, Box<Expr>),
     Binary(Box<Expr>, Spanned<Arc<str>>, Box<Expr>),
@@ -22,7 +21,6 @@ impl Expr {
             Self::String(a) => a.span,
             Self::Number(a) => a.span,
             Self::Nullary(a) => a.span,
-            Self::Boolean(a) => a.span,
             Self::Variable(a) => a.span,
             Self::Unary(a, expr) => {
                 let (start, _) = a.span;
