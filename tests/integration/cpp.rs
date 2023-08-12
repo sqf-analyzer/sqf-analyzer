@@ -117,6 +117,28 @@ class A;
 }
 
 #[test]
+fn parenthesis() {
+    let case = r#"
+class A {a = (1 * 1);}
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (functions, errors) = analyze(iter);
+    assert!(functions.is_empty());
+    assert_eq!(errors, vec![]);
+}
+
+#[test]
+fn coop_game_type() {
+    let case = r#"
+class A {a = COop;}
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (functions, errors) = analyze(iter);
+    assert!(functions.is_empty());
+    assert_eq!(errors, vec![]);
+}
+
+#[test]
 fn empty_subclass() {
     let case = r#"
 class A: B;
