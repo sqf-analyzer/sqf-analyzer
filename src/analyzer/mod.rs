@@ -314,7 +314,24 @@ fn infer_binary(
                 None
             }
         }
-        (Some(lhs), Some(rhs)) => options.get(&(lhs, rhs)).cloned().map(|x| x.into()),
+        (Some(lhs), Some(rhs)) => {
+            let mut options = options.iter().filter_map(|((x_lhs, x_rhs), type_)| {
+                (x_lhs.consistent(lhs) && x_rhs.consistent(rhs)).then_some(type_)
+            });
+            let first = options.next();
+            if let Some(first) = first {
+                options.next().is_none().then_some(*first).map(|x| x.into())
+            } else {
+                errors.push(Spanned {
+                    span: name.span,
+                    inner: format!(
+                        "\"{}\" does not support left side of type \"{:?}\" and right side of type \"{:?}\"",
+                        name.inner, lhs, rhs
+                    ),
+                });
+                None
+            }
+        }
     }
 }
 
@@ -427,8 +444,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 infer_assign(lhs, rhs, state);
                 Some(Type::Nothing.into())
             } else {
-                let rhs = infer_type(rhs, state);
                 if op.inner.to_ascii_lowercase() == "call" {
+                    let rhs = infer_type(rhs, state);
                     if let Some(Output::Code(parameters)) = &rhs {
                         if let Expr::Array(lhs) = lhs.as_ref() {
                             // annotate parameters with the functions' signature if it is available
@@ -437,6 +454,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                     }
                 }
                 let lhs = infer_type(lhs, state).map(|x| x.type_());
+                let rhs = infer_type(rhs, state);
                 infer_binary(
                     lhs,
                     op,

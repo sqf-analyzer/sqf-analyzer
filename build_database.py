@@ -152,7 +152,8 @@ binaries = [
 ]
 
 for t in ["Number", "Boolean", "String", "Code", "Side", "Config", "Namespace", "Array"]:
-    binaries.append(["HashMap", "get", t, "Anything"])
+    binaries.append(("HashMap", "get", t, "Anything"))
+    binaries.append(("HashMap", "deleteat", t, "Anything"))
 
 expressions = []
 for line in data:
@@ -186,6 +187,10 @@ for line in data:
         for argument in _parse_type_names(sections[2]):
             unaries.append((op_name, STRING_TO_TYPE[argument], return_type))
 
+unaries = list(set(unaries))
+binaries = list(set(binaries))
+unaries.sort()
+binaries.sort(key=lambda x: x[1])
 
 def _write_rs():
     expressions = []

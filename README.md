@@ -42,8 +42,8 @@ and
 a = NAME(a)
 ```
 
-One of the tests is that it can process antistasi's main header file containing ~1k
-lines of preprocessor instructions.
+This analyzer is tested on the complete source code of the
+[official Antistasi](https://github.com/official-antistasi-community/A3-Antistasi) and has a code coverage of around 90%.
 
 ### Error locations
 

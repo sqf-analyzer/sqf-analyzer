@@ -271,3 +271,16 @@ fn errors() {
         assert!(!state.errors.is_empty());
     }
 }
+
+#[test]
+fn reassign_evaluted_after() {
+    let case = r#"
+    private _a = 1;
+    if(_a == -1) then
+    {
+        _a = "1";
+    };
+    "#;
+    let errors = parse_analyze(case).errors;
+    assert_eq!(errors, vec![]);
+}
