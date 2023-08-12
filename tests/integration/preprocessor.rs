@@ -525,3 +525,19 @@ A
 "#;
     assert(case, vec!["1"]);
 }
+
+#[test]
+fn argument_with_array() {
+    let case = r#"
+#define A(name,value) (a call [name,value,true])
+
+A("a", [_a, _b] call b);
+"#;
+    assert(
+        case,
+        vec![
+            "(", "a", "call", "[", "\"a\"", ",", "[", "_a", ",", "_b", "]", "call", "b", ",",
+            "true", "]", ")", ";",
+        ],
+    );
+}

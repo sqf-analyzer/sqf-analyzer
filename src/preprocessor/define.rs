@@ -39,10 +39,10 @@ fn advance_state(
         (MacroState::Argument(other), v) => {
             push_argument(&mut define_state.1, item);
             macro_state.span.1 += item.span.1 - item.span.0;
-            if v == "(" {
+            if matches!(v, "(" | "[") {
                 macro_state.inner = MacroState::Argument(other + 1)
             };
-            if v == ")" {
+            if matches!(v, ")" | "]") {
                 macro_state.inner = MacroState::Argument(other - 1)
             };
         }
