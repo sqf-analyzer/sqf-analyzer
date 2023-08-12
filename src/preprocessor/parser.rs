@@ -97,6 +97,7 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
             let (arguments, body) = if is_arguments {
                 let body = define
                     .filter(|x| x.as_rule() != Rule::EOI)
+                    .filter(|x| x.as_rule() != Rule::COMMENT)
                     .map(|x| x.into())
                     .collect();
 
@@ -110,6 +111,7 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
                         .chain(
                             define
                                 .filter(|x| x.as_rule() != Rule::EOI)
+                                .filter(|x| x.as_rule() != Rule::COMMENT)
                                 .map(|x| x.into()),
                         )
                         .collect(),

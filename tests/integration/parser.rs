@@ -89,6 +89,14 @@ fn semi_colon() {
         parse(tokens("1;;;1", Default::default(), Default::default(),).unwrap(),).1,
         vec![]
     );
+    assert_eq!(
+        parse(tokens("{;}", Default::default(), Default::default(),).unwrap(),).1,
+        vec![]
+    );
+    assert_eq!(
+        parse(tokens("{}", Default::default(), Default::default(),).unwrap(),).1,
+        vec![]
+    );
 }
 
 #[test]

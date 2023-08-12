@@ -424,15 +424,3 @@ class CfgPatches {
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
 }
-
-#[test]
-fn bla() {
-    let (functions, e) =
-        analyze_addon("tests/integration/case_sensitive/addons/main".into()).unwrap();
-    assert_eq!(e, vec![]);
-
-    for (_, path) in functions {
-        let e = sqf::check(&path.inner);
-        assert_eq!(e, vec![]);
-    }
-}

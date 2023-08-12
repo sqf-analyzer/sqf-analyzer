@@ -51,7 +51,7 @@ if_keyword =  { "#if" }
 
 // #define
 define = ${
-    define_kw ~ " " ~ word ~ define_arguments? ~ " "* ~ define_term* ~ end
+    define_kw ~ " " ~ word ~ define_arguments? ~ " "* ~ (COMMENT | define_term)* ~ " "* ~ end
 }
 
 define_kw     =  { "#define" }

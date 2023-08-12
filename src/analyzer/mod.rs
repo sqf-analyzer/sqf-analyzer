@@ -70,37 +70,38 @@ lazy_static::lazy_static! {
 
 #[inline]
 fn _is_private(v: &str) -> bool {
-    v.as_bytes().first() == Some(&b'_')
+    matches!(v.as_bytes().first(), Some(&b'_') | None)
 }
 
 fn process_param_variable(v: &str, span: Span, state: &mut State, type_: Type, has_default: bool) {
-    if _is_private(v) {
-        let p = Parameter {
-            name: v.into(),
-            type_,
-            has_default,
-        };
-        let s = &mut state.namespace.stack.last_mut().unwrap().signature;
-        if let Some(s) = s {
-            s.push(p)
-        } else {
-            *s = Some(vec![p])
-        }
-
-        state.namespace.insert(
-            Spanned {
-                inner: v.to_owned(),
-                span,
-            },
-            Some(type_.into()),
-            true,
-        );
-    } else {
+    if !_is_private(v) {
         state.errors.push(Spanned {
             span,
             inner: "Argument must begin with _".to_string(),
-        })
+        });
+        return;
     }
+
+    let p = Parameter {
+        name: v.into(),
+        type_,
+        has_default,
+    };
+    let s = &mut state.namespace.stack.last_mut().unwrap().signature;
+    if let Some(s) = s {
+        s.push(p)
+    } else {
+        *s = Some(vec![p])
+    }
+
+    state.namespace.insert(
+        Spanned {
+            inner: v.to_owned(),
+            span,
+        },
+        Some(type_.into()),
+        true,
+    );
 }
 
 fn process_param_types(types: &Expr, state: &mut State) -> Option<Type> {

@@ -6,6 +6,7 @@ use clap::{arg, value_parser, Command};
 
 use source_span::DEFAULT_METRICS;
 use source_span::{Position, Span};
+use sqf::correct_path;
 use sqf::{cpp, error::Error};
 
 fn main() {
@@ -98,7 +99,8 @@ fn main() {
 }
 
 fn print_errors(mut errors: Vec<Error>, path: &Path) {
-    let Ok(content) = std::fs::read_to_string(path) else {
+    let path = correct_path(path).unwrap();
+    let Ok(content) = std::fs::read_to_string(correct_path(&path).unwrap()) else {
         println!("File {} not found", path.display());
         return;
     };
@@ -120,14 +122,16 @@ fn print_errors(mut errors: Vec<Error>, path: &Path) {
 
     let mut opened = HashMap::<sqf::span::Span, Position>::default();
 
-    for (i, c) in buffer.iter().enumerate() {
+    let mut bytes = 0;
+    for c in buffer.iter() {
         let c = c.unwrap();
+        bytes += c.len_utf8();
         current.push(c, &metrics);
         for error in &errors {
-            if i == error.span.0 {
+            if bytes == error.span.0.saturating_add(1) {
                 opened.insert(error.span, current.last());
             }
-            if i == error.span.1.saturating_sub(1) {
+            if bytes == error.span.1 {
                 let start = opened.remove(&error.span).unwrap();
                 let span = Span::new(start, current.last(), current.end());
                 fmt.add(

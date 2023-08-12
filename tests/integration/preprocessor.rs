@@ -516,3 +516,12 @@ A
 "#;
     assert(case, vec!["A"]);
 }
+
+#[test]
+fn define_with_comment_in_body() {
+    let case = r#"
+#define A 1 // a
+A
+"#;
+    assert(case, vec!["1"]);
+}

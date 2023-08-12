@@ -311,6 +311,19 @@ fn to_value(expr: Expr, errors: &mut Vec<Error>, is_negative: bool) -> Option<Sp
             )
         })),
         Expr::Token(a) => {
+            for trial in [
+                "safeZoneX",
+                "safeZoneY",
+                "safeZoneZ",
+                "safeZoneH",
+                "safeZoneW",
+                "safeZoneXAbs",
+                "safeZoneWAbs",
+            ] {
+                if a.inner.as_ref().eq_ignore_ascii_case(trial) {
+                    return None;
+                }
+            }
             errors.push(Error {
                 inner: format!(
                     "Unexpected assignment to \"{}\" (undefined macro?)",

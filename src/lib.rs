@@ -19,7 +19,9 @@ pub mod parser;
 pub mod preprocessor;
 pub mod span;
 
-fn find_file(path: &Path) -> Option<PathBuf> {
+/// Projects the original path into an absolute, case-insensitive path
+/// by transversing the fs and identify the correct path.
+pub fn correct_path(path: &Path) -> Option<PathBuf> {
     let path = path.clean(); // replace relative path (e.g. "../")
 
     // find the directory inside `addons`
@@ -45,7 +47,7 @@ fn find_file(path: &Path) -> Option<PathBuf> {
 
 pub fn check(path: &std::path::Path) -> Vec<error::Error> {
     // atempt to find the file case-insensitive
-    let corrected_path = find_file(path);
+    let corrected_path = correct_path(path);
 
     let Some(corrected_path) = corrected_path else {
         return vec![error::Error {

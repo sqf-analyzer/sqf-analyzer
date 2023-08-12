@@ -106,6 +106,9 @@ fn code<I: Iterator<Item = Spanned<Arc<str>>>>(
         while matches(iter.peek(), ";") {
             iter.next().unwrap();
         }
+        if matches(iter.peek(), "}") {
+            break;
+        }
 
         let expression = expr_bp(iter, 0, errors);
         expressions.push(expression);
