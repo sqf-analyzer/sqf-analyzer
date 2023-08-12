@@ -337,10 +337,12 @@ fn infer_binary(
     }
 }
 
-fn infer_expressions(expressions: &[Expr], state: &mut State) {
+fn infer_expressions(expressions: &[Expr], state: &mut State) -> Option<Output> {
+    let mut output = None;
     for expr in expressions {
-        infer_type(expr, state);
+        output = infer_type(expr, state);
     }
+    output
 }
 
 fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
@@ -413,12 +415,12 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
         }
         Expr::Code(code) => {
             state.namespace.push_stack();
-            infer_expressions(&code.inner, state);
+            let output = infer_expressions(&code.inner, state);
             let parameters =
                 std::mem::take(&mut state.namespace.stack.last_mut().unwrap().signature);
-            let return_type = state.namespace.stack.last_mut().unwrap().return_type;
+            let return_type = output;
             state.namespace.pop_stack();
-            Some(Output::Code(parameters, return_type))
+            Some(Output::Code(parameters, return_type.map(|x| x.type_())))
         }
         Expr::Nullary(variable) => {
             let name = variable.inner.to_ascii_lowercase();
@@ -442,6 +444,19 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             if op.inner.as_ref() == "=" {
                 infer_assign(lhs, rhs, state);
                 Some(Type::Nothing.into())
+            } else if op.inner.as_ref() == "then" {
+                // the evaluate of "then" may result in a branch with different types
+                // clone the original stack and evaluate "else" with the original stack
+                let lhs = infer_type(lhs, state);
+                let rhs = infer_type(rhs, state);
+                infer_binary(
+                    lhs.map(|x| x.type_()),
+                    op,
+                    rhs.as_ref().map(|x| x.type_()),
+                    expr.span(),
+                    &mut state.errors,
+                );
+                rhs
             } else if op.inner.as_ref() == "else" {
                 // the evaluate of "then" may result in a branch with different types
                 // clone the original stack and evaluate "else" with the original stack
@@ -449,6 +464,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 let lhs = infer_type(lhs, state).map(|x| x.type_());
                 state.namespace.stack = original;
                 let rhs = infer_type(rhs, state).map(|x| x.type_());
+                println!("{rhs:?}");
                 infer_binary(lhs, op, rhs, expr.span(), &mut state.errors)
             } else {
                 if op.inner.eq_ignore_ascii_case("call") {

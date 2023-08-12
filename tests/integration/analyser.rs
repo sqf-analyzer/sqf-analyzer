@@ -303,6 +303,51 @@ fn reassign_evaluted_then() {
 }
 
 #[test]
-fn return_rype() {
+fn return_type_simple() {
     assert_eq!(parse_analyze("1").return_type(), Some(Type::Number));
+}
+
+#[test]
+fn return_type() {
+    let case = r#"
+    private _aa = {
+        params ["_x"];
+    
+        if (_x) then {
+            [1];
+        } else {
+            if true then {
+                [];
+            } else {
+                [1];
+            };
+        };
+    };
+
+    private _x = [1] call _aa;
+    _x
+    "#;
+    let state = parse_analyze(case);
+
+    assert_eq!(
+        state.namespace.stack[0].variables,
+        HashMap::from([
+            (
+                "_aa".into(),
+                (
+                    (13, 16),
+                    Some(Output::Code(
+                        vec![Parameter {
+                            name: "_x".into(),
+                            type_: Type::Anything,
+                            has_default: false,
+                        }],
+                        Some(Type::Array)
+                    ))
+                )
+            ),
+            ("_x".into(), ((241, 243), Some(Type::Array.into())))
+        ])
+    );
+    assert_eq!(state.return_type(), Some(Type::Array));
 }
