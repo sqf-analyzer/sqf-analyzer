@@ -173,6 +173,36 @@ fn basic_with_unknown_type() {
     assert_eq!(state, expected);
 }
 
+#[test]
+fn basic_with_invalid_type_param() {
+    let case = "params [[\"_a\", objNull, 1]]";
+
+    let mut expected = State::default();
+    expected.namespace.push_stack();
+    expected.errors.push(Spanned {
+        inner: "params' third argument must be an array".to_string(),
+        span: (24, 25),
+    });
+
+    let state = parse_analyze(case);
+    assert_eq!(state, expected);
+}
+
+#[test]
+fn basic_with_invalid_param() {
+    let case = "params [1]";
+
+    let mut expected = State::default();
+    expected.namespace.push_stack();
+    expected.errors.push(Spanned {
+        inner: "params' argument must be either a string or array".to_string(),
+        span: (8, 9),
+    });
+
+    let state = parse_analyze(case);
+    assert_eq!(state, expected);
+}
+
 /// signatures are correct when used
 #[test]
 fn with_code() {

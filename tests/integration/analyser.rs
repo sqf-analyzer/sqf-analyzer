@@ -254,3 +254,12 @@ fn infer_example2() {
         assert_eq!(state.errors, vec![]);
     }
 }
+
+#[test]
+fn error_binary_unsuppported() {
+    let cases = ["call + 1", "{} + a", "a + {}"];
+    for case in cases {
+        let state = parse_analyze(case);
+        assert!(!state.errors.is_empty());
+    }
+}

@@ -253,14 +253,15 @@ fn infer_binary(
     lhs: Option<Type>,
     name: &Spanned<Arc<str>>,
     rhs: Option<Type>,
+    span: Span,
     errors: &mut Vec<Spanned<String>>,
 ) -> Option<Output> {
     let lower = name.inner.to_ascii_lowercase();
 
     let Some(options) = BINARY.get(lower.as_str()) else {
         errors.push(Spanned {
-            span: name.span,
-            inner: format!("\"{}\" is not a binnary operator", name.inner),
+            span,
+            inner: format!("\"{}\" is not a binary operator", name.inner),
         });
         return None;
     };
@@ -437,7 +438,13 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                     }
                 }
                 let lhs = infer_type(lhs, state).map(|x| x.type_());
-                infer_binary(lhs, op, rhs.map(|x| x.type_()), &mut state.errors)
+                infer_binary(
+                    lhs,
+                    op,
+                    rhs.map(|x| x.type_()),
+                    expr.span(),
+                    &mut state.errors,
+                )
             }
         }
         Expr::Unary(op, rhs) => {
