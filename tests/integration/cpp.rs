@@ -150,6 +150,92 @@ class A: B;
 }
 
 #[test]
+fn error_class_no_name() {
+    let case = r#"
+class {};
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (_, errors) = analyze(iter);
+    assert!(!errors.is_empty());
+}
+
+#[test]
+fn error_assign_array() {
+    let case = r#"
+a = [];
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (_, errors) = analyze(iter);
+    assert!(!errors.is_empty());
+}
+
+#[test]
+fn error_assign_token() {
+    let case = r#"
+a = =;
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (_, errors) = analyze(iter);
+    assert!(!errors.is_empty());
+}
+
+#[test]
+fn error_assign_empty() {
+    let case = r#"
+a =;
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (_, errors) = analyze(iter);
+    assert!(!errors.is_empty());
+}
+
+#[test]
+fn error_assign_empty_neg() {
+    let case = r#"
+a = -;
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (_, errors) = analyze(iter);
+    assert!(!errors.is_empty());
+}
+
+#[test]
+fn error_subclass_no_name() {
+    let case = r#"
+class A : ;
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (_, errors) = analyze(iter);
+    assert!(!errors.is_empty());
+}
+
+#[test]
+fn error_missing_closing_array() {
+    let case = r#"
+a = [
+"#;
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (_, errors) = analyze(iter);
+    assert!(!errors.is_empty());
+}
+
+#[test]
+fn error_missing_closing_par() {
+    let case = "a = (";
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (_, errors) = analyze(iter);
+    assert!(!errors.is_empty());
+}
+
+#[test]
+fn error_missing_closing_brackets() {
+    let case = "a = {";
+    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let (_, errors) = analyze(iter);
+    assert!(!errors.is_empty());
+}
+
+#[test]
 fn general() {
     // https://community.bistudio.com/wiki/Arma_3:_Functions_Library
     let case = r#"

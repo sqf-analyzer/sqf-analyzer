@@ -18,7 +18,7 @@ pub enum Expr {
     String(Spanned<Arc<str>>),
     Token(Spanned<Arc<str>>),
     Code(Spanned<VecDeque<Expr>>),
-    Array(Spanned<VecDeque<Expr>>),
+    Array(Span),
     Expr(Spanned<VecDeque<Expr>>),
     Nil(Span),
 }
@@ -27,10 +27,10 @@ impl Expr {
     fn span(&self) -> Span {
         match self {
             Expr::GameType(o) | Expr::Token(o) | Expr::String(o) => o.span,
-            Expr::Array(o) | Expr::Code(o) => o.span,
+            Expr::Code(o) => o.span,
             Expr::Number(o) => o.span,
             Expr::Boolean(o) => o.span,
-            Expr::Nil(s) => *s,
+            Expr::Array(s) | Expr::Nil(s) => *s,
             Expr::Expr(s) => s.span,
         }
     }
@@ -114,7 +114,6 @@ fn expr<I: Iterator<Item = Spanned<Arc<str>>>>(
                 })
             }
             "[" => {
-                let expr = array(iter, errors);
                 let last = iter.next();
                 if !matches(last.as_ref(), "]") {
                     errors.push(Error {
@@ -125,10 +124,7 @@ fn expr<I: Iterator<Item = Spanned<Arc<str>>>>(
                 let start = span.0;
                 let end = last.map(|x| x.span.1).unwrap_or(start);
 
-                Expr::Array(Spanned {
-                    inner: expr,
-                    span: (start, end),
-                })
+                Expr::Array((start, end))
             }
             "(" => {
                 let expr = expression(iter, errors);
@@ -158,28 +154,6 @@ fn parse(mut iter: AstIterator) -> (VecDeque<Expr>, Vec<Error>) {
     let expr = code(&mut peekable, &mut errors);
     errors.extend(iter.state.errors);
     (expr, errors)
-}
-
-fn array<I: Iterator<Item = Spanned<Arc<str>>>>(
-    iter: &mut Peekable<I>,
-    errors: &mut Vec<Error>,
-) -> VecDeque<Expr> {
-    let mut expressions = Default::default();
-    if matches(iter.peek(), "]") {
-        return expressions;
-    };
-    while iter.peek().is_some() {
-        let expression = expr(iter, errors);
-        expressions.push_back(expression);
-
-        if matches(iter.peek(), ",") {
-            iter.next().unwrap();
-        }
-        if matches(iter.peek(), "]") {
-            break;
-        }
-    }
-    expressions
 }
 
 #[inline]
@@ -224,7 +198,6 @@ fn token_to_expr(token: Spanned<Arc<str>>) -> Expr {
 enum Value {
     Number(f32),
     Boolean(bool),
-    Version(String),
     GameType(Arc<str>),
     String(String),
     Array(Vec<Spanned<Value>>),
@@ -366,51 +339,6 @@ fn to_value(expr: Expr, errors: &mut Vec<Error>, is_negative: bool) -> Option<Sp
     }
 }
 
-fn _process_v<A: std::fmt::Display>(
-    expr: &mut VecDeque<Expr>,
-    v: A,
-    span: Span,
-) -> Option<Spanned<Value>> {
-    if let Some(Expr::Token(a)) = expr.front() {
-        if matches(Some(a), ".") {
-            expr.pop_front();
-            if let Some(Expr::Number(a)) = expr.pop_front() {
-                let value = Spanned::new(
-                    Value::Version(format!("{v:.1}.{}", a.inner)),
-                    (span.0, a.span.1),
-                );
-                return Some(process_version(expr, value));
-            }
-        }
-    } else if let Some(Expr::Number(_)) = expr.front() {
-        if let Some(Expr::Number(a)) = expr.pop_front() {
-            let value = Spanned::new(
-                Value::Version(format!("{v:.1}.{}", a.inner)),
-                (span.0, a.span.1),
-            );
-            return Some(process_version(expr, value));
-        }
-    }
-    None
-}
-
-fn process_version(expr: &mut VecDeque<Expr>, value: Spanned<Value>) -> Spanned<Value> {
-    if let Spanned {
-        inner: Value::Number(number),
-        span,
-    } = value
-    {
-        return _process_v(expr, number, span).unwrap_or(value);
-    } else if let Spanned {
-        inner: Value::Version(number),
-        span,
-    } = &value
-    {
-        return _process_v(expr, number, *span).unwrap_or(value);
-    }
-    value
-}
-
 fn process_value(
     span: Span,
     expr: &mut VecDeque<Expr>,
@@ -441,9 +369,7 @@ fn process_value(
         }
     };
 
-    let mut value = to_value(value, errors, is_negative)?;
-    value = process_version(expr, value);
-    Some(value)
+    to_value(value, errors, is_negative)
 }
 
 fn process_body(

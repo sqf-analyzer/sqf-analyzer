@@ -183,12 +183,3 @@ impl<'a> From<Pair<'a, Rule>> for Spanned<&'a str> {
         }
     }
 }
-
-impl<'a> From<Pair<'a, Rule>> for Spanned<String> {
-    fn from(value: Pair<'a, Rule>) -> Self {
-        Self {
-            span: (value.as_span().start(), value.as_span().end()),
-            inner: value.as_str().to_string(),
-        }
-    }
-}
