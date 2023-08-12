@@ -284,3 +284,17 @@ fn reassign_evaluted_after() {
     let errors = parse_analyze(case).errors;
     assert_eq!(errors, vec![]);
 }
+
+#[test]
+fn reassign_evaluted_then() {
+    let case = r#"
+    params ["_x"];
+    if (_x isEqualType []) then {
+        _x = [];
+    } else {
+        _x getVariable "a"
+    };
+    "#;
+    let errors = parse_analyze(case).errors;
+    assert_eq!(errors, vec![]);
+}

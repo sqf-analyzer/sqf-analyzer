@@ -443,8 +443,16 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             if op.inner.as_ref() == "=" {
                 infer_assign(lhs, rhs, state);
                 Some(Type::Nothing.into())
+            } else if op.inner.as_ref() == "else" {
+                // the evaluate of "then" may result in a branch with different types
+                // clone the original stack and evaluate "else" with the original stack
+                let original = state.namespace.stack.clone();
+                let lhs = infer_type(lhs, state).map(|x| x.type_());
+                state.namespace.stack = original;
+                let rhs = infer_type(rhs, state).map(|x| x.type_());
+                infer_binary(lhs, op, rhs, expr.span(), &mut state.errors)
             } else {
-                if op.inner.to_ascii_lowercase() == "call" {
+                if op.inner.eq_ignore_ascii_case("call") {
                     let rhs = infer_type(rhs, state);
                     if let Some(Output::Code(parameters)) = &rhs {
                         if let Expr::Array(lhs) = lhs.as_ref() {
@@ -453,12 +461,11 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                         }
                     }
                 }
-                let lhs = infer_type(lhs, state).map(|x| x.type_());
-                let rhs = infer_type(rhs, state);
+
                 infer_binary(
-                    lhs,
+                    infer_type(lhs, state).map(|x| x.type_()),
                     op,
-                    rhs.map(|x| x.type_()),
+                    infer_type(rhs, state).map(|x| x.type_()),
                     expr.span(),
                     &mut state.errors,
                 )
