@@ -93,7 +93,11 @@ fn process_param_variable(
         type_,
         has_default,
     };
-    state.namespace.stack.last_mut().unwrap().signature.push(p);
+    if let Some(s) = state.namespace.stack.last_mut().unwrap().signature.as_mut() {
+        s.push(p)
+    } else {
+        state.namespace.stack.last_mut().unwrap().signature = Some(vec![p])
+    };
 
     state.namespace.insert(
         Spanned {
@@ -415,10 +419,9 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
         }
         Expr::Code(code) => {
             state.namespace.push_stack();
-            let output = infer_expressions(&code.inner, state);
+            let return_type = infer_expressions(&code.inner, state);
             let parameters =
                 std::mem::take(&mut state.namespace.stack.last_mut().unwrap().signature);
-            let return_type = output;
             state.namespace.pop_stack();
             Some(Output::Code(parameters, return_type.map(|x| x.type_())))
         }
@@ -455,24 +458,36 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                     rhs.as_ref().map(|x| x.type_()),
                     expr.span(),
                     &mut state.errors,
-                );
-                rhs
+                )?;
+                if let Some(Output::Code(_, t)) = rhs {
+                    t.map(Output::Type)
+                } else {
+                    rhs
+                }
             } else if op.inner.as_ref() == "else" {
                 // the evaluate of "then" may result in a branch with different types
                 // clone the original stack and evaluate "else" with the original stack
                 let original = state.namespace.stack.clone();
                 let lhs = infer_type(lhs, state).map(|x| x.type_());
                 state.namespace.stack = original;
-                let rhs = infer_type(rhs, state).map(|x| x.type_());
-                println!("{rhs:?}");
-                infer_binary(lhs, op, rhs, expr.span(), &mut state.errors)
+                let rhs = infer_type(rhs, state);
+                infer_binary(
+                    lhs,
+                    op,
+                    rhs.as_ref().map(|x| x.type_()),
+                    expr.span(),
+                    &mut state.errors,
+                )?;
+                rhs
             } else {
                 if op.inner.eq_ignore_ascii_case("call") {
                     let rhs = infer_type(rhs, state);
                     if let Some(Output::Code(parameters, type_)) = &rhs {
                         if let Expr::Array(lhs) = lhs.as_ref() {
                             // annotate parameters with the functions' signature if it is available
-                            process_parameters(lhs, parameters, state)
+                            if let Some(parameters) = parameters {
+                                process_parameters(lhs, parameters, state)
+                            }
                         }
                         return type_.map(Output::Type);
                     }
@@ -519,7 +534,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Stack {
     pub variables: HashMap<Arc<str>, (Span, Option<Output>)>,
-    pub signature: Vec<Parameter>,
+    // None => unknown signature
+    pub signature: Option<Vec<Parameter>>,
     pub return_type: Option<Type>,
 }
 
@@ -532,7 +548,7 @@ pub struct Namespace {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Output {
     Type(Type),
-    Code(Vec<Parameter>, Option<Type>),
+    Code(Option<Vec<Parameter>>, Option<Type>),
 }
 
 impl Output {
@@ -613,7 +629,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn signature(&self) -> &Vec<Parameter> {
+    pub fn signature(&self) -> Option<&Vec<Parameter>> {
         self.namespace.stack.last().unwrap().signature.as_ref()
     }
 

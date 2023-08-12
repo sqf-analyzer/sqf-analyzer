@@ -170,7 +170,7 @@ fn infer_example1() {
     assert_eq!(state.types, expected);
     assert_eq!(
         state.signature(),
-        &vec![
+        Some(&vec![
             Parameter {
                 name: "_arguments".into(),
                 type_: Type::Anything,
@@ -181,7 +181,7 @@ fn infer_example1() {
                 type_: Type::Anything,
                 has_default: false,
             }
-        ]
+        ])
     );
 }
 
@@ -201,7 +201,7 @@ fn infer_example3() {
         (
             Origin::External("DICT_fnc__set".to_string().into()),
             Some(Output::Code(
-                vec![
+                Some(vec![
                     Parameter {
                         name: "_arguments".into(),
                         type_: Type::Anything,
@@ -212,7 +212,7 @@ fn infer_example3() {
                         type_: Type::Anything,
                         has_default: false,
                     },
-                ],
+                ]),
                 Some(Type::Boolean),
             )),
         ),
@@ -316,11 +316,7 @@ fn return_type() {
         if (_x) then {
             [1];
         } else {
-            if true then {
-                [];
-            } else {
-                [1];
-            };
+            [2];
         };
     };
 
@@ -337,17 +333,44 @@ fn return_type() {
                 (
                     (13, 16),
                     Some(Output::Code(
-                        vec![Parameter {
+                        Some(vec![Parameter {
                             name: "_x".into(),
                             type_: Type::Anything,
                             has_default: false,
-                        }],
+                        }]),
                         Some(Type::Array)
                     ))
                 )
             ),
-            ("_x".into(), ((241, 243), Some(Type::Array.into())))
+            ("_x".into(), ((154, 156), Some(Type::Array.into())))
         ])
     );
     assert_eq!(state.return_type(), Some(Type::Array));
+}
+
+#[test]
+fn no_signature() {
+    let case = r#"private _aa = {_this}"#;
+    let state = parse_analyze(case);
+
+    assert_eq!(
+        state.namespace.stack[0].variables,
+        HashMap::from([(
+            "_aa".into(),
+            ((8, 11), Some(Output::Code(None, Some(Type::Anything))))
+        ),])
+    );
+    assert_eq!(state.return_type(), Some(Type::Nothing));
+}
+
+#[test]
+fn debug() {
+    let case = r#"private _aa = if(_side == c) then {a} else {b};"#;
+    let state = parse_analyze(case);
+
+    assert_eq!(
+        state.namespace.stack[0].variables,
+        HashMap::from([("_aa".into(), ((8, 11), None))])
+    );
+    assert_eq!(state.return_type(), Some(Type::Nothing));
 }

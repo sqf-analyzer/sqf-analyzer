@@ -41,11 +41,11 @@ fn call_annotate_ext() {
         (
             Origin::External("A_fn_a".to_string().into()),
             Some(Output::Code(
-                vec![Parameter {
+                Some(vec![Parameter {
                     name: "_a".into(),
                     type_: Type::Anything,
                     has_default: false,
-                }],
+                }]),
                 Some(Type::Boolean),
             )),
         ),
