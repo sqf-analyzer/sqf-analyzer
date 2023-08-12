@@ -20,7 +20,10 @@ fn check_addon() {
     assert_eq!(e, vec![]);
 
     for (_, path) in functions {
-        let e = sqf::check(&path.inner);
+        let Some(path) = sqf::find_addon_path(&path.inner) else {
+            panic!()
+        };
+        let e = sqf::check(&path);
         assert_eq!(e, vec![]);
     }
 }

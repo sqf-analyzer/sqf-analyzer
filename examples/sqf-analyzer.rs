@@ -6,8 +6,8 @@ use clap::{arg, value_parser, Command};
 
 use source_span::DEFAULT_METRICS;
 use source_span::{Position, Span};
-use sqf::correct_path;
 use sqf::{cpp, error::Error};
+use sqf::{find_addon_path, find_mission_path};
 
 fn main() {
     let matches = Command::new("sqf-analyzer")
@@ -15,7 +15,7 @@ fn main() {
         .about("Linter of SQF (Arma 3)") // requires `cargo` feature
         .arg(
             arg!(--addon <directory>)
-                .id("directory")
+                .id("addon")
                 .value_parser(value_parser!(PathBuf))
                 .help("Path of directory containing a config.cpp"),
         )
@@ -54,13 +54,17 @@ fn main() {
                 return;
             }
         };
+        println!("{} functions found and being analyzed", functions.len());
         if !errors.is_empty() {
             print_errors(errors, &directory.join("description.ext"))
         }
         for (_, path) in functions {
-            let errors = sqf::check(&path.inner);
+            let Some(path) = find_mission_path(&path.inner) else {
+                continue
+            };
+            let errors = sqf::check(&path);
             if !errors.is_empty() {
-                print_errors(errors, &path.inner)
+                print_errors(errors, &path)
             }
         }
     }
@@ -78,7 +82,7 @@ fn main() {
         }
     }
 
-    if let Some(directory) = matches.get_one::<PathBuf>("directory") {
+    if let Some(directory) = matches.get_one::<PathBuf>("addon") {
         let (functions, errors) = match cpp::analyze_addon(directory.into()) {
             Ok((functions, errors)) => (functions, errors),
             Err(error) => {
@@ -86,21 +90,25 @@ fn main() {
                 return;
             }
         };
+
+        println!("{} functions found and being analyzed", functions.len());
         if !errors.is_empty() {
             print_errors(errors, &directory.join("config.cpp"))
         }
         for (_, path) in functions {
-            let errors = sqf::check(&path.inner);
+            let Some(path) = find_addon_path(&path.inner) else {
+                continue
+            };
+            let errors = sqf::check(&path);
             if !errors.is_empty() {
-                print_errors(errors, &path.inner)
+                print_errors(errors, &path)
             }
         }
     }
 }
 
 fn print_errors(mut errors: Vec<Error>, path: &Path) {
-    let path = correct_path(path).unwrap();
-    let Ok(content) = std::fs::read_to_string(correct_path(&path).unwrap()) else {
+    let Ok(content) = std::fs::read_to_string(path) else {
         println!("File {} not found", path.display());
         return;
     };

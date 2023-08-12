@@ -214,7 +214,7 @@ impl State {
                 continue;
             }
 
-            if &namespace[0].inner != "CfgFunctions" {
+            if !namespace[0].inner.eq_ignore_ascii_case("CfgFunctions") {
                 continue;
             }
 

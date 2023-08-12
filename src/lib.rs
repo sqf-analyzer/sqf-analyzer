@@ -18,7 +18,23 @@ pub mod span;
 
 /// Projects the original path into an absolute, case-insensitive path
 /// by transversing the fs and identify the correct path.
-pub fn correct_path(path: &Path) -> Option<PathBuf> {
+pub fn find_mission_path(path: &Path) -> Option<PathBuf> {
+    let path = path.clean(); // replace relative path (e.g. "../")
+
+    // find the directory inside `addons`
+    let mut directory = path.to_owned();
+    while !directory.join("description.ext").exists() {
+        if !directory.pop() {
+            break;
+        }
+    }
+
+    find_path(&directory, &path)
+}
+
+/// Projects the original path into an absolute, case-insensitive path
+/// by transversing the fs and identify the correct path.
+pub fn find_addon_path(path: &Path) -> Option<PathBuf> {
     let path = path.clean(); // replace relative path (e.g. "../")
 
     // find the directory inside `addons`
@@ -33,10 +49,16 @@ pub fn correct_path(path: &Path) -> Option<PathBuf> {
         }
     }
 
+    find_path(&directory, &path)
+}
+
+/// Projects the original path into an absolute, case-insensitive path
+/// by transversing the fs and identify the correct path.
+pub fn find_path(directory: &Path, path: &Path) -> Option<PathBuf> {
     // find the case-insensitive path that results in `path`
     let name = path.as_os_str().to_str()?;
 
-    WalkDir::new(&directory).into_iter().find_map(|e| {
+    WalkDir::new(directory).into_iter().find_map(|e| {
         let dir = e.ok()?;
         dir.path()
             .as_os_str()
@@ -47,19 +69,9 @@ pub fn correct_path(path: &Path) -> Option<PathBuf> {
 }
 
 pub fn check(path: &std::path::Path) -> Vec<error::Error> {
-    // atempt to find the file case-insensitive
-    let corrected_path = correct_path(path);
-
-    let Some(corrected_path) = corrected_path else {
+    let Ok(case) = std::fs::read_to_string(path) else {
         return vec![error::Error {
             inner: format!("file \"{}\" not available", path.display()),
-            span: (1,1)
-        }]
-    };
-
-    let Ok(case) = std::fs::read_to_string(&corrected_path) else {
-        return vec![error::Error {
-            inner: format!("file \"{}\" not available", corrected_path.display()),
             span: (1,1)
         }]
     };
