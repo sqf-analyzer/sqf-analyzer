@@ -518,6 +518,13 @@ pub fn analyze_addon(mut directory: PathBuf) -> Result<(Functions, Vec<Error>), 
 
 /// Given a directory, it tries to open the file "config.cpp" and
 /// retrieve the list of function names and corresponding paths in the addon
+pub fn analyze_mission(mut directory: PathBuf) -> Result<(Functions, Vec<Error>), String> {
+    directory.push("description.ext");
+    analyze_file(directory)
+}
+
+/// Given a directory, it tries to open the file "config.cpp" and
+/// retrieve the list of function names and corresponding paths in the addon
 pub fn analyze_file(path: PathBuf) -> Result<(Functions, Vec<Error>), String> {
     let Ok(content) = std::fs::read_to_string(path.clone()) else {
         return Err(format!("File \"{path:?}\" not found"))

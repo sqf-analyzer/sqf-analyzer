@@ -507,3 +507,12 @@ aaa
         })])
     );
 }
+
+#[test]
+fn macro_recursion() {
+    let case = r#"
+#define A A
+A
+"#;
+    assert(case, vec!["A"]);
+}

@@ -30,15 +30,12 @@ pub struct State {
     pub errors: Vec<Error>,
 }
 
+/// Takes a term from the front, removing the Ast from the deque if it is empty
+/// Returns whether there are more terms and the term
 fn evaluate_terms<'a>(
     terms: &mut VecDeque<Ast<'a>>,
     state: &mut State,
 ) -> (bool, Option<Spanned<Arc<str>>>) {
-    let (has_more, item) = pop_stack(&mut state.stack);
-    if item.is_some() {
-        return (has_more, item);
-    };
-
     // go to front, take (has_more, item); if not has_more; remove it
     match terms.front_mut() {
         Some(item) => {
@@ -161,18 +158,46 @@ fn pop_stack(stack: &mut VecDeque<Spanned<Arc<str>>>) -> (bool, Option<Spanned<A
         .unwrap_or((false, None))
 }
 
-// pulls a new item from terms, evaluating the different functions
-fn next<'a>(terms: &mut VecDeque<Ast<'a>>, state: &mut State) -> Option<Spanned<Arc<str>>> {
-    let (mut has_more, mut item) = evaluate_terms(terms, state);
+fn advance(terms: &mut VecDeque<Ast>, state: &mut State) -> (bool, Option<Spanned<Arc<str>>>) {
+    let (has_more, item) = pop_stack(&mut state.stack);
+    if item.is_some() {
+        return (has_more, item);
+    };
+
+    evaluate_terms(terms, state)
+}
+
+fn ignore_line(
+    item: &Option<Spanned<Arc<str>>>,
+    terms: &mut VecDeque<Ast>,
+    state: &mut State,
+) -> bool {
     if let Some(may_line) = &item {
         if may_line.inner.as_ref() == "#line" {
-            // pop the line
-            evaluate_terms(terms, state);
-            // pop the file
-            evaluate_terms(terms, state);
-
-            (has_more, item) = evaluate_terms(terms, state);
+            // ignore the line
+            advance(terms, state);
+            // ignore the file
+            advance(terms, state);
+            return true;
         }
+    }
+    false
+}
+
+// pulls a new item from terms, evaluating the different functions
+fn next<'a>(terms: &mut VecDeque<Ast<'a>>, state: &mut State) -> Option<Spanned<Arc<str>>> {
+    // if we have something in the stack, return it
+    let (_, item) = pop_stack(&mut state.stack);
+    if item.is_some() {
+        if ignore_line(&item, terms, state) {
+            return next(terms, state);
+        }
+        return item;
+    };
+
+    let (has_more, item) = evaluate_terms(terms, state);
+    if ignore_line(&item, terms, state) {
+        return next(terms, state);
     }
 
     let item = match (has_more, item) {

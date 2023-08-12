@@ -15,17 +15,26 @@ fn main() {
         .arg(
             arg!(--addon <directory>)
                 .id("directory")
-                .value_parser(value_parser!(PathBuf)),
+                .value_parser(value_parser!(PathBuf))
+                .help("Path of directory containing a config.cpp"),
         )
         .arg(
             arg!(--sqf <file_path>)
                 .id("sqf")
-                .value_parser(value_parser!(PathBuf)),
+                .value_parser(value_parser!(PathBuf))
+                .help("Path of an sqf file"),
         )
         .arg(
             arg!(--config <file_path>)
                 .id("config")
-                .value_parser(value_parser!(PathBuf)),
+                .value_parser(value_parser!(PathBuf))
+                .help("Path of a directory containing description.ext"),
+        )
+        .arg(
+            arg!(--mission <file_path>)
+                .id("mission")
+                .value_parser(value_parser!(PathBuf))
+                .help("Path of a directory containing a description.ext"),
         )
         .get_matches();
 
@@ -33,6 +42,25 @@ fn main() {
         let errors = sqf::check(path);
         if !errors.is_empty() {
             print_errors(errors, path)
+        }
+    }
+
+    if let Some(directory) = matches.get_one::<PathBuf>("mission") {
+        let (functions, errors) = match cpp::analyze_mission(directory.into()) {
+            Ok((functions, errors)) => (functions, errors),
+            Err(error) => {
+                println!("{error}");
+                return;
+            }
+        };
+        if !errors.is_empty() {
+            print_errors(errors, &directory.join("description.ext"))
+        }
+        for (_, path) in functions {
+            let errors = sqf::check(&path.inner);
+            if !errors.is_empty() {
+                print_errors(errors, &path.inner)
+            }
         }
     }
 

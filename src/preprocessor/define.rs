@@ -27,7 +27,10 @@ fn advance_state(
             macro_state.span.1 += item.span.1 - item.span.0;
         }
         (MacroState::ParenthesisStart, _) => {
-            todo!()
+            errors.push(Error {
+                inner: "Macro with arguments is expected to be followed by (".to_string(),
+                span: item.span,
+            });
         }
         (MacroState::Argument(0), ",") => {
             define_state.1.push(Default::default());
@@ -81,14 +84,18 @@ pub fn update_(
         advance_state(def, item, errors);
         if def.2.inner == MacroState::None {
             let (mut define, mut arguments, state) = std::mem::take(state).unwrap();
+            let define_name = define.name.inner.as_ref();
             // expand each of the arguments of the macro with other macro calls
-            expand(defines, &mut arguments, errors);
+            for argument in arguments.iter_mut() {
+                expand_(argument, defines, errors, define_name);
+                concat(argument);
+            }
 
             // replace arguments of define in its body
-            replace_(&mut define.body, &define.arguments, &arguments);
+            replace(&mut define.body, &define.arguments, &arguments);
 
             // expand the body with other macro calls
-            expand_(&mut define.body, defines, errors);
+            expand_(&mut define.body, defines, errors, define_name);
 
             define.body.iter_mut().for_each(|x| x.span = state.span);
 
@@ -100,7 +107,7 @@ pub fn update_(
     if let Some(define) = defines.get(item.inner.as_ref()) {
         if define.arguments.is_none() {
             let mut tokens = define.body.clone();
-            expand_(&mut tokens, defines, errors);
+            expand_(&mut tokens, defines, errors, define.name.inner.as_ref());
 
             tokens.iter_mut().for_each(|x| x.span = item.span);
 
@@ -145,25 +152,27 @@ fn concat(tokens: &mut VecDeque<Spanned<Arc<str>>>) {
 }
 
 /// Expands the arguments by evaluating macros inside them and replacing them
-fn expand_(tokens: &mut VecDeque<Spanned<Arc<str>>>, defines: &Defines, errors: &mut Vec<Error>) {
+fn expand_(
+    tokens: &mut VecDeque<Spanned<Arc<str>>>,
+    defines: &Defines,
+    errors: &mut Vec<Error>,
+    macro_: &str,
+) {
     let taken_tokens = std::mem::take(tokens);
 
     let mut new_tokens = VecDeque::new();
     let mut state = None;
     for token in taken_tokens {
+        if token.inner.as_ref() == macro_ {
+            // avoid direct recurrence
+            new_tokens.push_back(token);
+            continue;
+        }
         if !update_(&mut state, errors, defines, &token, &mut new_tokens) {
             new_tokens.push_back(token)
         }
     }
     *tokens = new_tokens;
-}
-
-/// Expands the arguments by evaluating macros inside them.
-fn expand(defines: &Defines, arguments: &mut Arguments, errors: &mut Vec<Error>) {
-    for argument in arguments {
-        expand_(argument, defines, errors);
-        concat(argument);
-    }
 }
 
 fn push_argument(arguments: &mut Arguments, item: &Spanned<Arc<str>>) {
@@ -186,7 +195,7 @@ fn quote(tokens: &VecDeque<Spanned<Arc<str>>>) -> Arc<str> {
 }
 
 /// replaces all macro arguments by its corresponding arguments, quoting (# -> "") any argument accordingly
-fn replace_(
+fn replace(
     tokens: &mut VecDeque<Spanned<Arc<str>>>,
     define_arguments: &Option<Vec<Spanned<Arc<str>>>>,
     arguments: &[VecDeque<Spanned<Arc<str>>>],
