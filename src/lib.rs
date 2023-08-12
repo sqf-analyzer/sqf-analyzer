@@ -1,10 +1,17 @@
 #![forbid(unsafe_code)]
 
+use std::{
+    os::unix::prelude::OsStrExt,
+    path::{Path, PathBuf},
+};
+
+use path_clean::PathClean;
+use walkdir::WalkDir;
+
 pub mod analyzer;
 pub mod database;
 pub mod error;
 pub mod types;
-use std::path::PathBuf;
 
 pub use pest;
 pub mod cpp;
@@ -12,29 +19,28 @@ pub mod parser;
 pub mod preprocessor;
 pub mod span;
 
-fn find_file(path: &std::path::Path) -> Option<PathBuf> {
-    let mut dir = path.to_owned();
-    let name = path.as_os_str().to_str().unwrap().to_ascii_lowercase();
-    // atempt to find the file case-insensitive
-    let mut correct_path = None;
-    dir.pop();
-    let Ok(entries) = std::fs::read_dir(&dir) else {
-        return None
-    };
-    for entry in entries {
-        let entry = entry.unwrap();
-        let meta = entry.metadata().unwrap();
-        if meta.is_file() {
-            let maybe = entry.path();
-            let normalized = maybe.as_os_str().to_str().unwrap().to_ascii_lowercase();
-            if normalized == name {
-                correct_path = Some(maybe);
-                break;
-            }
+fn find_file(path: &Path) -> Option<PathBuf> {
+    let path = path.clean(); // replace relative path (e.g. "../")
+
+    // find the directory inside `addons`
+    let mut directory = path.to_owned();
+    while directory.file_name().map(|x| x.as_bytes()) != Some(b"addons") {
+        if !directory.pop() {
+            break;
         }
     }
 
-    correct_path
+    // find the case-insensitive path that results in `path`
+    let name = path.as_os_str().to_str()?;
+
+    WalkDir::new(&directory).into_iter().find_map(|e| {
+        let dir = e.ok()?;
+        dir.path()
+            .as_os_str()
+            .to_str()?
+            .eq_ignore_ascii_case(name)
+            .then_some(dir.path().to_owned())
+    })
 }
 
 pub fn check(path: &std::path::Path) -> Vec<error::Error> {
