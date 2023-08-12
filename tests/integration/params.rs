@@ -15,7 +15,7 @@ fn basic_no_errors() {
     expected.namespace.insert(
         Spanned {
             span: (8, 12),
-            inner: "_a".to_string(),
+            inner: "_a".into(),
         },
         Some(Type::Anything.into()),
         true,
@@ -54,7 +54,7 @@ fn with_default() {
     expected.namespace.insert(
         Spanned {
             span: (9, 13),
-            inner: "_a".to_string(),
+            inner: "_a".into(),
         },
         Some(Type::Boolean.into()),
         true,
@@ -78,7 +78,7 @@ fn with_default_and_type() {
     expected.namespace.insert(
         Spanned {
             span: (9, 13),
-            inner: "_a".to_string(),
+            inner: "_a".into(),
         },
         Some(Type::Boolean.into()),
         true,
@@ -102,7 +102,7 @@ fn with_default_and_type_invalid_default() {
     expected.namespace.insert(
         Spanned {
             span: (9, 13),
-            inner: "_a".to_string(),
+            inner: "_a".into(),
         },
         Some(Type::Boolean.into()),
         true,
@@ -130,7 +130,7 @@ fn with_two_types() {
     expected.namespace.insert(
         Spanned {
             span: (9, 13),
-            inner: "_a".to_string(),
+            inner: "_a".into(),
         },
         Some(Type::Anything.into()),
         true,
@@ -154,7 +154,7 @@ fn basic_with_unknown_type() {
     expected.namespace.insert(
         Spanned {
             span: (9, 13),
-            inner: "_a".to_string(),
+            inner: "_a".into(),
         },
         Some(Type::Anything.into()),
         true,
@@ -241,7 +241,7 @@ fn with_code() {
     expected.namespace.insert(
         Spanned {
             span: (9, 20),
-            inner: "_callback".to_string(),
+            inner: "_callback".into(),
         },
         Some(Type::Code.into()),
         true,

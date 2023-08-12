@@ -73,7 +73,13 @@ fn _is_private(v: &str) -> bool {
     matches!(v.as_bytes().first(), Some(&b'_') | None)
 }
 
-fn process_param_variable(v: &str, span: Span, state: &mut State, type_: Type, has_default: bool) {
+fn process_param_variable(
+    v: &Arc<str>,
+    span: Span,
+    state: &mut State,
+    type_: Type,
+    has_default: bool,
+) {
     if !_is_private(v) {
         state.errors.push(Spanned {
             span,
@@ -83,7 +89,7 @@ fn process_param_variable(v: &str, span: Span, state: &mut State, type_: Type, h
     }
 
     let p = Parameter {
-        name: v.into(),
+        name: v.clone(),
         type_,
         has_default,
     };
@@ -96,7 +102,7 @@ fn process_param_variable(v: &str, span: Span, state: &mut State, type_: Type, h
 
     state.namespace.insert(
         Spanned {
-            inner: v.to_owned(),
+            inner: v.clone(),
             span,
         },
         Some(type_.into()),
@@ -373,7 +379,7 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
         };
         (false, variable)
     };
-    let variable = variable.clone().map(|x| x.to_string());
+    let variable = variable.clone().map(|x| x.to_string().into());
 
     state
         .types
@@ -415,9 +421,10 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             infer_expressions(&code.inner, state);
             let parameters =
                 std::mem::take(&mut state.namespace.stack.last_mut().unwrap().signature);
+            let return_type = state.namespace.stack.last_mut().unwrap().return_type;
             state.namespace.pop_stack();
             if let Some(parameters) = parameters {
-                Some(Output::Code(parameters))
+                Some(Output::Code(parameters, return_type))
             } else {
                 Some(Type::Code.into())
             }
@@ -455,11 +462,12 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             } else {
                 if op.inner.eq_ignore_ascii_case("call") {
                     let rhs = infer_type(rhs, state);
-                    if let Some(Output::Code(parameters)) = &rhs {
+                    if let Some(Output::Code(parameters, type_)) = &rhs {
                         if let Expr::Array(lhs) = lhs.as_ref() {
                             // annotate parameters with the functions' signature if it is available
                             process_parameters(lhs, parameters, state)
                         }
+                        return type_.map(Output::Type);
                     }
                 }
 
@@ -503,8 +511,9 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Stack {
-    pub variables: HashMap<String, (Span, Option<Output>)>,
+    pub variables: HashMap<Arc<str>, (Span, Option<Output>)>,
     pub signature: Option<Vec<Parameter>>,
+    pub return_type: Option<Type>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -516,14 +525,14 @@ pub struct Namespace {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Output {
     Type(Type),
-    Code(Vec<Parameter>),
+    Code(Vec<Parameter>, Option<Type>),
 }
 
 impl Output {
     pub fn type_(&self) -> Type {
         match self {
             Output::Type(t) => *t,
-            Output::Code(_) => Type::Code,
+            Output::Code(_, _) => Type::Code,
         }
     }
 }
@@ -536,7 +545,7 @@ impl From<Type> for Output {
 
 impl Namespace {
     #[allow(clippy::map_entry)]
-    pub fn insert(&mut self, key: Spanned<String>, value: Option<Output>, is_private: bool) {
+    pub fn insert(&mut self, key: Spanned<Arc<str>>, value: Option<Output>, is_private: bool) {
         if is_private {
             self.stack
                 .last_mut()
@@ -552,7 +561,7 @@ impl Namespace {
                 }
             }
             self.mission
-                .insert(key.inner.into(), (Origin::File(key.span), value));
+                .insert(key.inner.clone(), (Origin::File(key.span), value));
         }
     }
 

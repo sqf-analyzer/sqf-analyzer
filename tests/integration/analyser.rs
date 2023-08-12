@@ -123,14 +123,14 @@ fn namespace_origin() {
 fn namespace() {
     let case = "private _a = west; call {private _a = 2}";
 
-    let expected = HashMap::from([("_a".to_string(), ((8, 10), Some(Type::Side.into())))]);
+    let expected = HashMap::from([("_a".into(), ((8, 10), Some(Type::Side.into())))]);
 
     let state = parse_analyze(case);
     assert_eq!(state.namespace.stack[0].variables, expected);
 
     let case = "private _a = west; call {_a = 2}";
 
-    let expected = HashMap::from([("_a".to_string(), ((25, 27), Some(Type::Number.into())))]);
+    let expected = HashMap::from([("_a".into(), ((25, 27), Some(Type::Number.into())))]);
 
     let state = parse_analyze(case);
     assert_eq!(state.namespace.stack[0].variables, expected);
@@ -138,7 +138,7 @@ fn namespace() {
     let case = "call {_a = 2}";
 
     let expected = HashMap::from([(
-        "_a".to_string().into(),
+        "_a".into(),
         (Origin::File((6, 8)), Some(Type::Number.into())),
     )]);
 
@@ -200,18 +200,21 @@ fn infer_example3() {
         "DICT_fnc__set".to_string().into(),
         (
             Origin::External("DICT_fnc__set".to_string().into()),
-            Some(Output::Code(vec![
-                Parameter {
-                    name: "_arguments".into(),
-                    type_: Type::Anything,
-                    has_default: false,
-                },
-                Parameter {
-                    name: "_isGlobal".into(),
-                    type_: Type::Anything,
-                    has_default: false,
-                },
-            ])),
+            Some(Output::Code(
+                vec![
+                    Parameter {
+                        name: "_arguments".into(),
+                        type_: Type::Anything,
+                        has_default: false,
+                    },
+                    Parameter {
+                        name: "_isGlobal".into(),
+                        type_: Type::Anything,
+                        has_default: false,
+                    },
+                ],
+                Some(Type::Boolean),
+            )),
         ),
     );
 

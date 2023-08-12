@@ -33,26 +33,33 @@ fn call_annotate() {
 
 #[test]
 fn call_annotate_ext() {
-    let case = r#"[1] call A_fn_a;"#;
+    let case = r#"private _a = [1] call A_fn_a;"#;
 
     let mut state = State::default();
     state.namespace.mission.insert(
         "A_fn_a".to_string().into(),
         (
             Origin::External("A_fn_a".to_string().into()),
-            Some(Output::Code(vec![Parameter {
-                name: "_a".into(),
-                type_: Type::Anything,
-                has_default: false,
-            }])),
+            Some(Output::Code(
+                vec![Parameter {
+                    name: "_a".into(),
+                    type_: Type::Anything,
+                    has_default: false,
+                }],
+                Some(Type::Boolean),
+            )),
         ),
     );
     parse_analyze_s(case, &mut state);
     assert_eq!(
-        state.origins,
-        HashMap::from([((9, 15), Origin::External("A_fn_a".to_string().into()))])
+        state.namespace.stack[0].variables,
+        HashMap::from([("_a".into(), ((8, 10), Some(Type::Boolean.into())))])
     );
-    assert_eq!(state.parameters, HashMap::from([((1, 2), "_a".into())]));
+    assert_eq!(
+        state.origins,
+        HashMap::from([((22, 28), Origin::External("A_fn_a".to_string().into()))])
+    );
+    assert_eq!(state.parameters, HashMap::from([((14, 15), "_a".into())]));
 }
 
 #[test]
