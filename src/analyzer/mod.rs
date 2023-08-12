@@ -609,6 +609,10 @@ impl State {
     pub fn signature(&self) -> Option<&Vec<Parameter>> {
         self.namespace.stack.last().unwrap().signature.as_ref()
     }
+
+    pub fn return_type(&self) -> Option<Type> {
+        self.namespace.stack.last().unwrap().return_type
+    }
 }
 
 #[derive(Debug)]
@@ -618,7 +622,9 @@ pub struct Configuration {
 
 pub fn analyze(program: &[Expr], state: &mut State) {
     state.namespace.push_stack();
+    let mut output = None;
     for expr in program {
-        infer_type(expr, state);
+        output = infer_type(expr, state);
     }
+    state.namespace.stack.last_mut().unwrap().return_type = output.map(|x| x.type_());
 }

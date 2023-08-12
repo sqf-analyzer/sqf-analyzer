@@ -25,6 +25,7 @@ fn basic_no_errors() {
         type_: Type::Anything,
         has_default: false,
     }]);
+    expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -40,6 +41,7 @@ fn basic_error() {
         inner: "Argument must begin with _".to_string(),
         span: (8, 11),
     });
+    expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -64,6 +66,7 @@ fn with_default() {
         type_: Type::Boolean,
         has_default: true,
     }]);
+    expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -88,6 +91,7 @@ fn with_default_and_type() {
         type_: Type::Boolean,
         has_default: true,
     }]);
+    expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -116,6 +120,7 @@ fn with_default_and_type_invalid_default() {
         type_: Type::Boolean,
         has_default: true,
     }]);
+    expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -140,6 +145,7 @@ fn with_two_types() {
         type_: Type::Anything,
         has_default: true,
     }]);
+    expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -164,6 +170,7 @@ fn basic_with_unknown_type() {
         type_: Type::Anything,
         has_default: true,
     }]);
+    expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
     expected.errors.push(Spanned {
         inner: "params' third argument's elements must be typed".to_string(),
         span: (24, 28),
@@ -183,6 +190,7 @@ fn basic_with_invalid_type_param() {
         inner: "params' third argument must be an array".to_string(),
         span: (24, 25),
     });
+    expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -198,6 +206,7 @@ fn basic_with_invalid_param() {
         inner: "params' argument must be either a string or array".to_string(),
         span: (8, 9),
     });
+    expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -251,6 +260,7 @@ fn with_code() {
         type_: Type::Code,
         has_default: true,
     }]);
+    expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);

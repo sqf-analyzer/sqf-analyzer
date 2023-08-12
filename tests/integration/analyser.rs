@@ -301,3 +301,8 @@ fn reassign_evaluted_then() {
     let errors = parse_analyze(case).errors;
     assert_eq!(errors, vec![]);
 }
+
+#[test]
+fn return_rype() {
+    assert_eq!(parse_analyze("1").return_type(), Some(Type::Number));
+}
