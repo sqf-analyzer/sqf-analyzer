@@ -1,9 +1,6 @@
 #![forbid(unsafe_code)]
 
-use std::{
-    os::unix::prelude::OsStrExt,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use path_clean::PathClean;
 use walkdir::WalkDir;
@@ -26,7 +23,11 @@ pub fn correct_path(path: &Path) -> Option<PathBuf> {
 
     // find the directory inside `addons`
     let mut directory = path.to_owned();
-    while directory.file_name().map(|x| x.as_bytes()) != Some(b"addons") {
+    while directory
+        .file_name()
+        .map(|x| x.to_string_lossy() != "addons")
+        .unwrap_or(false)
+    {
         if !directory.pop() {
             break;
         }
