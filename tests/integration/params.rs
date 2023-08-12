@@ -20,11 +20,11 @@ fn basic_no_errors() {
         Some(Type::Anything.into()),
         true,
     );
-    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = vec![Parameter {
         name: "_a".into(),
         type_: Type::Anything,
         has_default: false,
-    }]);
+    }];
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
@@ -61,11 +61,11 @@ fn with_default() {
         Some(Type::Boolean.into()),
         true,
     );
-    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = vec![Parameter {
         name: "_a".into(),
         type_: Type::Boolean,
         has_default: true,
-    }]);
+    }];
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
@@ -86,11 +86,11 @@ fn with_default_and_type() {
         Some(Type::Boolean.into()),
         true,
     );
-    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = vec![Parameter {
         name: "_a".into(),
         type_: Type::Boolean,
         has_default: true,
-    }]);
+    }];
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
@@ -115,11 +115,11 @@ fn with_default_and_type_invalid_default() {
         inner: "params' default argument type \"Object\" is inconsistent with expected type \"Boolean\"".to_string(),
         span: (8, 31),
     });
-    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = vec![Parameter {
         name: "_a".into(),
         type_: Type::Boolean,
         has_default: true,
-    }]);
+    }];
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
@@ -140,11 +140,11 @@ fn with_two_types() {
         Some(Type::Anything.into()),
         true,
     );
-    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = vec![Parameter {
         name: "_a".into(),
         type_: Type::Anything,
         has_default: true,
-    }]);
+    }];
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);
@@ -165,11 +165,11 @@ fn basic_with_unknown_type() {
         Some(Type::Anything.into()),
         true,
     );
-    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = vec![Parameter {
         name: "_a".into(),
         type_: Type::Anything,
         has_default: true,
-    }]);
+    }];
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
     expected.errors.push(Spanned {
         inner: "params' third argument's elements must be typed".to_string(),
@@ -255,11 +255,11 @@ fn with_code() {
         Some(Type::Code.into()),
         true,
     );
-    expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
+    expected.namespace.stack.last_mut().unwrap().signature = vec![Parameter {
         name: "_callback".into(),
         type_: Type::Code,
         has_default: true,
-    }]);
+    }];
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
 
     let state = parse_analyze(case);

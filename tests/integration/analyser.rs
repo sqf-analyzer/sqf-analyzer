@@ -170,7 +170,7 @@ fn infer_example1() {
     assert_eq!(state.types, expected);
     assert_eq!(
         state.signature(),
-        Some(&vec![
+        &vec![
             Parameter {
                 name: "_arguments".into(),
                 type_: Type::Anything,
@@ -181,7 +181,7 @@ fn infer_example1() {
                 type_: Type::Anything,
                 has_default: false,
             }
-        ])
+        ]
     );
 }
 

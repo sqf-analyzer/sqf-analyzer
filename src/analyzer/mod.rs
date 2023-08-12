@@ -93,12 +93,7 @@ fn process_param_variable(
         type_,
         has_default,
     };
-    let s = &mut state.namespace.stack.last_mut().unwrap().signature;
-    if let Some(s) = s {
-        s.push(p)
-    } else {
-        *s = Some(vec![p])
-    }
+    state.namespace.stack.last_mut().unwrap().signature.push(p);
 
     state.namespace.insert(
         Spanned {
@@ -423,11 +418,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 std::mem::take(&mut state.namespace.stack.last_mut().unwrap().signature);
             let return_type = state.namespace.stack.last_mut().unwrap().return_type;
             state.namespace.pop_stack();
-            if let Some(parameters) = parameters {
-                Some(Output::Code(parameters, return_type))
-            } else {
-                Some(Type::Code.into())
-            }
+            Some(Output::Code(parameters, return_type))
         }
         Expr::Nullary(variable) => {
             let name = variable.inner.to_ascii_lowercase();
@@ -512,7 +503,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Stack {
     pub variables: HashMap<Arc<str>, (Span, Option<Output>)>,
-    pub signature: Option<Vec<Parameter>>,
+    pub signature: Vec<Parameter>,
     pub return_type: Option<Type>,
 }
 
@@ -606,7 +597,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn signature(&self) -> Option<&Vec<Parameter>> {
+    pub fn signature(&self) -> &Vec<Parameter> {
         self.namespace.stack.last().unwrap().signature.as_ref()
     }
 
