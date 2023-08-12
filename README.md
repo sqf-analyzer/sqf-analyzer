@@ -5,6 +5,8 @@ mod Arma (computer game) series.
 
 ![Example of usage](./content/screencapture.png)
 
+See [sql-analyzer-lsp](https://github.com/sqf-analyzer/sql-analyzer-lsp) for its addon for VS code.
+
 ## How to use
 
 ```bash
@@ -78,5 +80,6 @@ as well as understanding the origin of the type.
 1. [Install Rust's cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
 2. git clone this repository and cd to it
 3. `cargo test`
+4. `cargo tarpaulin --skip-clean --target-dir target/tarpaulin --out Lcov` for code coverage
 
 Check [src/README.md](./src/README.md) for an overview of the design.

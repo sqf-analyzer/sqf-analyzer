@@ -415,6 +415,8 @@ fn number1() {
     assert(".1", vec![".1"]);
     assert("0.1", vec!["0.1"]);
     assert(".65", vec![".65"]);
+    assert("4.76837e-007", vec!["4.76837e-007"]);
+    assert("3.", vec!["3."]);
 }
 
 #[test]
