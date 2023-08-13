@@ -97,6 +97,7 @@ fn main() {
         }
         for (_, path) in functions {
             let Some(path) = find_addon_path(&path.inner) else {
+                println!("Could not find path \"{}\" of function declared in addon", path.inner.display());
                 continue
             };
             let errors = sqf::check(&path);

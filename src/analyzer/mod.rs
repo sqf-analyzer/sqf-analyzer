@@ -2,70 +2,19 @@ use std::collections::hash_map::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::database::SIGNATURES;
 use crate::error::Error;
 use crate::parser::Expr;
 use crate::span::{Span, Spanned};
 use crate::types::*;
+
+mod database;
+pub use database::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parameter {
     pub name: Arc<str>,
     pub type_: Type,
     pub has_default: bool,
-}
-
-fn _build_binary() -> HashMap<&'static str, HashMap<(Type, Type), Type>> {
-    let mut r: HashMap<&'static str, HashMap<(Type, Type), Type>> = Default::default();
-    for s in SIGNATURES {
-        if let Signature::Binary(lhs, name, rhs, type_, _) = s {
-            r.entry(name)
-                .and_modify(|e| {
-                    e.insert((lhs, rhs), type_);
-                })
-                .or_insert_with(|| HashMap::from([((lhs, rhs), type_)]));
-        }
-    }
-    r
-}
-
-fn _build_unary() -> HashMap<&'static str, HashMap<Type, Type>> {
-    let mut r: HashMap<&'static str, HashMap<Type, Type>> = Default::default();
-    for s in SIGNATURES {
-        if let Signature::Unary(name, rhs, type_, _) = s {
-            r.entry(name)
-                .and_modify(|e| {
-                    e.insert(rhs, type_);
-                })
-                .or_insert_with(|| HashMap::from([(rhs, type_)]));
-        }
-    }
-    r
-}
-
-fn _build_nullary() -> HashMap<&'static str, Type> {
-    let mut r: HashMap<&'static str, Type> = Default::default();
-    for s in SIGNATURES {
-        if let Signature::Nullary(name, type_, _) = s {
-            r.insert(name, type_);
-        }
-    }
-    r
-}
-
-lazy_static::lazy_static! {
-
-    pub static ref BINARY: HashMap<&'static str, HashMap<(Type, Type), Type>> = {
-        _build_binary()
-    };
-
-    pub static ref UNARY: HashMap<&'static str, HashMap<Type, Type>> = {
-        _build_unary()
-    };
-
-    pub static ref NULLARY: HashMap<&'static str, Type> = {
-        _build_nullary()
-    };
 }
 
 #[inline]
@@ -224,19 +173,16 @@ fn infer_unary(
 
     match rhs {
         None => {
-            let mut options = options.values();
-            options
-                .next()
-                .and_then(|first| options.next().is_none().then_some(*first))
-                .map(|x| x.into())
+            let options = options.values();
+            take_only(options).map(|x| x.into())
         }
         Some(rhs) => {
-            let mut options = options
+            let options = options
                 .iter()
                 .filter_map(|(x_rhs, type_)| x_rhs.consistent(rhs.type_()).then_some(type_));
-            let first = options.next();
-            if let Some(first) = first {
-                options.next().is_none().then_some(*first).map(|x| x.into())
+
+            if let Some(first) = take_only(options) {
+                Some(first.into())
             } else if rhs.type_() == Type::Anything {
                 None
             } else {
@@ -274,19 +220,15 @@ fn infer_binary(
 
     match (lhs, rhs) {
         (None, None) => {
-            let mut options = options.values();
-            options
-                .next()
-                .and_then(|first| options.next().is_none().then_some(*first))
-                .map(|x| x.into())
+            let options = options.values();
+            take_only(options).map(|x| x.into())
         }
         (None, Some(rhs)) => {
-            let mut options = options
+            let options = options
                 .iter()
                 .filter_map(|((_, x_rhs), type_)| x_rhs.consistent(rhs).then_some(type_));
-            let first = options.next();
-            if let Some(first) = first {
-                options.next().is_none().then_some(*first).map(|x| x.into())
+            if let Some(first) = take_only(options) {
+                Some(first.into())
             } else if rhs == Type::Anything {
                 None
             } else {
@@ -301,12 +243,11 @@ fn infer_binary(
             }
         }
         (Some(lhs), None) => {
-            let mut options = options
+            let options = options
                 .iter()
                 .filter_map(|((x_lhs, _), type_)| x_lhs.consistent(lhs).then_some(type_));
-            let first = options.next();
-            if let Some(first) = first {
-                options.next().is_none().then_some(*first).map(|x| x.into())
+            if let Some(first) = take_only(options) {
+                Some(first.into())
             } else {
                 if lhs != Type::Anything {
                     errors.push(Spanned {
@@ -321,12 +262,11 @@ fn infer_binary(
             }
         }
         (Some(lhs), Some(rhs)) => {
-            let mut options = options.iter().filter_map(|((x_lhs, x_rhs), type_)| {
+            let options = options.iter().filter_map(|((x_lhs, x_rhs), type_)| {
                 (x_lhs.consistent(lhs) && x_rhs.consistent(rhs)).then_some(type_)
             });
-            let first = options.next();
-            if let Some(first) = first {
-                options.next().is_none().then_some(*first).map(|x| x.into())
+            if let Some(first) = take_only(options) {
+                Some(first.into())
             } else {
                 errors.push(Spanned {
                     span: name.span,

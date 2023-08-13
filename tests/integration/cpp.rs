@@ -392,8 +392,7 @@ fn addon_basic() {
         .map(|x| {
             (
                 format!("DICT_fnc_{x}").into(),
-                format!("tests/integration/dictionary/addons/dictionary/dictionary/fnc_{x}.sqf")
-                    .into(),
+                format!("tests/integration/dictionary/addons/dictionary/fnc_{x}.sqf").into(),
             )
         })
         .collect::<HashMap<_, _>>();

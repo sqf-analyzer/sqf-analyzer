@@ -11,7 +11,7 @@ class CfgPatches {
 
 #define DOUBLES(var1,var2) ##var1##_##var2
 #define QUOTE(var1) #var1
-#define FNC_FILE_BASE(func) QUOTE(dictionary\DOUBLES(fnc,func).sqf)
+#define FNC_FILE_BASE(func) QUOTE(DOUBLES(fnc,func).sqf)
 #define FNC(func) class func {file = FNC_FILE_BASE(func);}
 
 class CfgFunctions {

@@ -153,10 +153,10 @@ fn infer_example1() {
     let case = fs::read_to_string(path.clone()).unwrap();
 
     let expected = HashMap::from([
-        ((274, 285), None),
+        ((274, 285), Some(Type::Anything)),
         ((477, 488), Some(Type::Anything)),
-        ((317, 321), None),
-        ((374, 380), None),
+        ((317, 321), Some(Type::Anything)),
+        ((374, 380), Some(Type::Anything)),
         ((430, 434), Some(Type::Number)),
     ]);
 
@@ -364,13 +364,25 @@ fn no_signature() {
 }
 
 #[test]
-fn debug() {
+fn return_type_then() {
     let case = r#"private _aa = if(_side == c) then {a} else {b};"#;
     let state = parse_analyze(case);
 
     assert_eq!(
         state.namespace.stack[0].variables,
         HashMap::from([("_aa".into(), ((8, 11), None))])
+    );
+    assert_eq!(state.return_type(), Some(Type::Nothing));
+}
+
+#[test]
+fn debug() {
+    let case = r#"private _aa = _a select [1]"#;
+    let state = parse_analyze(case);
+
+    assert_eq!(
+        state.namespace.stack[0].variables,
+        HashMap::from([("_aa".into(), ((8, 11), Some(Type::Anything.into())))])
     );
     assert_eq!(state.return_type(), Some(Type::Nothing));
 }

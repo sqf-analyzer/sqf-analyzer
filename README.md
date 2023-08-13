@@ -83,3 +83,41 @@ as well as understanding the origin of the type.
 4. `cargo tarpaulin --skip-clean --target-dir target/tarpaulin --out Lcov` for code coverage
 
 Check [src/README.md](./src/README.md) for an overview of the design.
+
+### How to generate the database
+
+The database of operators is stored at `src/database.rs` and can be generated as follows:
+
+Execute this command on the latest Arma 3
+
+```sqf
+_allCommands = [];
+supportInfo "" apply {
+	_x splitString ":" params ["_t", "_x"];
+	if (_t != "t") then {
+		_x = _x splitString " ";
+		_command = switch count _x do {
+			case 1;
+			case 2: { _x # 0 };
+			case 3: { _x # 1 };
+			default {nil};
+		};
+		_allCommands pushBackUnique _command;
+	};
+};
+_allCommands sort true;
+_allCommands = _allCommands apply {
+	supportInfo format["i:%1", _x]
+};
+_allCommands;
+```
+
+and copy-paste it to a file `supportinfo.txt` without any modification.
+
+Finally, run
+
+```bash
+git restore src/database.rs && cargo run --example support_info
+```
+
+(the git restore is used so that if the generation produces incorrect Rust code, it still fail to run the second time).

@@ -19,7 +19,7 @@ pub enum Type {
     Task,
     Location,
     NetObject,
-    DiaryReport,
+    DiaryRecord,
     TeamMember,
     For,
     If,
@@ -27,6 +27,12 @@ pub enum Type {
     While,
     Exception,
     With,
+}
+
+impl Default for Type {
+    fn default() -> Self {
+        Type::Anything
+    }
 }
 
 impl Type {

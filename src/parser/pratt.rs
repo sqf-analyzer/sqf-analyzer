@@ -4,7 +4,7 @@ use std::{collections::HashSet, iter::Peekable, sync::Arc};
 use super::Expr;
 
 use crate::{
-    database::SIGNATURES,
+    database,
     error::Error,
     preprocessor::{parse_hexadecimal, AstIterator},
     span::Spanned,
@@ -13,7 +13,7 @@ use crate::{
 
 lazy_static::lazy_static! {
 
-    pub static ref BINARY: HashSet<&'static str> = SIGNATURES
+    pub static ref BINARY: HashSet<&'static str> = database::BINARY
         .iter()
         .filter_map(|x| {
             if let Signature::Binary(_, name, _, _, _) = x {
@@ -24,7 +24,7 @@ lazy_static::lazy_static! {
         })
         .collect::<HashSet<_, _>>();
 
-    pub static ref UNARY: HashSet<&'static str> = SIGNATURES
+    pub static ref UNARY: HashSet<&'static str> = database::UNARY
         .iter()
         .filter_map(|x| {
             if let Signature::Unary(name, _, _, _) = x {
@@ -35,7 +35,7 @@ lazy_static::lazy_static! {
         })
         .collect::<HashSet<_, _>>();
 
-    pub static ref NULLARY: HashSet<&'static str> = SIGNATURES
+    pub static ref NULLARY: HashSet<&'static str> = database::NULLARY
         .iter()
         .filter_map(|x| {
             if let Signature::Nullary(name, _, _) = x {
