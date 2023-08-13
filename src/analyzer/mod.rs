@@ -291,7 +291,7 @@ fn infer_expressions(expressions: &[Expr], state: &mut State) -> Option<Output> 
 
 fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
     let rhs_type = infer_type(rhs, state);
-    let (is_private, variable) = if let Expr::Unary(Spanned { inner, .. }, variable) = lhs {
+    let (is_private, variable) = if let Expr::Unary(Spanned { inner, span }, variable) = lhs {
         // private a = ...
         if inner.as_ref() != "private" {
             state.errors.push(Error {
@@ -300,6 +300,18 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
             });
             return;
         }
+        state.explanations.insert(
+            *span,
+            UNARY
+                .get(&"private")
+                .unwrap()
+                .values()
+                .next()
+                .unwrap()
+                .first()
+                .unwrap()
+                .1,
+        );
 
         let Expr::Variable(variable) = variable.as_ref() else {
             state.errors.push(Error {
@@ -404,7 +416,10 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                     rhs.as_ref().map(|x| x.type_()),
                     expr.span(),
                     &mut state.errors,
-                )?;
+                )
+                .map(|(_, explanation)| {
+                    state.explanations.insert(op.span, explanation);
+                })?;
                 if let Some(Output::Code(_, t)) = rhs {
                     t.map(Output::Type)
                 } else {
@@ -423,7 +438,10 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                     rhs.as_ref().map(|x| x.type_()),
                     expr.span(),
                     &mut state.errors,
-                )?;
+                )
+                .map(|(_, explanation)| {
+                    state.explanations.insert(op.span, explanation);
+                })?;
                 rhs
             } else {
                 if op.inner.eq_ignore_ascii_case("call") {
@@ -435,6 +453,16 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                                 process_parameters(lhs, parameters, state)
                             }
                         }
+                        let _ = infer_binary(
+                            infer_type(lhs, state).map(|x| x.type_()),
+                            op,
+                            rhs.as_ref().map(|x| x.type_()),
+                            expr.span(),
+                            &mut state.errors,
+                        )
+                        .map(|(_, explanation)| {
+                            state.explanations.insert(op.span, explanation);
+                        });
                         return type_.map(Output::Type);
                     }
                 }
