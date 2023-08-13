@@ -23,12 +23,12 @@ STRING_TO_TYPE = {
     'member': "TeamMember",  # team_member gets split
     'control': "Control",
     'display': "Display",
-    'exception': "TryType",
-    'for': "ForType",
-    'if': "IfType",
-    'switch': "SwitchType",
-    'while': "WhileType",
-    'with': "WithType",
+    'exception': "Exception",
+    'for': "For",
+    'if': "If",
+    'switch': "Switch",
+    'while': "While",
+    'with': "With",
     'side': "Side",
     'task': "Task",
     'script': "Script",
@@ -126,7 +126,7 @@ binaries = [
     ("Array", "-", "Array", "Array"),
     ("Number", "/", "Number", "Number"),
     ("Config", "/", "String", "Config"),
-    ("SwitchType", ":", "Code", "Nothing"),
+    ("Switch", ":", "Code", "Nothing"),
     ("Number", "<", "Number", "Boolean"),
     ("Number", "<=", "Number", "Boolean"),
     ("Number", "==", "Number", "Boolean"),
@@ -198,7 +198,7 @@ def _write_rs():
         op_name, return_type = exp
         expression = 'Nullary(' \
                 '"{keyword}", ' \
-                '{return_type})'.format(
+                '{return_type}, "")'.format(
         keyword=op_name,
         return_type=return_type
         )
@@ -209,7 +209,7 @@ def _write_rs():
         op_name, rhs_type, return_type = exp
         expression = 'Unary(' \
                         '"{keyword}", ' \
-                        '{rhs_type}, {return_type})'.format(
+                        '{rhs_type}, {return_type}, "")'.format(
             keyword=op_name,
             rhs_type=rhs_type,
             return_type=return_type,
@@ -222,7 +222,7 @@ def _write_rs():
         expression = 'Binary(' \
                         '{lhs_type}, ' \
                         '"{keyword}", ' \
-                        '{rhs_type}, {return_type})'.format(
+                        '{rhs_type}, {return_type}, "")'.format(
             lhs_type=lhs_type,
             keyword=op_name,
             rhs_type=rhs_type,

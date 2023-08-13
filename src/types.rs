@@ -21,12 +21,12 @@ pub enum Type {
     NetObject,
     DiaryReport,
     TeamMember,
-    ForType,
-    IfType,
-    SwitchType,
-    WhileType,
-    TryType,
-    WithType,
+    For,
+    If,
+    Switch,
+    While,
+    Exception,
+    With,
 }
 
 impl Type {
@@ -39,7 +39,7 @@ impl Type {
     }
 }
 pub enum Signature {
-    Binary(Type, &'static str, Type, Type),
-    Unary(&'static str, Type, Type),
-    Nullary(&'static str, Type),
+    Binary(Type, &'static str, Type, Type, &'static str),
+    Unary(&'static str, Type, Type, &'static str),
+    Nullary(&'static str, Type, &'static str),
 }

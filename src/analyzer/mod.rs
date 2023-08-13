@@ -18,7 +18,7 @@ pub struct Parameter {
 fn _build_binary() -> HashMap<&'static str, HashMap<(Type, Type), Type>> {
     let mut r: HashMap<&'static str, HashMap<(Type, Type), Type>> = Default::default();
     for s in SIGNATURES {
-        if let Signature::Binary(lhs, name, rhs, type_) = s {
+        if let Signature::Binary(lhs, name, rhs, type_, _) = s {
             r.entry(name)
                 .and_modify(|e| {
                     e.insert((lhs, rhs), type_);
@@ -32,7 +32,7 @@ fn _build_binary() -> HashMap<&'static str, HashMap<(Type, Type), Type>> {
 fn _build_unary() -> HashMap<&'static str, HashMap<Type, Type>> {
     let mut r: HashMap<&'static str, HashMap<Type, Type>> = Default::default();
     for s in SIGNATURES {
-        if let Signature::Unary(name, rhs, type_) = s {
+        if let Signature::Unary(name, rhs, type_, _) = s {
             r.entry(name)
                 .and_modify(|e| {
                     e.insert(rhs, type_);
@@ -46,7 +46,7 @@ fn _build_unary() -> HashMap<&'static str, HashMap<Type, Type>> {
 fn _build_nullary() -> HashMap<&'static str, Type> {
     let mut r: HashMap<&'static str, Type> = Default::default();
     for s in SIGNATURES {
-        if let Signature::Nullary(name, type_) = s {
+        if let Signature::Nullary(name, type_, _) = s {
             r.insert(name, type_);
         }
     }

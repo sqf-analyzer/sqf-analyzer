@@ -16,7 +16,7 @@ lazy_static::lazy_static! {
     pub static ref BINARY: HashSet<&'static str> = SIGNATURES
         .iter()
         .filter_map(|x| {
-            if let Signature::Binary(_, name, _, _) = x {
+            if let Signature::Binary(_, name, _, _, _) = x {
                 Some(*name)
             } else {
                 None
@@ -27,7 +27,7 @@ lazy_static::lazy_static! {
     pub static ref UNARY: HashSet<&'static str> = SIGNATURES
         .iter()
         .filter_map(|x| {
-            if let Signature::Unary(name, _, _) = x {
+            if let Signature::Unary(name, _, _, _) = x {
                 Some(*name)
             } else {
                 None
@@ -38,7 +38,7 @@ lazy_static::lazy_static! {
     pub static ref NULLARY: HashSet<&'static str> = SIGNATURES
         .iter()
         .filter_map(|x| {
-            if let Signature::Nullary(name, _) = x {
+            if let Signature::Nullary(name, _, _) = x {
                 Some(*name)
             } else {
                 None
