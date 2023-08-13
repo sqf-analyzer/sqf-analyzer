@@ -87,7 +87,7 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
             let keyword = define.next().unwrap().into();
             let name = define.next().unwrap().into();
 
-            let Some(args_or_body) = define.next() else {
+            let Some(args_or_body) = define.peek() else {
                 return Ast::Define(Define {
                     keyword,
                     name, arguments: None, body: Default::default()});
@@ -95,25 +95,29 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
             let is_arguments = matches!(args_or_body.as_rule(), Rule::define_arguments);
 
             let (arguments, body) = if is_arguments {
+                let args = Some(
+                    define
+                        .next()
+                        .unwrap()
+                        .into_inner()
+                        .map(|x| x.into())
+                        .collect(),
+                );
+
                 let body = define
                     .filter(|x| x.as_rule() != Rule::EOI)
                     .filter(|x| x.as_rule() != Rule::COMMENT)
                     .map(|x| x.into())
                     .collect();
 
-                let args = Some(args_or_body.into_inner().map(|x| x.into()).collect());
-
                 (args, body)
             } else {
                 (
                     Default::default(),
-                    std::iter::once(args_or_body.into())
-                        .chain(
-                            define
-                                .filter(|x| x.as_rule() != Rule::EOI)
-                                .filter(|x| x.as_rule() != Rule::COMMENT)
-                                .map(|x| x.into()),
-                        )
+                    define
+                        .filter(|x| x.as_rule() != Rule::EOI)
+                        .filter(|x| x.as_rule() != Rule::COMMENT)
+                        .map(|x| x.into())
                         .collect(),
                 )
             };

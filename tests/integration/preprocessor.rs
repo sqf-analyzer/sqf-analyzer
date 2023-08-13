@@ -553,3 +553,11 @@ fn debug() {
 fn bom_at_start() {
     assert("\u{feff}//------\r\n", vec![]);
 }
+
+#[test]
+fn define_other() {
+    assert(
+        "#define bool                //boolean\nbool a = true;",
+        vec!["a", "=", "true", ";"],
+    );
+}
