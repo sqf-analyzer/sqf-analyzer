@@ -69,3 +69,29 @@ fn used_default_arg() {
     let state = parse_analyze(case);
     assert_eq!(state.errors, vec![]);
 }
+
+#[test]
+fn execute_annotate_ext() {
+    let case = r#"[1] remoteExec ["A_fn_a"];"#;
+
+    let mut state = State::default();
+    state.namespace.mission.insert(
+        "A_fn_a".to_string().into(),
+        (
+            Origin::External("A_fn_a".to_string().into()),
+            Some(Output::Code(
+                Some(vec![Parameter {
+                    name: "_a".into(),
+                    type_: Type::Number,
+                    has_default: false,
+                }]),
+                None,
+            )),
+        ),
+    );
+    parse_analyze_s(case, &mut state);
+    assert_eq!(
+        state.origins,
+        HashMap::from([((16, 24), Origin::External("A_fn_a".to_string().into()))])
+    );
+}

@@ -8,6 +8,7 @@ use crate::span::{Span, Spanned};
 use crate::types::*;
 
 mod database;
+mod operators;
 pub use database::*;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -405,44 +406,12 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             if op.inner.as_ref() == "=" {
                 infer_assign(lhs, rhs, state);
                 Some(Type::Nothing.into())
-            } else if op.inner.as_ref() == "then" {
-                // the evaluate of "then" may result in a branch with different types
-                // clone the original stack and evaluate "else" with the original stack
-                let lhs = infer_type(lhs, state);
-                let rhs = infer_type(rhs, state);
-                infer_binary(
-                    lhs.map(|x| x.type_()),
-                    op,
-                    rhs.as_ref().map(|x| x.type_()),
-                    expr.span(),
-                    &mut state.errors,
-                )
-                .map(|(_, explanation)| {
-                    state.explanations.insert(op.span, explanation);
-                })?;
-                if let Some(Output::Code(_, t)) = rhs {
-                    t.map(Output::Type)
-                } else {
-                    rhs
-                }
-            } else if op.inner.as_ref() == "else" {
-                // the evaluate of "then" may result in a branch with different types
-                // clone the original stack and evaluate "else" with the original stack
-                let original = state.namespace.stack.clone();
-                let lhs = infer_type(lhs, state).map(|x| x.type_());
-                state.namespace.stack = original;
-                let rhs = infer_type(rhs, state);
-                infer_binary(
-                    lhs,
-                    op,
-                    rhs.as_ref().map(|x| x.type_()),
-                    expr.span(),
-                    &mut state.errors,
-                )
-                .map(|(_, explanation)| {
-                    state.explanations.insert(op.span, explanation);
-                })?;
-                rhs
+            } else if op.inner.as_ref().eq_ignore_ascii_case("then") {
+                operators::then(expr.span(), lhs, op, rhs, state)
+            } else if op.inner.as_ref().eq_ignore_ascii_case("else") {
+                operators::else_(expr.span(), lhs, op, rhs, state)
+            } else if op.inner.as_ref().eq_ignore_ascii_case("remoteexec") {
+                operators::remoteexec(expr.span(), lhs, op, rhs, state)
             } else {
                 if op.inner.eq_ignore_ascii_case("call") {
                     let rhs = infer_type(rhs, state);
