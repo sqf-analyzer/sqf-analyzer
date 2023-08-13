@@ -5,7 +5,7 @@ use crate::{
     span::{Span, Spanned},
 };
 
-use super::{infer_binary, infer_type, Output, State};
+use super::{infer_binary, infer_type, process_parameters, Output, State};
 
 pub fn then(
     span: Span,
@@ -72,8 +72,17 @@ pub fn remoteexec(
 ) -> Option<Output> {
     if let Expr::Array(items) = &rhs {
         if let Some(Expr::String(name)) = items.inner.first() {
-            if let Some((origin, _)) = state.namespace.get(&name.inner) {
+            if let Some((origin, return_type)) = state.namespace.get(&name.inner) {
                 state.origins.insert(name.span, origin);
+
+                if let Some(Output::Code(parameters, _)) = return_type {
+                    if let Expr::Array(lhs) = lhs {
+                        // annotate parameters with the functions' signature if it is available
+                        if let Some(parameters) = parameters {
+                            process_parameters(lhs, &parameters, state)
+                        }
+                    }
+                }
             }
         }
     }

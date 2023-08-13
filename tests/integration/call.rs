@@ -94,4 +94,5 @@ fn execute_annotate_ext() {
         state.origins,
         HashMap::from([((16, 24), Origin::External("A_fn_a".to_string().into()))])
     );
+    assert_eq!(state.parameters, HashMap::from([((1, 2), "_a".into())]));
 }
