@@ -481,22 +481,8 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
     skip_until(expr, [";", "class"]);
 }
 
-/// Given a directory, it tries to open the file "config.cpp" and
-/// retrieve the list of function names and corresponding paths in the addon
-pub fn analyze_addon(mut directory: PathBuf) -> Result<(Functions, Vec<Error>), String> {
-    directory.push("config.cpp");
-    analyze_file(directory)
-}
-
-/// Given a directory, it tries to open the file "config.cpp" and
-/// retrieve the list of function names and corresponding paths in the addon
-pub fn analyze_mission(mut directory: PathBuf) -> Result<(Functions, Vec<Error>), String> {
-    directory.push("description.ext");
-    analyze_file(directory)
-}
-
-/// Given a directory, it tries to open the file "config.cpp" and
-/// retrieve the list of function names and corresponding paths in the addon
+/// Given a path to a config.cpp or equivalent (e.g. description.ext), it tries to open it and process all functions
+/// and errors on it.
 pub fn analyze_file(path: PathBuf) -> Result<(Functions, Vec<Error>), String> {
     let Ok(content) = std::fs::read_to_string(&path) else {
         return Err(format!("File \"{path:?}\" not found"))

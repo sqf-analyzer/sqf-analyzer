@@ -47,7 +47,9 @@ fn main() {
     }
 
     if let Some(directory) = matches.get_one::<PathBuf>("mission") {
-        let (functions, errors) = match cpp::analyze_mission(directory.into()) {
+        let mission_path = directory.join("description.ext");
+
+        let (functions, errors) = match cpp::analyze_file(mission_path.clone()) {
             Ok((functions, errors)) => (functions, errors),
             Err(error) => {
                 println!("{error}");
@@ -55,10 +57,9 @@ fn main() {
             }
         };
 
-        let mission_path = directory.join("description.ext");
         println!("{} functions found and being analyzed", functions.len());
         if !errors.is_empty() {
-            print_errors(errors, &directory.join("description.ext"))
+            print_errors(errors, &mission_path)
         }
         for (_, path) in functions {
             let Ok(path) = get_path(&path.inner, mission_path.clone()) else {
@@ -86,7 +87,8 @@ fn main() {
     }
 
     if let Some(directory) = matches.get_one::<PathBuf>("addon") {
-        let (functions, errors) = match cpp::analyze_addon(directory.into()) {
+        let addon_path = directory.join("config.cpp");
+        let (functions, errors) = match cpp::analyze_file(addon_path.clone()) {
             Ok((functions, errors)) => (functions, errors),
             Err(error) => {
                 println!("{error}");
@@ -94,7 +96,6 @@ fn main() {
             }
         };
 
-        let addon_path = directory.join("config.cpp");
         println!("{} functions found and being analyzed", functions.len());
         if !errors.is_empty() {
             print_errors(errors, &addon_path)

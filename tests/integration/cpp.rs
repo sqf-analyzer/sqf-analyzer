@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use sqf::cpp::{analyze, analyze_addon};
+use sqf::cpp::{analyze, analyze_file};
 use sqf::preprocessor::tokens;
 use sqf::span::Spanned;
 
@@ -352,9 +352,9 @@ fn infer_addon() {
 
 #[test]
 fn addon_basic() {
-    let directory = "tests/integration/dictionary/addons/dictionary";
+    let path = "tests/integration/dictionary/addons/dictionary/config.cpp";
 
-    let (functions, errors) = analyze_addon(directory.into()).unwrap();
+    let (functions, errors) = analyze_file(path.into()).unwrap();
     assert_eq!(errors, vec![]);
 
     let names = [
