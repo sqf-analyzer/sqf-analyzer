@@ -26,6 +26,10 @@ fn basic_no_errors() {
         has_default: false,
     }]);
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
+    expected.explanations.insert(
+        (0, 6),
+        "Parses _this param inside a script into array of private variables",
+    );
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -42,6 +46,10 @@ fn basic_error() {
         span: (8, 11),
     });
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
+    expected.explanations.insert(
+        (0, 6),
+        "Parses _this param inside a script into array of private variables",
+    );
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -67,6 +75,11 @@ fn with_default() {
         has_default: true,
     }]);
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
+    expected.explanations.insert(
+        (0, 6),
+        "Parses _this param inside a script into array of private variables",
+    );
+    expected.explanations.insert((15, 19), "Always true.");
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -92,6 +105,12 @@ fn with_default_and_type() {
         has_default: true,
     }]);
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
+    expected.explanations.insert(
+        (0, 6),
+        "Parses _this param inside a script into array of private variables",
+    );
+    expected.explanations.insert((15, 19), "Always true.");
+    expected.explanations.insert((22, 26), "Always true.");
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -121,6 +140,15 @@ fn with_default_and_type_invalid_default() {
         has_default: true,
     }]);
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
+    expected.explanations.insert(
+        (0, 6),
+        "Parses _this param inside a script into array of private variables",
+    );
+    expected.explanations.insert(
+        (15, 22),
+        "A non-existing object. This value is not equal to anything, including itself.",
+    );
+    expected.explanations.insert((25, 29), "Always true.");
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -146,6 +174,19 @@ fn with_two_types() {
         has_default: true,
     }]);
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
+    expected.explanations.insert(
+        (0, 6),
+        "Parses _this param inside a script into array of private variables",
+    );
+    expected.explanations.insert(
+        (15, 22),
+        "A non-existing object. This value is not equal to anything, including itself.",
+    );
+    expected.explanations.insert((25, 29), "Always true.");
+    expected.explanations.insert(
+        (31, 38),
+        "A non-existing object. This value is not equal to anything, including itself.",
+    );
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -175,6 +216,14 @@ fn basic_with_unknown_type() {
         inner: "params' third argument's elements must be typed".to_string(),
         span: (24, 28),
     });
+    expected.explanations.insert(
+        (0, 6),
+        "Parses _this param inside a script into array of private variables",
+    );
+    expected.explanations.insert(
+        (15, 22),
+        "A non-existing object. This value is not equal to anything, including itself.",
+    );
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -191,6 +240,14 @@ fn basic_with_invalid_type_param() {
         span: (24, 25),
     });
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
+    expected.explanations.insert(
+        (0, 6),
+        "Parses _this param inside a script into array of private variables",
+    );
+    expected.explanations.insert(
+        (15, 22),
+        "A non-existing object. This value is not equal to anything, including itself.",
+    );
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -207,6 +264,10 @@ fn basic_with_invalid_param() {
         span: (8, 9),
     });
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
+    expected.explanations.insert(
+        (0, 6),
+        "Parses _this param inside a script into array of private variables",
+    );
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);
@@ -261,6 +322,10 @@ fn with_code() {
         has_default: true,
     }]);
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
+    expected.explanations.insert(
+        (0, 6),
+        "Parses _this param inside a script into array of private variables",
+    );
 
     let state = parse_analyze(case);
     assert_eq!(state, expected);

@@ -160,7 +160,7 @@ fn infer_unary(
     name: &Spanned<Arc<str>>,
     rhs: Option<Output>,
     errors: &mut Vec<Spanned<String>>,
-) -> Option<Output> {
+) -> Option<InnerType> {
     let lower = name.inner.to_ascii_lowercase();
 
     let Some(options) = UNARY.get(lower.as_str()) else {
@@ -174,7 +174,7 @@ fn infer_unary(
     match rhs {
         None => {
             let options = options.values();
-            take_only(options).map(|x| x.into())
+            take_only(options)
         }
         Some(rhs) => {
             let options = options
@@ -182,7 +182,7 @@ fn infer_unary(
                 .filter_map(|(x_rhs, type_)| x_rhs.consistent(rhs.type_()).then_some(type_));
 
             if let Some(first) = take_only(options) {
-                Some(first.into())
+                Some(first)
             } else if rhs.type_() == Type::Anything {
                 None
             } else {
@@ -207,7 +207,7 @@ fn infer_binary(
     rhs: Option<Type>,
     span: Span,
     errors: &mut Vec<Spanned<String>>,
-) -> Option<Output> {
+) -> Option<InnerType> {
     let lower = name.inner.to_ascii_lowercase();
 
     let Some(options) = BINARY.get(lower.as_str()) else {
@@ -221,14 +221,14 @@ fn infer_binary(
     match (lhs, rhs) {
         (None, None) => {
             let options = options.values();
-            take_only(options).map(|x| x.into())
+            take_only(options)
         }
         (None, Some(rhs)) => {
             let options = options
                 .iter()
                 .filter_map(|((_, x_rhs), type_)| x_rhs.consistent(rhs).then_some(type_));
             if let Some(first) = take_only(options) {
-                Some(first.into())
+                Some(first)
             } else if rhs == Type::Anything {
                 None
             } else {
@@ -247,7 +247,7 @@ fn infer_binary(
                 .iter()
                 .filter_map(|((x_lhs, _), type_)| x_lhs.consistent(lhs).then_some(type_));
             if let Some(first) = take_only(options) {
-                Some(first.into())
+                Some(first)
             } else {
                 if lhs != Type::Anything {
                     errors.push(Spanned {
@@ -266,7 +266,7 @@ fn infer_binary(
                 (x_lhs.consistent(lhs) && x_rhs.consistent(rhs)).then_some(type_)
             });
             if let Some(first) = take_only(options) {
-                Some(first.into())
+                Some(first)
             } else {
                 errors.push(Spanned {
                     span: name.span,
@@ -367,7 +367,13 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
         }
         Expr::Nullary(variable) => {
             let name = variable.inner.to_ascii_lowercase();
-            NULLARY.get(name.as_str()).cloned().map(|x| x.into())
+            NULLARY
+                .get(name.as_str())
+                .cloned()
+                .map(|(type_, explanation)| {
+                    state.explanations.insert(variable.span, explanation);
+                    type_.into()
+                })
         }
         Expr::Variable(variable) => {
             let name = variable.inner.to_ascii_lowercase();
@@ -440,6 +446,10 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                     expr.span(),
                     &mut state.errors,
                 )
+                .map(|(type_, explanation)| {
+                    state.explanations.insert(op.span, explanation);
+                    type_.into()
+                })
             }
         }
         Expr::Unary(op, rhs) => {
@@ -465,7 +475,10 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 _ => {}
             };
             let rhs_type = infer_type(rhs, state);
-            infer_unary(op, rhs_type, &mut state.errors)
+            infer_unary(op, rhs_type, &mut state.errors).map(|(type_, explanation)| {
+                state.explanations.insert(op.span, explanation);
+                type_.into()
+            })
         }
         Expr::Nil(_) => None,
     }
@@ -561,11 +574,8 @@ pub struct State {
     pub parameters: Parameters,
     pub namespace: Namespace,
     pub origins: HashMap<Span, Origin>,
-    // parameters in the current scope (last call of `params []` in the scope)
-    //current_signature: Option<Vec<Parameter>>,
-    // parameters in the root scope (last call of `params []` in the first stack)
-    //pub signature: Option<Vec<Parameter>>,
     pub errors: Vec<Error>,
+    pub explanations: HashMap<Span, &'static str>,
 }
 
 impl State {
