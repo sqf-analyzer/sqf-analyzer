@@ -1,7 +1,7 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 COMMENT    =  { ("//" ~ (!"\n" ~ ANY)*) | ("/*" ~ (!"*/" ~ ANY)* ~ "*/"?) }
 
-program = _{ SOI ~ term* ~ EOI }
+program = _{ SOI ~ "\u{feff}"? ~ term* ~ EOI }
 
 term = _{ include | undef | define | if_ | base_term }
 

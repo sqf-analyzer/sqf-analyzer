@@ -548,3 +548,8 @@ A("a", [_a, _b] call b);
 fn debug() {
     assert("#if A\r\n#endif", vec![]);
 }
+
+#[test]
+fn bom_at_start() {
+    assert("\u{feff}//------\r\n", vec![]);
+}
