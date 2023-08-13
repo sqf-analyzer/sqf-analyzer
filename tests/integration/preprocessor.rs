@@ -543,3 +543,8 @@ A("a", [_a, _b] call b);
         ],
     );
 }
+
+#[test]
+fn debug() {
+    assert("#if A\r\n#endif", vec![]);
+}

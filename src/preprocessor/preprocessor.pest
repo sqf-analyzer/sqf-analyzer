@@ -32,18 +32,18 @@ undef    = ${ undef_kw ~ " " ~ word ~ end }
 
 // #if | #ifdef | #ifndef
 if_ = ${
-    (ifdef_start | if_start) ~ if_body ~ (else_ ~ "\n" ~ if_body)? ~ endif_kw ~ "\n"
+    (ifdef_start | if_start) ~ if_body ~ (else_ ~ end ~ if_body)? ~ endif_kw ~ end
 }
 
 if_term     = _{ (!(endif_kw | else_) ~ term) }
 if_body     =  { (WHITESPACE | COMMENT | if_term)* }
 else_       =  { "#else" }
-ifdef_start = ${ ifdef_kw ~ " "+ ~ word ~ "\n" }
+ifdef_start = ${ ifdef_kw ~ " "+ ~ word ~ end }
 ifdef_kw    =  { "#ifdef" | "#ifndef" }
 endif_kw    =  { "#endif" }
 
 // #if
-if_start   = ${ if_keyword ~ " "* ~ base_term* ~ " "* ~ "\n" }
+if_start   = ${ if_keyword ~ " "* ~ base_term* ~ " "* ~ end }
 if_keyword =  { "#if" }
 
 // #define
@@ -59,4 +59,4 @@ define_concat =  { "##" }
 define_arguments =  { "(" ~ " "* ~ (word ~ (" "* ~ "," ~ " "* ~ word)*)? ~ " "* ~ ")" }
 define_term      = _{ define_quoted | define_concat | "\\\n" | base_term | " " | "\t" | "\r" }
 
-end = _{ ("\n" | EOI) }
+end = _{ ("\r\n" | "\n" | EOI) }
