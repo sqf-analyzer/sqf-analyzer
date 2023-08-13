@@ -216,6 +216,7 @@ fn next<'a>(terms: &mut VecDeque<Ast<'a>>, state: &mut State) -> Option<Spanned<
 }
 
 impl<'a> AstIterator<'a> {
+    /// path represents the location of the config.cpp
     pub fn new(base: VecDeque<Ast<'a>>, defines: Defines, path: PathBuf) -> Self {
         Self {
             base,

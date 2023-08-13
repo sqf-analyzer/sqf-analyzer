@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use sqf::cpp::analyze_addon;
 
 mod analyser;
@@ -15,12 +17,13 @@ fn check_is_ok() {
 
 #[test]
 fn check_addon() {
-    let (functions, e) =
-        analyze_addon("tests/integration/case_sensitive/addons/main".into()).unwrap();
+    let path: PathBuf = "tests/integration/case_sensitive/addons/main".into();
+
+    let (functions, e) = analyze_addon(path.clone()).unwrap();
     assert_eq!(e, vec![]);
 
-    for (_, path) in functions {
-        let Some(path) = sqf::find_addon_path(&path.inner) else {
+    for (_, function_path) in functions {
+        let Ok(path) = sqf::get_path(&function_path.inner,path.join("config.cpp").clone()) else {
             panic!()
         };
         let e = sqf::check(&path);

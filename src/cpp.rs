@@ -204,10 +204,10 @@ pub struct State {
     assignments: Assignments,
 }
 
-pub type Functions = HashMap<Arc<str>, Spanned<PathBuf>>;
+pub type Functions = HashMap<Arc<str>, Spanned<String>>;
 
 impl State {
-    fn functions(&self, cpp_path: PathBuf) -> Functions {
+    fn functions(&self) -> Functions {
         let mut r = HashMap::default();
         for namespace in &self.namespaces {
             if namespace.len() != 4 {
@@ -269,17 +269,13 @@ impl State {
                     }
                 }
             };
-            r.insert(
-                name.into(),
-                path.map(|x| preprocessor::build_path(cpp_path.clone(), x.as_str())),
-            );
+            r.insert(name.into(), path);
         }
         r
     }
 }
 
 pub fn analyze(iter: AstIterator) -> (Functions, Vec<Error>) {
-    let path = iter.state.path.clone();
     let (mut expr, mut errors) = parse(iter);
 
     let mut state = State::default();
@@ -289,7 +285,7 @@ pub fn analyze(iter: AstIterator) -> (Functions, Vec<Error>) {
         process_code(&mut expr, &mut state, &mut errors);
     }
 
-    (state.functions(path), errors)
+    (state.functions(), errors)
 }
 
 fn to_value(expr: Expr, errors: &mut Vec<Error>, is_negative: bool) -> Option<Spanned<Value>> {
@@ -502,7 +498,7 @@ pub fn analyze_mission(mut directory: PathBuf) -> Result<(Functions, Vec<Error>)
 /// Given a directory, it tries to open the file "config.cpp" and
 /// retrieve the list of function names and corresponding paths in the addon
 pub fn analyze_file(path: PathBuf) -> Result<(Functions, Vec<Error>), String> {
-    let Ok(content) = std::fs::read_to_string(path.clone()) else {
+    let Ok(content) = std::fs::read_to_string(&path) else {
         return Err(format!("File \"{path:?}\" not found"))
     };
 

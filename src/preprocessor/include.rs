@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::error::Error;
+use crate::get_path;
 use crate::span::{Span, Spanned};
 
 use super::iterator::State;
@@ -51,7 +52,15 @@ pub fn process_include(
     if name.inner.starts_with("\\A3") || name.inner.starts_with("\\a3") {
         return None;
     };
-    let path = build_path(state.path.clone(), name.inner);
+
+    let path = get_path(name.inner, state.path.clone())
+        .map_err(|e| {
+            state.errors.push(Error {
+                inner: e,
+                span: name.span,
+            })
+        })
+        .ok()?;
 
     match std::fs::read_to_string(path.clone()) {
         Err(_) => {

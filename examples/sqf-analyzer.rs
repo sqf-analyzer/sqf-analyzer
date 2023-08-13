@@ -6,8 +6,8 @@ use clap::{arg, value_parser, Command};
 
 use source_span::DEFAULT_METRICS;
 use source_span::{Position, Span};
+use sqf::get_path;
 use sqf::{cpp, error::Error};
-use sqf::{find_addon_path, find_mission_path};
 
 fn main() {
     let matches = Command::new("sqf-analyzer")
@@ -54,12 +54,15 @@ fn main() {
                 return;
             }
         };
+
+        let mission_path = directory.join("description.ext");
         println!("{} functions found and being analyzed", functions.len());
         if !errors.is_empty() {
             print_errors(errors, &directory.join("description.ext"))
         }
         for (_, path) in functions {
-            let Some(path) = find_mission_path(&path.inner) else {
+            let Ok(path) = get_path(&path.inner, mission_path.clone()) else {
+                println!("Could not find path \"{}\" of function declared in addon", path.inner);
                 continue
             };
             let errors = sqf::check(&path);
@@ -91,13 +94,14 @@ fn main() {
             }
         };
 
+        let addon_path = directory.join("config.cpp");
         println!("{} functions found and being analyzed", functions.len());
         if !errors.is_empty() {
-            print_errors(errors, &directory.join("config.cpp"))
+            print_errors(errors, &addon_path)
         }
         for (_, path) in functions {
-            let Some(path) = find_addon_path(&path.inner) else {
-                println!("Could not find path \"{}\" of function declared in addon", path.inner.display());
+            let Ok(path) = get_path(&path.inner, addon_path.clone()) else {
+                println!("Could not find path \"{}\" of function declared in addon", path.inner);
                 continue
             };
             let errors = sqf::check(&path);

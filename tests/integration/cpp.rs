@@ -281,23 +281,20 @@ class CfgFunctions
         functions,
         HashMap::from([
             (
-                "TAG_fnc_myFunction".to_string().into(),
-                Spanned::new("Category/fn_myFunction.sqf".to_string().into(), (93, 103)),
+                "TAG_fnc_myFunction".into(),
+                Spanned::new("Category\\fn_myFunction.sqf".into(), (93, 103)),
             ),
             (
-                "TAG_fnc_myFunction1".to_string().into(),
-                Spanned::new(
-                    "My/Category/Path/fn_myFunction1.sqf".to_string().into(),
-                    (215, 226)
-                ),
+                "TAG_fnc_myFunction1".into(),
+                Spanned::new("My\\Category\\Path\\fn_myFunction1.sqf".into(), (215, 226)),
             ),
             (
-                "TAG_fnc_myDataFunction".to_string().into(),
-                Spanned::new("My/Function/Filepath.sqf".to_string().into(), (528, 542)),
+                "TAG_fnc_myDataFunction".into(),
+                Spanned::new("My\\Function\\Filepath.sqf".into(), (528, 542)),
             ),
             (
-                "SOME_fnc_myFunction".to_string().into(),
-                Spanned::new("Category/fn_myFunction.sqf".to_string().into(), (807, 817)),
+                "SOME_fnc_myFunction".into(),
+                Spanned::new("Category\\fn_myFunction.sqf".into(), (807, 817)),
             ),
         ])
     );
@@ -392,7 +389,7 @@ fn addon_basic() {
         .map(|x| {
             (
                 format!("DICT_fnc_{x}").into(),
-                format!("tests/integration/dictionary/addons/dictionary/fnc_{x}.sqf").into(),
+                format!("dictionary/fnc_{x}.sqf"),
             )
         })
         .collect::<HashMap<_, _>>();
