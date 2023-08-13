@@ -15,6 +15,17 @@ pub mod parser;
 pub mod preprocessor;
 pub mod span;
 
+fn find_pboprefix(mut directory: PathBuf) -> Option<String> {
+    while !directory.as_os_str().is_empty() {
+        let pbo_path = directory.join("$PBOPREFIX$");
+        if let Ok(pbo_prefix) = std::fs::read_to_string(pbo_path) {
+            return Some(pbo_prefix);
+        };
+        directory.pop();
+    }
+    None
+}
+
 /// Given a name taken from a file representing a path, together with the path of the file
 /// it was taken from, tries to reconstruct the absolute path of the file
 pub fn get_path(name: &str, root: PathBuf) -> Result<PathBuf, String> {
@@ -31,12 +42,11 @@ pub fn get_path(name: &str, root: PathBuf) -> Result<PathBuf, String> {
         // find $PBOPREFIX$ in the parent directory of the file and see how it is
         // located in relation to what $PBOPREFIX$ says
         // TODO: loop over directories until PBOPREFIX is found
-        let pbo_path = directory.join("$PBOPREFIX$");
-        let pbo_prefix = std::fs::read_to_string(&pbo_path).map_err(|_| {
+        let pbo_prefix = find_pboprefix(directory.clone()).ok_or_else(|| {
             format!(
-                "The included path \"{}\" is absolute and no $PBOPREFIX$ was found at {}",
+                "The included path \"{}\" is absolute and no $PBOPREFIX$ was found at {} or parent paths",
                 path.display(),
-                pbo_path.display()
+                directory.display()
             )
         })?;
 
