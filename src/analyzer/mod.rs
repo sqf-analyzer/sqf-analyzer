@@ -9,7 +9,9 @@ use crate::types::*;
 
 mod database;
 mod operators;
+mod type_operations;
 pub use database::*;
+use type_operations::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parameter {
@@ -408,6 +410,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 operators::then(expr.span(), lhs, op, rhs, state)
             } else if op.inner.as_ref().eq_ignore_ascii_case("foreach") {
                 operators::foreach(expr.span(), lhs, op, rhs, state)
+            } else if op.inner.as_ref().eq_ignore_ascii_case("exitWith") {
+                operators::exit_with(expr.span(), lhs, op, rhs, state)
             } else if op.inner.as_ref().eq_ignore_ascii_case("else") {
                 operators::else_(expr.span(), lhs, op, rhs, state)
             } else if op.inner.as_ref().eq_ignore_ascii_case("remoteexec") {
@@ -618,6 +622,12 @@ impl State {
             }))
             .collect()
     }
+
+    /// Updates the return type based on the new type of the return by taking the union of the types
+    fn update_return(&mut self, new_type: Option<Type>) {
+        self.namespace.stack.last_mut().unwrap().return_type =
+            union_types(new_type, self.namespace.stack.last().unwrap().return_type);
+    }
 }
 
 #[derive(Debug)]
@@ -628,5 +638,6 @@ pub struct Configuration {
 pub fn analyze(program: &[Expr], state: &mut State) {
     state.namespace.push_stack();
     let output = infer_expressions(program, state);
-    state.namespace.stack.last_mut().unwrap().return_type = output.map(|x| x.type_());
+
+    state.update_return(output.map(|x| x.type_()));
 }

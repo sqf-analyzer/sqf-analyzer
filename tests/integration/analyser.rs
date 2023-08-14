@@ -433,3 +433,53 @@ private _x = 1;
     let state = parse_analyze(case);
     assert_eq!(state.errors, vec![]);
 }
+
+#[test]
+fn exit_with() {
+    let case = r#"
+if _a exitWith {1};
+"a";
+"#;
+
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(state.return_type(), Some(Type::Anything))
+}
+
+#[test]
+fn else_return_union() {
+    let case = r#"
+if _a then {2} else {true}
+"#;
+
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(state.return_type(), Some(Type::Anything))
+}
+
+#[test]
+fn then_return() {
+    let case = r#"
+if _a then {2}
+"#;
+
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(state.return_type(), Some(Type::Number))
+}
+
+#[test]
+fn if_else_assign_val() {
+    let case = r#"
+private _result = 0;
+if(true) then {
+    _result = 1;
+} else {
+    _result = [];
+};
+_result;
+"#;
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(state.return_type(), Some(Type::Anything))
+}

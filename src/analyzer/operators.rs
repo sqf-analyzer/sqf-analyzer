@@ -6,7 +6,8 @@ use crate::{
     types::Type,
 };
 
-use super::{infer_binary, infer_type, process_parameters, Output, State};
+use super::type_operations::union_stacks;
+use super::{infer_binary, infer_type, process_parameters, union_output, Output, State};
 
 pub fn then(
     span: Span,
@@ -47,11 +48,16 @@ pub fn else_(
     // the evaluate of "then" may result in a branch with different types
     // clone the original stack and evaluate "else" with the original stack
     let original = state.namespace.stack.clone();
-    let lhs = infer_type(lhs, state).map(|x| x.type_());
+    let lhs = infer_type(lhs, state);
+    // state stack now contains the "then" branch
+    let then = std::mem::take(&mut state.namespace.stack);
     state.namespace.stack = original;
     let rhs = infer_type(rhs, state);
+    let else_ = std::mem::take(&mut state.namespace.stack);
+    state.namespace.stack = union_stacks(then, else_);
+
     infer_binary(
-        lhs,
+        lhs.as_ref().map(|x| x.type_()),
         op,
         rhs.as_ref().map(|x| x.type_()),
         span,
@@ -60,8 +66,23 @@ pub fn else_(
     .map(|(_, explanation)| {
         state.explanations.insert(op.span, explanation);
     })?;
-    // return the type from one of the branches.
-    rhs
+    // when lhs was code with a return type, use it
+    let lhs = if let Some(Output::Code(_, t)) = lhs {
+        t.map(Output::Type)
+    } else {
+        lhs
+    };
+    // when rhs was code with a return type, use it
+    let rhs = if let Some(Output::Code(_, t)) = rhs {
+        t.map(Output::Type)
+    } else {
+        rhs
+    };
+    // returns the union of the types
+    Some(Output::Code(
+        None,
+        union_output(lhs, rhs).map(|x| x.type_()),
+    ))
 }
 
 pub fn remoteexec(
@@ -108,6 +129,7 @@ pub fn foreach(
     rhs: &Expr,
     state: &mut State,
 ) -> Option<Output> {
+    // technically not right as the _x should be assigned to the new future stack of lhs, not here
     state.namespace.insert(
         Spanned::new("_x".into(), op.span),
         Some(Type::Anything.into()),
@@ -130,6 +152,24 @@ pub fn foreach(
         &mut state.errors,
     )
     .map(|(type_, explanation)| {
+        state.explanations.insert(op.span, explanation);
+        type_.into()
+    })
+}
+
+pub fn exit_with(
+    span: Span,
+    lhs: &Expr,
+    op: &Spanned<Arc<str>>,
+    rhs: &Expr,
+    state: &mut State,
+) -> Option<Output> {
+    let lhs = infer_type(lhs, state).map(|x| x.type_());
+    let rhs = infer_type(rhs, state).map(|x| x.type_());
+
+    state.update_return(rhs);
+
+    infer_binary(lhs, op, rhs, span, &mut state.errors).map(|(type_, explanation)| {
         state.explanations.insert(op.span, explanation);
         type_.into()
     })
