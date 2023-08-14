@@ -107,14 +107,14 @@ fn namespace_origin() {
     state.namespace.mission.insert(
         "A_fn_a".to_string().into(),
         (
-            Origin::External("A_fn_a".to_string().into()),
+            Origin::External("A_fn_a".to_string().into(), None),
             Some(Type::Code.into()),
         ),
     );
     parse_analyze_s(case, &mut state);
     assert_eq!(
         state.origins,
-        HashMap::from([((5, 11), Origin::External("A_fn_a".to_string().into()))])
+        HashMap::from([((5, 11), Origin::External("A_fn_a".to_string().into(), None))])
     );
 }
 
@@ -199,7 +199,7 @@ fn infer_example3() {
     state.namespace.mission.insert(
         "DICT_fnc__set".to_string().into(),
         (
-            Origin::External("DICT_fnc__set".to_string().into()),
+            Origin::External("DICT_fnc__set".to_string().into(), None),
             Some(Output::Code(
                 Some(vec![
                     Parameter {
@@ -385,4 +385,40 @@ fn debug() {
         HashMap::from([("_aa".into(), ((8, 11), Some(Type::Anything.into())))])
     );
     assert_eq!(state.return_type(), Some(Type::Nothing));
+}
+
+#[test]
+fn origin_global() {
+    let case = r#"1 + a"#;
+
+    let mut state = State::default();
+    state.namespace.mission.insert(
+        "a".to_string().into(),
+        (
+            Origin::External("a".to_string().into(), Some((10, 11))),
+            Some(Output::Type(Type::Number)),
+        ),
+    );
+    parse_analyze_s(case, &mut state);
+    assert_eq!(
+        state.origins,
+        HashMap::from([(
+            (4, 5),
+            Origin::External("a".to_string().into(), Some((10, 11)))
+        )])
+    );
+}
+
+#[test]
+fn origin_global_from() {
+    let case = r#"a = 1"#;
+
+    let state = parse_analyze(case);
+    assert_eq!(
+        state.namespace.mission,
+        HashMap::from([(
+            "a".into(),
+            (Origin::File((0, 1)), Some(Type::Number.into()))
+        )])
+    );
 }

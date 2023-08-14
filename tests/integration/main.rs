@@ -12,7 +12,7 @@ mod preprocessor;
 #[test]
 fn check_is_ok() {
     let path = std::path::PathBuf::from("./tests/integration/examples/basic_if.sqf");
-    sqf::check(&path);
+    sqf::check(&path, Default::default()).unwrap();
 }
 
 #[test]
@@ -26,7 +26,7 @@ fn check_addon() {
         let Ok(path) = sqf::get_path(&function_path.inner,path.clone()) else {
             panic!()
         };
-        let e = sqf::check(&path);
-        assert_eq!(e, vec![]);
+        let e = sqf::check(&path, Default::default()).unwrap();
+        assert_eq!(e.errors, vec![]);
     }
 }

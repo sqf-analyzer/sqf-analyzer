@@ -6,6 +6,7 @@ use clap::{arg, value_parser, Command};
 
 use source_span::DEFAULT_METRICS;
 use source_span::{Position, Span};
+use sqf::cpp::Functions;
 use sqf::get_path;
 use sqf::{cpp, error::Error};
 
@@ -40,9 +41,15 @@ fn main() {
         .get_matches();
 
     if let Some(path) = matches.get_one::<PathBuf>("sqf") {
-        let errors = sqf::check(path);
-        if !errors.is_empty() {
-            print_errors(errors, path)
+        match sqf::check(path, Default::default()) {
+            Ok(state) => {
+                if !state.errors.is_empty() {
+                    print_errors(state.errors, path)
+                }
+            }
+            Err(e) => {
+                println!("{}", e.inner);
+            }
         }
     }
 
@@ -61,16 +68,7 @@ fn main() {
         if !errors.is_empty() {
             print_errors(errors, &mission_path)
         }
-        for (_, path) in functions {
-            let Ok(path) = get_path(&path.inner, mission_path.clone()) else {
-                println!("Could not find path \"{}\" of function declared in addon", path.inner);
-                continue
-            };
-            let errors = sqf::check(&path);
-            if !errors.is_empty() {
-                print_errors(errors, &path)
-            }
-        }
+        process(&mission_path, &functions)
     }
 
     if let Some(path) = matches.get_one::<PathBuf>("config") {
@@ -100,14 +98,44 @@ fn main() {
         if !errors.is_empty() {
             print_errors(errors, &addon_path)
         }
-        for (_, path) in functions {
-            let Ok(path) = get_path(&path.inner, addon_path.clone()) else {
-                println!("Could not find path \"{}\" of function declared in addon", path.inner);
-                continue
-            };
-            let errors = sqf::check(&path);
-            if !errors.is_empty() {
-                print_errors(errors, &path)
+        process(&addon_path, &functions)
+    }
+}
+
+fn process(addon_path: &Path, functions: &Functions) {
+    // first pass to get the global states
+    let states = functions
+        .iter()
+        .filter_map(|(name, sqf_path)| {
+            let path = get_path(&sqf_path.inner, addon_path.to_owned()).ok()?;
+
+            sqf::check(&path, Default::default())
+                .map(|state| (name, state))
+                .ok()
+        })
+        .collect::<HashMap<_, _>>();
+
+    // second pass to get errors
+    for (function_name, path) in functions {
+        let Ok(path) = get_path(&path.inner, addon_path.to_owned()) else {
+            println!("Could not find path \"{}\" of function declared in addon", path.inner);
+            continue
+        };
+
+        let mission = states
+            .iter()
+            .filter(|x| x.0.as_ref() != function_name.as_ref())
+            .flat_map(|(function_name, state)| state.globals((*function_name).clone()))
+            .collect();
+
+        match sqf::check(&path, mission) {
+            Ok(state) => {
+                if !state.errors.is_empty() {
+                    print_errors(state.errors, &path)
+                }
+            }
+            Err(e) => {
+                println!("{}", e.inner);
             }
         }
     }

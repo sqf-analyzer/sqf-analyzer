@@ -7,6 +7,7 @@ pub mod database;
 pub mod error;
 pub mod types;
 
+use analyzer::{MissionNamespace, State};
 use path_clean::PathClean;
 pub use pest;
 use walkdir::WalkDir;
@@ -109,25 +110,20 @@ fn find_path(path: &Path) -> Option<PathBuf> {
     None
 }
 
-pub fn check(path: &std::path::Path) -> Vec<error::Error> {
-    let Ok(case) = std::fs::read_to_string(path) else {
-        return vec![error::Error {
-            inner: format!("file \"{}\" not available", path.display()),
-            span: (1,1)
-        }]
-    };
-    let iter = preprocessor::tokens(&case, Default::default(), path.to_owned());
+pub fn check(path: &std::path::Path, mission: MissionNamespace) -> Result<State, error::Error> {
+    let case = std::fs::read_to_string(path).map_err(|_| error::Error {
+        inner: format!("file \"{}\" not available", path.display()),
+        span: (1, 1),
+    })?;
+    let iter = preprocessor::tokens(&case, Default::default(), path.to_owned()).map_err(|x| x.1)?;
 
-    let iter = match iter {
-        Ok(iter) => iter,
-        Err(e) => return vec![e.1],
-    };
     let (expr, errors) = parser::parse(iter);
 
-    let mut state = Default::default();
+    let mut state = State::default();
+    state.namespace.mission = mission;
     analyzer::analyze(&expr, &mut state);
     state.errors.extend(errors);
-    state.errors
+    Ok(state)
 }
 
 #[cfg(test)]

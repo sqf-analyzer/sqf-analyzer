@@ -39,7 +39,7 @@ fn call_annotate_ext() {
     state.namespace.mission.insert(
         "A_fn_a".to_string().into(),
         (
-            Origin::External("A_fn_a".to_string().into()),
+            Origin::External("A_fn_a".to_string().into(), None),
             Some(Output::Code(
                 Some(vec![Parameter {
                     name: "_a".into(),
@@ -57,7 +57,10 @@ fn call_annotate_ext() {
     );
     assert_eq!(
         state.origins,
-        HashMap::from([((22, 28), Origin::External("A_fn_a".to_string().into()))])
+        HashMap::from([(
+            (22, 28),
+            Origin::External("A_fn_a".to_string().into(), None)
+        )])
     );
     assert_eq!(state.parameters, HashMap::from([((14, 15), "_a".into())]));
 }
@@ -78,7 +81,7 @@ fn execute_annotate_ext() {
     state.namespace.mission.insert(
         "A_fn_a".to_string().into(),
         (
-            Origin::External("A_fn_a".to_string().into()),
+            Origin::External("A_fn_a".to_string().into(), None),
             Some(Output::Code(
                 Some(vec![Parameter {
                     name: "_a".into(),
@@ -92,7 +95,10 @@ fn execute_annotate_ext() {
     parse_analyze_s(case, &mut state);
     assert_eq!(
         state.origins,
-        HashMap::from([((16, 24), Origin::External("A_fn_a".to_string().into()))])
+        HashMap::from([(
+            (16, 24),
+            Origin::External("A_fn_a".to_string().into(), None)
+        )])
     );
     assert_eq!(state.parameters, HashMap::from([((1, 2), "_a".into())]));
 }

@@ -342,9 +342,7 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
 }
 
 fn process_parameters(lhs: &Spanned<Vec<Expr>>, parameters: &[Parameter], state: &mut State) {
-    let required_args = parameters.iter().filter(|x| !x.has_default).count();
-
-    if lhs.inner.len() < required_args || lhs.inner.len() > parameters.len() {
+    if lhs.inner.len() > parameters.len() {
         state.errors.push(Error {
             inner: format!(
                 "Function expects {} parameters, but received {}",
@@ -489,10 +487,12 @@ pub struct Stack {
     pub return_type: Option<Type>,
 }
 
+pub type MissionNamespace = HashMap<Arc<str>, (Origin, Option<Output>)>;
+
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Namespace {
     pub stack: Vec<Stack>,
-    pub mission: HashMap<Arc<str>, (Origin, Option<Output>)>,
+    pub mission: MissionNamespace,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -559,7 +559,7 @@ impl Namespace {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Origin {
     File(Span),
-    External(Arc<str>),
+    External(Arc<str>, Option<Span>),
 }
 
 pub type Types = HashMap<Span, Option<Type>>;
@@ -583,6 +583,39 @@ impl State {
     pub fn return_type(&self) -> Option<Type> {
         self.namespace.stack.last().unwrap().return_type
     }
+
+    /// Returns the set of all globals established by this state, assuming a function_name
+    pub fn globals(&self, function_name: Arc<str>) -> HashMap<Arc<str>, (Origin, Option<Output>)> {
+        let globals = &self.namespace.mission;
+        let signature = self.signature();
+        let return_type = self.return_type();
+        //signature
+        globals
+            .iter()
+            .filter_map(|(variable_name, (origin, output))| {
+                if let Origin::File(span) = origin {
+                    Some((
+                        variable_name.clone(),
+                        (
+                            Origin::External(function_name.clone(), Some(*span)),
+                            output.clone(),
+                        ),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .chain(signature.into_iter().map(|x| {
+                (
+                    function_name.clone(),
+                    (
+                        Origin::External(function_name.clone(), None),
+                        Some(Output::Code(Some(x.clone()), return_type)),
+                    ),
+                )
+            }))
+            .collect()
+    }
 }
 
 #[derive(Debug)]
@@ -592,9 +625,6 @@ pub struct Configuration {
 
 pub fn analyze(program: &[Expr], state: &mut State) {
     state.namespace.push_stack();
-    let mut output = None;
-    for expr in program {
-        output = infer_type(expr, state);
-    }
+    let output = infer_expressions(program, state);
     state.namespace.stack.last_mut().unwrap().return_type = output.map(|x| x.type_());
 }
