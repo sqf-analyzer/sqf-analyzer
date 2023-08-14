@@ -106,11 +106,11 @@ fn process(addon_path: &Path, functions: &Functions) {
     // first pass to get the global states
     let states = functions
         .iter()
-        .filter_map(|(name, sqf_path)| {
+        .filter_map(|(function_name, sqf_path)| {
             let path = get_path(&sqf_path.inner, addon_path.to_owned()).ok()?;
 
             sqf::check(&path, Default::default())
-                .map(|state| (name, state))
+                .map(|state| (function_name, state))
                 .ok()
         })
         .collect::<HashMap<_, _>>();

@@ -611,15 +611,13 @@ impl State {
                     None
                 }
             })
-            .chain(signature.into_iter().map(|x| {
+            .chain(std::iter::once((
+                function_name.clone(),
                 (
-                    function_name.clone(),
-                    (
-                        Origin::External(function_name.clone(), None),
-                        Some(Output::Code(Some(x.clone()), return_type)),
-                    ),
-                )
-            }))
+                    Origin::External(function_name.clone(), None),
+                    Some(Output::Code(signature.cloned(), return_type)),
+                ),
+            )))
             .collect()
     }
 
