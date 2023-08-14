@@ -483,3 +483,11 @@ _result;
     assert_eq!(state.errors, vec![]);
     assert_eq!(state.return_type(), Some(Type::Anything))
 }
+
+#[test]
+fn for_each_return() {
+    let case = "{true} forEach []";
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(state.return_type(), Some(Type::Boolean))
+}

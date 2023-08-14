@@ -135,7 +135,7 @@ pub fn foreach(
         Some(Type::Anything.into()),
         true,
     );
-    let lhs = infer_type(lhs, state).map(|x| x.type_());
+    let lhs = infer_type(lhs, state);
     state
         .namespace
         .stack
@@ -144,17 +144,22 @@ pub fn foreach(
         .variables
         .remove("_x");
 
-    infer_binary(
-        lhs,
+    if let Some((_, explanation)) = infer_binary(
+        lhs.as_ref().map(|x| x.type_()),
         op,
         infer_type(rhs, state).map(|x| x.type_()),
         span,
         &mut state.errors,
-    )
-    .map(|(type_, explanation)| {
+    ) {
         state.explanations.insert(op.span, explanation);
-        type_.into()
-    })
+    }
+
+    // when lhs was code with a return type, use it
+    if let Some(Output::Code(_, t)) = lhs {
+        t.map(Output::Type)
+    } else {
+        lhs
+    }
 }
 
 pub fn exit_with(
