@@ -422,3 +422,14 @@ fn origin_global_from() {
         )])
     );
 }
+
+#[test]
+fn for_each() {
+    let case = r#"
+private _x = 1;
+{"a" + _x} forEach []
+"#;
+
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+}

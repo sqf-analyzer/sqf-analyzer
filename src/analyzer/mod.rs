@@ -406,6 +406,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 Some(Type::Nothing.into())
             } else if op.inner.as_ref().eq_ignore_ascii_case("then") {
                 operators::then(expr.span(), lhs, op, rhs, state)
+            } else if op.inner.as_ref().eq_ignore_ascii_case("foreach") {
+                operators::foreach(expr.span(), lhs, op, rhs, state)
             } else if op.inner.as_ref().eq_ignore_ascii_case("else") {
                 operators::else_(expr.span(), lhs, op, rhs, state)
             } else if op.inner.as_ref().eq_ignore_ascii_case("remoteexec") {

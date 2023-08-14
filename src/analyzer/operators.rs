@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::{
     parser::Expr,
     span::{Span, Spanned},
+    types::Type,
 };
 
 use super::{infer_binary, infer_type, process_parameters, Output, State};
@@ -89,6 +90,40 @@ pub fn remoteexec(
 
     infer_binary(
         infer_type(lhs, state).map(|x| x.type_()),
+        op,
+        infer_type(rhs, state).map(|x| x.type_()),
+        span,
+        &mut state.errors,
+    )
+    .map(|(type_, explanation)| {
+        state.explanations.insert(op.span, explanation);
+        type_.into()
+    })
+}
+
+pub fn foreach(
+    span: Span,
+    lhs: &Expr,
+    op: &Spanned<Arc<str>>,
+    rhs: &Expr,
+    state: &mut State,
+) -> Option<Output> {
+    state.namespace.insert(
+        Spanned::new("_x".into(), op.span),
+        Some(Type::Anything.into()),
+        true,
+    );
+    let lhs = infer_type(lhs, state).map(|x| x.type_());
+    state
+        .namespace
+        .stack
+        .last_mut()
+        .unwrap()
+        .variables
+        .remove("_x");
+
+    infer_binary(
+        lhs,
         op,
         infer_type(rhs, state).map(|x| x.type_()),
         span,
