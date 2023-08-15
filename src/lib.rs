@@ -3,18 +3,19 @@
 use std::path::{Path, PathBuf};
 
 pub mod analyzer;
+pub mod cpp;
 pub mod database;
 pub mod error;
+pub mod parser;
+pub mod preprocessor;
+pub mod span;
 pub mod types;
 
 use analyzer::{MissionNamespace, State};
 use path_clean::PathClean;
+use path_slash::PathBufExt;
 pub use pest;
 use walkdir::WalkDir;
-pub mod cpp;
-pub mod parser;
-pub mod preprocessor;
-pub mod span;
 
 fn find_pboprefix(mut directory: PathBuf) -> Option<String> {
     while !directory.as_os_str().is_empty() {
@@ -30,12 +31,14 @@ fn find_pboprefix(mut directory: PathBuf) -> Option<String> {
 /// Given a name taken from a file representing a path, together with the path of the file
 /// it was taken from, tries to reconstruct the absolute path of the file
 pub fn get_path(name: &str, root: PathBuf) -> Result<PathBuf, String> {
-    let path: PathBuf = name.replace('\\', "/").into();
+    // Note: path.is_absolute() requires the drive on windows, while Arma 3 absolute is without drive
+    let is_absolute = name.starts_with('\\') | name.starts_with('/');
+    let path = PathBuf::from_slash(name.replace('\\', "/"));
 
     let mut directory = root;
     directory.pop();
 
-    if !path.is_absolute() {
+    if !is_absolute {
         directory.push(path);
         directory = directory.clean();
         Ok(find_path(&directory).unwrap_or(directory))

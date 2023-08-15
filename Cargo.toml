@@ -9,12 +9,14 @@ pest_derive = "2.6"
 lazy_static = "*"
 walkdir = "2"
 path-clean = "*"
+path-slash = "*"
 tinyvec = "1.6.0"
 
 [[example]]
 name = "sqf-analyzer"
 
 [dev_dependencies.clap]
+version = "*"
 features = ["cargo"]
 
 [dev_dependencies.codespan-reporting]
