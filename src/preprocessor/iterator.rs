@@ -50,6 +50,11 @@ fn evaluate_terms<'a>(
 }
 
 #[allow(clippy::needless_bool)]
+fn evaluate_ifdef(span: Span, result: bool, if_results: &mut HashMap<Span, bool>) -> bool {
+    *if_results.entry(span).or_insert_with(|| result)
+}
+
+#[allow(clippy::needless_bool)]
 fn evaluate_if<'a>(
     span: Span,
     expr: &VecDeque<Ast<'a>>,
@@ -100,7 +105,11 @@ fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<Spanned<
         Ast::Ifndef(IfDefined {
             term, else_, then, ..
         }) => {
-            if !state.defines.contains_key(term.inner) {
+            if evaluate_ifdef(
+                term.span,
+                !state.defines.contains_key(term.inner),
+                &mut state.if_results,
+            ) {
                 evaluate_terms(then, state)
             } else {
                 evaluate_terms(else_, state)
@@ -109,7 +118,11 @@ fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<Spanned<
         Ast::Ifdef(IfDefined {
             term, then, else_, ..
         }) => {
-            if state.defines.contains_key(term.inner) {
+            if evaluate_ifdef(
+                term.span,
+                state.defines.contains_key(term.inner),
+                &mut state.if_results,
+            ) {
                 evaluate_terms(then, state)
             } else {
                 evaluate_terms(else_, state)

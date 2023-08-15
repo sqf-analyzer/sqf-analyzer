@@ -488,12 +488,13 @@ fn if_else() {
 fn ifndef_def() {
     let case = r#"
 #ifndef A
-#define A 1
+#define A
+#define B 1 + 2
 #endif
 
-A
+B
 "#;
-    assert(case, vec!["1"]);
+    assert(case, vec!["1", "+", "2"]);
 }
 
 #[test]
