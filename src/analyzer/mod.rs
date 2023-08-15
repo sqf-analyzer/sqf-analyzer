@@ -416,6 +416,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 operators::else_(expr.span(), lhs, op, rhs, state)
             } else if op.inner.as_ref().eq_ignore_ascii_case("remoteexec") {
                 operators::remoteexec(expr.span(), lhs, op, rhs, state)
+            } else if op.inner.as_ref().eq_ignore_ascii_case("spawn") {
+                operators::spawn(expr.span(), lhs, op, rhs, state)
             } else {
                 if op.inner.eq_ignore_ascii_case("call") {
                     let rhs = infer_type(rhs, state);

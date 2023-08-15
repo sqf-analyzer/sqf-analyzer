@@ -179,3 +179,29 @@ pub fn exit_with(
         type_.into()
     })
 }
+
+pub fn spawn(
+    span: Span,
+    lhs: &Expr,
+    op: &Spanned<Arc<str>>,
+    rhs: &Expr,
+    state: &mut State,
+) -> Option<Output> {
+    // spawn has its own namespace as a result of not running sync
+    let lhs = infer_type(lhs, state);
+    let original = state.namespace.stack.clone();
+    state.namespace.stack.clear();
+    let rhs = infer_type(rhs, state);
+    state.namespace.stack = original;
+    infer_binary(
+        lhs.map(|x| x.type_()),
+        op,
+        rhs.as_ref().map(|x| x.type_()),
+        span,
+        &mut state.errors,
+    )
+    .map(|(type_, explanation)| {
+        state.explanations.insert(op.span, explanation);
+        type_.into()
+    })
+}

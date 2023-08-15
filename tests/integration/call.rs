@@ -102,3 +102,12 @@ fn execute_annotate_ext() {
     );
     assert_eq!(state.parameters, HashMap::from([((1, 2), "_a".into())]));
 }
+
+#[test]
+fn spawn_annotate_ext() {
+    let case = r#"private _a = 1; [] spawn {_a};"#;
+
+    let mut state = State::default();
+    parse_analyze_s(case, &mut state);
+    assert_eq!(state.origins, HashMap::default());
+}
