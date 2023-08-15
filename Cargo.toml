@@ -11,9 +11,10 @@ walkdir = "2"
 path-clean = "*"
 tinyvec = "1.6.0"
 
-[dev-dependencies]
-clap = {version = "*", features = ["cargo"]}
-source-span = "*"
-
 [[example]]
 name = "sqf-analyzer"
+
+[dev_dependencies.clap]
+features = ["cargo"]
+
+[dev_dependencies.codespan-reporting]

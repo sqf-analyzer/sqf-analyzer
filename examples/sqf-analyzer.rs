@@ -3,9 +3,12 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use clap::{arg, value_parser, Command};
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::files::SimpleFiles;
+use codespan_reporting::term;
+use codespan_reporting::term::termcolor::ColorChoice;
+use codespan_reporting::term::termcolor::StandardStream;
 
-use source_span::DEFAULT_METRICS;
-use source_span::{Position, Span};
 use sqf::cpp::Functions;
 use sqf::get_path;
 use sqf::{cpp, error::Error};
@@ -141,7 +144,7 @@ fn process(addon_path: &Path, functions: &Functions) {
     }
 }
 
-fn print_errors(mut errors: Vec<Error>, path: &Path) {
+fn print_errors(errors: Vec<Error>, path: &Path) {
     let Ok(content) = std::fs::read_to_string(path) else {
         println!("File {} not found", path.display());
         return;
@@ -151,40 +154,25 @@ fn print_errors(mut errors: Vec<Error>, path: &Path) {
     } else {
         return;
     }
-    let chars = content.chars().map(Result::<char, String>::Ok);
 
-    let metrics = DEFAULT_METRICS;
-    let mut fmt = source_span::fmt::Formatter::with_margin_color(source_span::fmt::Color::Blue);
-    let buffer = source_span::SourceBuffer::new(chars, source_span::Position::default(), metrics);
+    let mut files = SimpleFiles::new();
 
-    errors.sort_by_key(|x| x.span);
-    errors.dedup_by_key(|x| x.span);
+    let file_id = files.add(path.display().to_string(), content);
 
-    let mut current: Span = Default::default();
+    let diagnostics = &[Diagnostic::error()
+        .with_message("`case` clauses have incompatible types")
+        .with_labels(
+            errors
+                .into_iter()
+                .map(|error| {
+                    Label::primary(file_id, error.span.0..error.span.1).with_message(error.inner)
+                })
+                .collect(),
+        )];
 
-    let mut opened = HashMap::<sqf::span::Span, Position>::default();
-
-    let mut bytes = 0;
-    for c in buffer.iter() {
-        let c = c.unwrap();
-        bytes += c.len_utf8();
-        current.push(c, &metrics);
-        for error in &errors {
-            if bytes == error.span.0.saturating_add(1) {
-                opened.insert(error.span, current.last());
-            }
-            if bytes == error.span.1 {
-                let start = opened.remove(&error.span).unwrap();
-                let span = Span::new(start, current.last(), current.end());
-                fmt.add(
-                    span,
-                    Some(error.inner.clone()),
-                    source_span::fmt::Style::Error,
-                );
-            }
-        }
+    let writer = StandardStream::stderr(ColorChoice::Auto);
+    let config = codespan_reporting::term::Config::default();
+    for diagnostic in diagnostics {
+        term::emit(&mut writer.lock(), &config, &files, diagnostic).unwrap();
     }
-
-    let formatted = fmt.render(buffer.iter(), buffer.span(), &metrics).unwrap();
-    println!("{}", formatted);
 }
