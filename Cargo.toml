@@ -20,3 +20,4 @@ version = "*"
 features = ["cargo"]
 
 [dev_dependencies.codespan-reporting]
+version = "*"

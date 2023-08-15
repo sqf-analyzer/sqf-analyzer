@@ -15,12 +15,16 @@ use analyzer::{MissionNamespace, State};
 use path_clean::PathClean;
 use path_slash::PathBufExt;
 pub use pest;
+use preprocessor::Configuration;
 use walkdir::WalkDir;
 
 fn find_pboprefix(mut directory: PathBuf) -> Option<String> {
     while !directory.as_os_str().is_empty() {
         let pbo_path = directory.join("$PBOPREFIX$");
-        if let Ok(pbo_prefix) = std::fs::read_to_string(pbo_path) {
+        if let Ok(mut pbo_prefix) = std::fs::read_to_string(pbo_path) {
+            if pbo_prefix.ends_with('\n') {
+                pbo_prefix.pop();
+            }
             return Some(pbo_prefix);
         };
         directory.pop();
@@ -30,12 +34,12 @@ fn find_pboprefix(mut directory: PathBuf) -> Option<String> {
 
 /// Given a name taken from a file representing a path, together with the path of the file
 /// it was taken from, tries to reconstruct the absolute path of the file
-pub fn get_path(name: &str, root: PathBuf) -> Result<PathBuf, String> {
+pub fn get_path(name: &str, configuration: &Configuration) -> Result<PathBuf, String> {
     // Note: path.is_absolute() requires the drive on windows, while Arma 3 absolute is without drive
     let is_absolute = name.starts_with('\\') | name.starts_with('/');
     let path = PathBuf::from_slash(name.replace('\\', "/"));
 
-    let mut directory = root;
+    let mut directory = configuration.path.clone();
     directory.pop();
 
     if !is_absolute {
@@ -43,53 +47,67 @@ pub fn get_path(name: &str, root: PathBuf) -> Result<PathBuf, String> {
         directory = directory.clean();
         Ok(find_path(&directory).unwrap_or(directory))
     } else {
-        // find $PBOPREFIX$ in the parent directory of the file and see how it is
-        // located in relation to what $PBOPREFIX$ says
-        // TODO: loop over directories until PBOPREFIX is found
-        let pbo_prefix = find_pboprefix(directory.clone()).ok_or_else(|| {
-            format!(
-                "The included path \"{}\" is absolute and no $PBOPREFIX$ was found at {} or parent paths",
-                path.display(),
-                directory.display()
-            )
-        })?;
+        // e.g. x/cba -> /../cba
+        let project_root = if let Some((prefix, directory)) =
+            configuration
+                .addons
+                .iter()
+                .find_map(|(prefix, addon_path)| {
+                    path.starts_with(prefix.as_ref())
+                        .then_some((prefix, addon_path))
+                }) {
+            let relative_path = path.strip_prefix(prefix.as_ref()).unwrap();
+            directory.join(relative_path)
+        } else {
+            // find $PBOPREFIX$ in the parent directory of the file and see how it is
+            // located in relation to what $PBOPREFIX$ says
+            // TODO: loop over directories until PBOPREFIX is found
+            let pbo_prefix = find_pboprefix(directory.clone()).ok_or_else(|| {
+                format!(
+                    "The included path \"{}\" is absolute and no $PBOPREFIX$ was found at {} or parent paths",
+                    path.display(),
+                    directory.display()
+                )
+            })?;
 
-        let (mut project_root, pbo) = compute_project_root(directory, pbo_prefix);
-        let relative_path = path.strip_prefix(&pbo).map_err(|_| {
-            format!(
-                "The $PBOPREFIX$ has a path \"{}\" that is incompatible with \"{}\"",
-                pbo.display(),
-                path.display(),
-            )
-        })?;
+            let (mut project_root, pbo) = compute_project_root(directory, pbo_prefix);
+            let relative_path = path.strip_prefix(&pbo).map_err(|_| {
+                format!(
+                    "The $PBOPREFIX$ has a path \"{}\" that is incompatible with \"{}\"",
+                    pbo.display(),
+                    path.display(),
+                )
+            })?;
 
-        project_root.push(relative_path);
+            project_root.push(relative_path);
+            project_root
+        };
 
         Ok(find_path(&project_root).unwrap_or(project_root))
     }
 }
 
 fn compute_project_root(mut path: PathBuf, pbo_prefix: String) -> (PathBuf, PathBuf) {
-    let mut content: PathBuf = format!("/{}", pbo_prefix.replace('\\', "/")).into();
+    let mut prefix: PathBuf = format!("/{}", pbo_prefix.replace('\\', "/")).into();
 
     // align paths
-    while path.file_name() != content.file_name() {
+    while path.file_name() != prefix.file_name() {
         path.pop();
-        if path.as_os_str().is_empty() || content.as_os_str().is_empty() {
+        if path.as_os_str().is_empty() || prefix.as_os_str().is_empty() {
             break;
         }
     }
 
     // take combined until we reach to the root
-    while path.file_name() == content.file_name() {
+    while path.file_name() == prefix.file_name() {
         path.pop();
-        content.pop();
-        if path.as_os_str().is_empty() || content.as_os_str().is_empty() {
+        prefix.pop();
+        if path.as_os_str().is_empty() || prefix.as_os_str().is_empty() {
             break;
         }
     }
 
-    (path, content)
+    (path, prefix)
 }
 
 /// Projects the original path into an absolute, case-insensitive path
@@ -118,7 +136,8 @@ pub fn check(path: &std::path::Path, mission: MissionNamespace) -> Result<State,
         inner: format!("file \"{}\" not available", path.display()),
         span: (1, 1),
     })?;
-    let iter = preprocessor::tokens(&case, Default::default(), path.to_owned()).map_err(|x| x.1)?;
+    let iter =
+        preprocessor::tokens(&case, Configuration::with_path(path.to_owned())).map_err(|x| x.1)?;
 
     let (expr, errors) = parser::parse(iter);
 

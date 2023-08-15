@@ -4,11 +4,12 @@ use std::path::PathBuf;
 use sqf::analyzer::*;
 use sqf::parser;
 use sqf::preprocessor;
+use sqf::preprocessor::Configuration;
 use sqf::span::Span;
 use sqf::types::Type;
 
 pub fn parse_analyze_s(case: &str, state: &mut State) {
-    let iter = preprocessor::tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = preprocessor::tokens(case, Default::default()).unwrap();
     let (expr, errors) = parser::parse(iter);
     assert_eq!(errors, vec![]);
     analyze(&expr, state);
@@ -160,7 +161,7 @@ fn infer_example1() {
         ((430, 434), Some(Type::Number)),
     ]);
 
-    let iter = preprocessor::tokens(&case, Default::default(), path).unwrap();
+    let iter = preprocessor::tokens(&case, Configuration::with_path(path)).unwrap();
     let (expr, errors) = parser::parse(iter);
     assert_eq!(errors, vec![]);
 
@@ -191,7 +192,7 @@ fn infer_example3() {
     let path: PathBuf = "tests/integration/dictionary/addons/dictionary/fnc_set.sqf".into();
     let case = fs::read_to_string(path.clone()).unwrap();
 
-    let iter = preprocessor::tokens(&case, Default::default(), path).unwrap();
+    let iter = preprocessor::tokens(&case, Configuration::with_path(path)).unwrap();
     let (expr, errors) = parser::parse(iter);
     assert_eq!(errors, vec![]);
 
@@ -248,7 +249,7 @@ fn infer_example2() {
         println!("{path:?}");
         let case = fs::read_to_string(path.clone()).unwrap();
 
-        let iter = preprocessor::tokens(&case, Default::default(), path.clone()).unwrap();
+        let iter = preprocessor::tokens(&case, Configuration::with_path(path.clone())).unwrap();
         let (expr, errors) = parser::parse(iter);
         assert_eq!(errors, vec![]);
 

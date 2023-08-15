@@ -1,9 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 use std::iter::Peekable;
-use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::preprocessor::{self, parse_hexadecimal};
+use crate::preprocessor::{self, parse_hexadecimal, Configuration};
 use crate::{
     error::Error,
     preprocessor::AstIterator,
@@ -483,13 +482,13 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
 
 /// Given a path to a config.cpp or equivalent (e.g. description.ext), it tries to open it and process all functions
 /// and errors on it.
-pub fn analyze_file(path: PathBuf) -> Result<(Functions, Vec<Error>), String> {
-    let Ok(content) = std::fs::read_to_string(&path) else {
-        return Err(format!("File \"{path:?}\" not found"))
+pub fn analyze_file(configuration: Configuration) -> Result<(Functions, Vec<Error>), String> {
+    let Ok(content) = std::fs::read_to_string(&configuration.path) else {
+        return Err(format!("File \"{}\" not found", configuration.path.display()))
     };
 
     // it is an addon, parse the config.cpp to fetch list of functions
 
-    let iter = preprocessor::tokens(&content, Default::default(), path).map_err(|e| e.1.inner)?;
+    let iter = preprocessor::tokens(&content, configuration).map_err(|e| e.1.inner)?;
     Ok(analyze(iter))
 }

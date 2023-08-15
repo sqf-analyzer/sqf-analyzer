@@ -7,7 +7,7 @@ use sqf::{
 };
 
 fn assert(case: &str, expected: Vec<&str>) {
-    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -24,7 +24,7 @@ fn pairs_() {
     let path = "tests/integration/examples/antistasi.cpp";
     let case = fs::read_to_string(path).unwrap();
 
-    tokens(&case, Default::default(), Default::default()).unwrap();
+    tokens(&case, Default::default()).unwrap();
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn basic_functionality() {
     let path = "tests/integration/examples/basic.cpp";
     let case = fs::read_to_string(path).unwrap();
 
-    tokens(&case, Default::default(), Default::default()).unwrap();
+    tokens(&case, Default::default()).unwrap();
 }
 
 #[test]
@@ -51,7 +51,7 @@ if a then {
 d
 "#;
 
-    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -72,11 +72,11 @@ fn if_comment() {
     #define A
 #endif"#;
 
-    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default()).unwrap();
 
     let _ = iter.by_ref().map(|x| x.inner).collect::<Vec<_>>();
     assert_eq!(iter.state.errors, vec![]);
-    assert_eq!(iter.state.defines.len(), 1);
+    assert_eq!(iter.state.configuration.defines.len(), 1);
 }
 
 #[test]
@@ -85,7 +85,7 @@ fn tokens2() {
     let path = "tests/integration/examples/basic.cpp";
     let case = fs::read_to_string(path).unwrap();
 
-    let mut iter = tokens(&case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(&case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -106,7 +106,7 @@ NAME = [toLower KEY, toUpper KEY, DEF_VALUE, RETNIL(_this)] call CBA_fnc_getArg;
 TRACE_3("KEY_PARAM",KEY,NAME,DEF_VALUE)
 "#;
 
-    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -123,7 +123,7 @@ TRACE_3("KEY_PARAM",KEY,NAME,DEF_VALUE)
 fn define_use_with_args() {
     let case = "#define A(B) var##B\n1 + A(1);";
 
-    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -138,7 +138,7 @@ fn define_use_with_args() {
 fn define_use() {
     let case = "#define A (1 + 1)\n1 + A";
 
-    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -153,7 +153,7 @@ fn define_use() {
 fn define_no_args() {
     let case = "#define B a\nB";
 
-    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -168,7 +168,7 @@ fn define_no_args() {
 fn macro_nested_no_args() {
     let case = "#define B b\n#define A a\\B\nA";
 
-    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -183,8 +183,7 @@ fn macro_nested_no_args() {
 fn macro_with_concat() {
     let case = "#define B ##b\n#define A a\\B\nA";
 
-    let mut iter: sqf::preprocessor::AstIterator<'_> =
-        tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter: sqf::preprocessor::AstIterator<'_> = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -199,8 +198,7 @@ fn macro_with_concat() {
 fn macro_with_arg() {
     let case = "#define B ##b\n#define A(c) c\\B\nA(a)";
 
-    let mut iter: sqf::preprocessor::AstIterator<'_> =
-        tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter: sqf::preprocessor::AstIterator<'_> = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -215,8 +213,7 @@ fn macro_with_arg() {
 fn macro_with_arg_nested() {
     let case = "#define B(b) ##b\n#define A(a) a\\B(b)\nA(a)";
 
-    let mut iter: sqf::preprocessor::AstIterator<'_> =
-        tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter: sqf::preprocessor::AstIterator<'_> = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -235,7 +232,7 @@ fn define_double() {
 
 FNC_FILE_BASE(a)
 "#;
-    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -252,7 +249,7 @@ fn define_eval_double_end() {
 
 DOUBLES(a, b)
 "#;
-    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -269,7 +266,7 @@ fn antistasi() {
     let path = "tests/integration/examples/antistasi.cpp";
     let case = fs::read_to_string(path).unwrap();
 
-    let mut iter = tokens(&case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(&case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -288,7 +285,7 @@ fn macro_with_composite_arg() {
 
 A(call b)
 "#;
-    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -306,7 +303,7 @@ _a = 1;
 _b = A;
 "#;
 
-    let mut iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let mut iter = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
@@ -546,7 +543,7 @@ A("a", [_a, _b] call b);
 }
 
 #[test]
-fn debug() {
+fn crlf() {
     assert("#if A\r\n#endif", vec![]);
 }
 
@@ -561,4 +558,17 @@ fn define_other() {
         "#define bool                //boolean\nbool a = true;",
         vec!["a", "=", "true", ";"],
     );
+}
+
+#[test]
+fn debug() {
+    let case = r#"
+#ifndef STRING_MACROS_GUARD
+#define STRING_MACROS_GUARD
+#define ECSTRING(a) a
+#endif
+
+ECSTRING(common)
+"#;
+    assert(case, vec!["common"]);
 }

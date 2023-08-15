@@ -2,7 +2,7 @@ use sqf::{error::Error, parser::parse, preprocessor::tokens, span::Spanned};
 
 fn check_parse(cases: &[&str]) {
     for case in cases {
-        let pairs = tokens(case, Default::default(), Default::default());
+        let pairs = tokens(case, Default::default());
 
         match pairs {
             Ok(r) => {
@@ -43,7 +43,7 @@ if not typeName _dictionary == "OBJECT" exitWith {
 _dictionary setVariable [toLower _key, _value, _isGlobal];
 
 "#;
-    parse(tokens(case, Default::default(), Default::default()).unwrap());
+    parse(tokens(case, Default::default()).unwrap());
 }
 
 #[test]
@@ -52,7 +52,6 @@ fn parse_for() {
         tokens(
             "for \"_i\" from 1 to (count _arguments - 3) do {}",
             Default::default(),
-            Default::default(),
         )
         .unwrap(),
     );
@@ -60,25 +59,18 @@ fn parse_for() {
 
 #[test]
 fn parse_macros() {
-    parse(
-        tokens(
-            "#include \"macros.hpp\"\na = AA(a)",
-            Default::default(),
-            Default::default(),
-        )
-        .unwrap(),
-    );
+    parse(tokens("#include \"macros.hpp\"\na = AA(a)", Default::default()).unwrap());
 }
 
 #[test]
 fn parse_macros_call() {
-    parse(tokens("a = (call AA(a))", Default::default(), Default::default()).unwrap());
+    parse(tokens("a = (call AA(a))", Default::default()).unwrap());
 }
 
 #[test]
 fn if_after_semi_colon() {
     assert_eq!(
-        parse(tokens("; if !(isServer)", Default::default(), Default::default(),).unwrap(),).1,
+        parse(tokens("; if !(isServer)", Default::default(),).unwrap(),).1,
         vec![]
     );
 }
@@ -86,22 +78,19 @@ fn if_after_semi_colon() {
 #[test]
 fn semi_colon() {
     assert_eq!(
-        parse(tokens("1;;;1", Default::default(), Default::default(),).unwrap(),).1,
+        parse(tokens("1;;;1", Default::default(),).unwrap(),).1,
         vec![]
     );
     assert_eq!(
-        parse(tokens("{;}", Default::default(), Default::default(),).unwrap(),).1,
+        parse(tokens("{;}", Default::default(),).unwrap(),).1,
         vec![]
     );
-    assert_eq!(
-        parse(tokens("{}", Default::default(), Default::default(),).unwrap(),).1,
-        vec![]
-    );
+    assert_eq!(parse(tokens("{}", Default::default(),).unwrap(),).1, vec![]);
 }
 
 #[test]
 fn two_signatures() {
-    parse(tokens("call A; [] call A;", Default::default(), Default::default()).unwrap());
+    parse(tokens("call A; [] call A;", Default::default()).unwrap());
 }
 
 #[test]
@@ -169,7 +158,7 @@ fn expr_negative() {
     ];
 
     for (case, expected) in cases.iter().zip(expected.iter()) {
-        let r = tokens(case, Default::default(), Default::default());
+        let r = tokens(case, Default::default());
         match r {
             Ok(r) => {
                 println!("{case}\n{:#?}", r.clone().collect::<Vec<_>>());
@@ -189,27 +178,27 @@ fn f() {
     let e = r#"if _a then {
 diag_log format ["a", _arguments];
 };"#;
-    let (_, error) = parse(tokens(e, Default::default(), Default::default()).unwrap());
+    let (_, error) = parse(tokens(e, Default::default()).unwrap());
     assert_eq!(error, vec![]);
 }
 
 #[test]
 fn for_() {
     let case = "for \"_i\" from 1 to 10 do { 1+1; }";
-    let (_, error) = parse(tokens(case, Default::default(), Default::default()).unwrap());
+    let (_, error) = parse(tokens(case, Default::default()).unwrap());
     assert_eq!(error, vec![]);
 }
 
 #[test]
 fn macros_() {
     let case = "if not ISOBJECT(_dictionary) exitWith {}";
-    parse(tokens(case, Default::default(), Default::default()).unwrap());
+    parse(tokens(case, Default::default()).unwrap());
 }
 
 #[test]
 fn no_panic() {
     let case = "params";
-    parse(tokens(case, Default::default(), Default::default()).unwrap());
+    parse(tokens(case, Default::default()).unwrap());
 }
 
 #[test]
@@ -218,7 +207,7 @@ fn parenthesis() {
     let path = "tests/integration/examples/basic_parenthesis.sqf";
     let case = fs::read_to_string(path).unwrap();
 
-    let ast = tokens(&case, Default::default(), Default::default()).unwrap();
+    let ast = tokens(&case, Default::default()).unwrap();
 
     let (_, errors) = parse(ast);
     assert_eq!(errors, vec![]);
@@ -290,7 +279,7 @@ fn errors() {
     ];
 
     for (case, expected) in case {
-        let iter = tokens(case, Default::default(), Default::default()).unwrap();
+        let iter = tokens(case, Default::default()).unwrap();
 
         let (r, errors) = parse(iter);
         println!("{r:#?}");

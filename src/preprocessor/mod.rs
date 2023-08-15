@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use pest::iterators::Pair;
@@ -15,6 +14,8 @@ mod parser;
 
 pub use ast::{Ast, Define, Defines};
 pub use iterator::AstIterator;
+
+pub use self::iterator::Configuration;
 
 pub(crate) fn parse_hexadecimal(v: &str) -> Option<usize> {
     v.starts_with("0x")
@@ -37,11 +38,10 @@ pub fn parse(data: &str) -> Result<VecDeque<Ast<'_>>, Error> {
 
 pub fn tokens(
     data: &str,
-    defines: Defines,
-    path: PathBuf,
-) -> Result<AstIterator, (Defines, Error)> {
+    configuration: Configuration,
+) -> Result<AstIterator, (Configuration, Error)> {
     match parse(data) {
-        Ok(ast) => Ok(AstIterator::new(ast, defines, path)),
-        Err(e) => Err((defines, e)),
+        Ok(ast) => Ok(AstIterator::new(ast, configuration)),
+        Err(e) => Err((configuration, e)),
     }
 }

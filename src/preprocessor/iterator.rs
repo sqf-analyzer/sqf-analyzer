@@ -20,13 +20,28 @@ pub(super) type Arguments = Vec<VecDeque<Spanned<Arc<str>>>>;
 
 pub(super) type DefineState = (Define, Arguments, Spanned<MacroState>);
 
+#[derive(Debug, Clone, Default)]
+pub struct Configuration {
+    pub defines: Defines,
+    pub path: PathBuf,
+    pub addons: HashMap<Arc<str>, PathBuf>, // e.g. x/cba -> /../cba
+}
+
+impl Configuration {
+    pub fn with_path(path: PathBuf) -> Self {
+        Configuration {
+            path,
+            ..Default::default()
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct State {
-    pub defines: Defines,
+    pub configuration: Configuration,
     pub current_macro: Option<DefineState>,
     pub if_results: HashMap<Span, bool>,
     pub stack: VecDeque<Spanned<Arc<str>>>,
-    pub path: PathBuf,
     pub errors: Vec<Error>,
 }
 
@@ -107,7 +122,7 @@ fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<Spanned<
         }) => {
             if evaluate_ifdef(
                 term.span,
-                !state.defines.contains_key(term.inner),
+                !state.configuration.defines.contains_key(term.inner),
                 &mut state.if_results,
             ) {
                 evaluate_terms(then, state)
@@ -120,7 +135,7 @@ fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<Spanned<
         }) => {
             if evaluate_ifdef(
                 term.span,
-                state.defines.contains_key(term.inner),
+                state.configuration.defines.contains_key(term.inner),
                 &mut state.if_results,
             ) {
                 evaluate_terms(then, state)
@@ -135,7 +150,12 @@ fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<Spanned<
             else_,
             ..
         }) => {
-            if evaluate_if(keyword.span, expr, &state.defines, &mut state.if_results) {
+            if evaluate_if(
+                keyword.span,
+                expr,
+                &state.configuration.defines,
+                &mut state.if_results,
+            ) {
                 evaluate_terms(then, state)
             } else {
                 evaluate_terms(else_, state)
@@ -143,12 +163,13 @@ fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<Spanned<
         }
         Ast::Define(define) => {
             state
+                .configuration
                 .defines
                 .insert(define.name.inner.clone(), define.clone());
             (false, None)
         }
         Ast::Undefine(_, name) => {
-            state.defines.remove(name.inner);
+            state.configuration.defines.remove(name.inner);
             (false, None)
         }
         Ast::Include(_, name) => match process_include(name, state) {
@@ -230,12 +251,11 @@ fn next<'a>(terms: &mut VecDeque<Ast<'a>>, state: &mut State) -> Option<Spanned<
 
 impl<'a> AstIterator<'a> {
     /// path represents the location of the config.cpp
-    pub fn new(base: VecDeque<Ast<'a>>, defines: Defines, path: PathBuf) -> Self {
+    pub fn new(base: VecDeque<Ast<'a>>, configuration: Configuration) -> Self {
         Self {
             base,
             state: State {
-                defines,
-                path,
+                configuration,
                 if_results: Default::default(),
                 current_macro: None,
                 stack: Default::default(),

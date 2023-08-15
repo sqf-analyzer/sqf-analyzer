@@ -63,7 +63,7 @@ pub fn update(state: &mut State, item: &Spanned<Arc<str>>) -> bool {
     let consumed = update_(
         &mut state.current_macro,
         &mut state.errors,
-        &state.defines,
+        &state.configuration.defines,
         item,
         &mut state.stack,
     );

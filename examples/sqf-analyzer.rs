@@ -11,6 +11,7 @@ use codespan_reporting::term::termcolor::StandardStream;
 
 use sqf::cpp::Functions;
 use sqf::get_path;
+use sqf::preprocessor::Configuration;
 use sqf::{cpp, error::Error};
 
 fn main() {
@@ -58,8 +59,9 @@ fn main() {
 
     if let Some(directory) = matches.get_one::<PathBuf>("mission") {
         let mission_path = directory.join("description.ext");
+        let configuration = Configuration::with_path(mission_path.clone());
 
-        let (functions, errors) = match cpp::analyze_file(mission_path.clone()) {
+        let (functions, errors) = match cpp::analyze_file(configuration) {
             Ok((functions, errors)) => (functions, errors),
             Err(error) => {
                 println!("{error}");
@@ -75,7 +77,9 @@ fn main() {
     }
 
     if let Some(path) = matches.get_one::<PathBuf>("config") {
-        let (_, errors) = match cpp::analyze_file(path.clone()) {
+        let configuration = Configuration::with_path(path.clone());
+
+        let (_, errors) = match cpp::analyze_file(configuration) {
             Ok((functions, errors)) => (functions, errors),
             Err(error) => {
                 println!("{error}");
@@ -89,7 +93,9 @@ fn main() {
 
     if let Some(directory) = matches.get_one::<PathBuf>("addon") {
         let addon_path = directory.join("config.cpp");
-        let (functions, errors) = match cpp::analyze_file(addon_path.clone()) {
+        let configuration = Configuration::with_path(addon_path.clone());
+
+        let (functions, errors) = match cpp::analyze_file(configuration) {
             Ok((functions, errors)) => (functions, errors),
             Err(error) => {
                 println!("{error}");
@@ -106,11 +112,13 @@ fn main() {
 }
 
 fn process(addon_path: &Path, functions: &Functions) {
+    let configuration = Configuration::with_path(addon_path.to_owned());
+
     // first pass to get the global states
     let states = functions
         .iter()
         .filter_map(|(function_name, sqf_path)| {
-            let path = get_path(&sqf_path.inner, addon_path.to_owned()).ok()?;
+            let path = get_path(&sqf_path.inner, &configuration).ok()?;
 
             sqf::check(&path, Default::default())
                 .map(|state| (function_name, state))
@@ -120,7 +128,7 @@ fn process(addon_path: &Path, functions: &Functions) {
 
     // second pass to get errors
     for (function_name, path) in functions {
-        let Ok(path) = get_path(&path.inner, addon_path.to_owned()) else {
+        let Ok(path) = get_path(&path.inner, &configuration) else {
             println!("Could not find path \"{}\" of function declared in addon", path.inner);
             continue
         };
@@ -159,16 +167,14 @@ fn print_errors(errors: Vec<Error>, path: &Path) {
 
     let file_id = files.add(path.display().to_string(), content);
 
-    let diagnostics = &[Diagnostic::error()
-        .with_message("`case` clauses have incompatible types")
-        .with_labels(
-            errors
-                .into_iter()
-                .map(|error| {
-                    Label::primary(file_id, error.span.0..error.span.1).with_message(error.inner)
-                })
-                .collect(),
-        )];
+    let diagnostics = &[Diagnostic::error().with_labels(
+        errors
+            .into_iter()
+            .map(|error| {
+                Label::primary(file_id, error.span.0..error.span.1).with_message(error.inner)
+            })
+            .collect(),
+    )];
 
     let writer = StandardStream::stderr(ColorChoice::Auto);
     let config = codespan_reporting::term::Config::default();

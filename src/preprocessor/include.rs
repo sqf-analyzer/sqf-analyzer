@@ -16,22 +16,29 @@ fn parse_file(
     path: PathBuf,
 ) -> Option<VecDeque<Spanned<Arc<str>>>> {
     // parse into VecDeque<Spanned<String>> due to no lifetime management
-    let defines = std::mem::take(&mut state.defines);
+    let defines = std::mem::take(&mut state.configuration.defines);
+    let addons = std::mem::take(&mut state.configuration.addons);
+    let configuration = Configuration {
+        defines,
+        path,
+        addons,
+    };
 
-    let mut ast = match tokens(&content, defines, path.clone()) {
+    let mut ast = match tokens(&content, configuration) {
         Ok(ast) => ast,
-        Err((defines, e)) => {
+        Err((configuration, e)) => {
             // todo: how do we handle errors in other files? Error may need a lift to track files
             let error = Error {
                 inner: format!(
                     "Error while parsing file \"{}\" at position {:?}: {}",
-                    path.display(),
+                    configuration.path.display(),
                     e.span,
                     e.inner
                 ),
                 span,
             };
-            state.defines = defines;
+            state.configuration.defines = configuration.defines;
+            state.configuration.addons = configuration.addons;
             state.errors.push(error);
             return None;
         }
@@ -40,7 +47,8 @@ fn parse_file(
     let tokens = ast.by_ref().collect();
     // collect errors and defines
     state.errors.extend(ast.state.errors);
-    state.defines = ast.state.defines;
+    state.configuration.defines = ast.state.configuration.defines;
+    state.configuration.addons = ast.state.configuration.addons;
 
     Some(tokens)
 }
@@ -53,7 +61,7 @@ pub fn process_include(
         return None;
     };
 
-    let path = get_path(name.inner, state.path.clone())
+    let path = get_path(name.inner, &state.configuration)
         .map_err(|e| {
             state.errors.push(Error {
                 inner: e,

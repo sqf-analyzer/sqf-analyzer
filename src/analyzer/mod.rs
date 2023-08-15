@@ -1,5 +1,4 @@
 use std::collections::hash_map::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::error::Error;
@@ -628,11 +627,6 @@ impl State {
         self.namespace.stack.last_mut().unwrap().return_type =
             union_types(new_type, self.namespace.stack.last().unwrap().return_type);
     }
-}
-
-#[derive(Debug)]
-pub struct Configuration {
-    pub directory: PathBuf,
 }
 
 pub fn analyze(program: &[Expr], state: &mut State) {

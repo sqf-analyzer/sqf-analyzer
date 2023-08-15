@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use sqf::cpp::{analyze, analyze_file};
-use sqf::preprocessor::tokens;
+use sqf::preprocessor::{tokens, Configuration};
 use sqf::span::Spanned;
 
 #[test]
@@ -10,7 +10,7 @@ fn basic() {
     let case = r#"
 class CfgFunctions {};
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
@@ -32,19 +32,19 @@ fn with_expressions() {
         };
 };
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
 }
 
 #[test]
-fn debug() {
+fn subclass_empty_class() {
     let case = r#"
     class flag_NATO;
     class a3a_flag_cdf: flag_NATO {};
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
@@ -55,7 +55,7 @@ fn start_with_number() {
     let case = r#"
     class 3CBF_TKC {};
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
@@ -66,7 +66,7 @@ fn negative_number() {
     let case = r#"
     class AA {a = -1};
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
@@ -77,7 +77,7 @@ fn boolean() {
     let case = r#"
     class AA {a = false; b = true;};
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
@@ -88,7 +88,7 @@ fn hexadecimal() {
     let case = r#"
     class AA {a = 0x10;};
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
@@ -99,7 +99,7 @@ fn subclass() {
     let case = r#"
 class CfgFunctions : A {};
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
@@ -110,7 +110,7 @@ fn empty_class() {
     let case = r#"
 class A;
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
@@ -121,7 +121,7 @@ fn parenthesis() {
     let case = r#"
 class A {a = (1 * 1);}
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
@@ -132,7 +132,7 @@ fn coop_game_type() {
     let case = r#"
 class A {a = COop;}
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
@@ -143,7 +143,7 @@ fn empty_subclass() {
     let case = r#"
 class A: B;
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
@@ -154,7 +154,7 @@ fn error_class_no_name() {
     let case = r#"
 class {};
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (_, errors) = analyze(iter);
     assert!(!errors.is_empty());
 }
@@ -164,7 +164,7 @@ fn error_assign_array() {
     let case = r#"
 a = [];
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (_, errors) = analyze(iter);
     assert!(!errors.is_empty());
 }
@@ -174,7 +174,7 @@ fn error_assign_token() {
     let case = r#"
 a = =;
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (_, errors) = analyze(iter);
     assert!(!errors.is_empty());
 }
@@ -184,7 +184,7 @@ fn error_assign_empty() {
     let case = r#"
 a =;
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (_, errors) = analyze(iter);
     assert!(!errors.is_empty());
 }
@@ -194,7 +194,7 @@ fn error_assign_empty_neg() {
     let case = r#"
 a = -;
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (_, errors) = analyze(iter);
     assert!(!errors.is_empty());
 }
@@ -204,7 +204,7 @@ fn error_subclass_no_name() {
     let case = r#"
 class A : ;
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (_, errors) = analyze(iter);
     assert!(!errors.is_empty());
 }
@@ -214,7 +214,7 @@ fn error_missing_closing_array() {
     let case = r#"
 a = [
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (_, errors) = analyze(iter);
     assert!(!errors.is_empty());
 }
@@ -222,7 +222,7 @@ a = [
 #[test]
 fn error_missing_closing_par() {
     let case = "a = (";
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (_, errors) = analyze(iter);
     assert!(!errors.is_empty());
 }
@@ -230,7 +230,7 @@ fn error_missing_closing_par() {
 #[test]
 fn error_missing_closing_brackets() {
     let case = "a = {";
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (_, errors) = analyze(iter);
     assert!(!errors.is_empty());
 }
@@ -273,7 +273,7 @@ class CfgFunctions
     };
 };
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert_eq!(errors, vec![]);
 
@@ -334,7 +334,7 @@ class CfgFunctions
     };
 };
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (_, errors) = analyze(iter);
     assert_eq!(errors, vec![]);
 }
@@ -345,7 +345,7 @@ fn infer_addon() {
     let path = "tests/integration/dictionary/addons/dictionary/config.cpp";
     let case = fs::read_to_string(path).unwrap();
 
-    let iter = tokens(&case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(&case, Default::default()).unwrap();
     let (_, errors) = analyze(iter);
     assert_eq!(errors, vec![]);
 }
@@ -353,8 +353,9 @@ fn infer_addon() {
 #[test]
 fn addon_basic() {
     let path = "tests/integration/dictionary/addons/dictionary/config.cpp";
+    let configuration = Configuration::with_path(path.to_owned().into());
 
-    let (functions, errors) = analyze_file(path.into()).unwrap();
+    let (functions, errors) = analyze_file(configuration).unwrap();
     assert_eq!(errors, vec![]);
 
     let names = [
@@ -415,7 +416,7 @@ class CfgPatches {
 };
 };
 "#;
-    let iter = tokens(case, Default::default(), Default::default()).unwrap();
+    let iter = tokens(case, Default::default()).unwrap();
     let (functions, errors) = analyze(iter);
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
