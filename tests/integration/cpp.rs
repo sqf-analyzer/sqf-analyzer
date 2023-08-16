@@ -421,3 +421,11 @@ class CfgPatches {
     assert!(functions.is_empty());
     assert_eq!(errors, vec![]);
 }
+
+#[test]
+fn names_no_quotes() {
+    let case = r#"file = \x\blabla\x.sqf"#;
+    let iter = tokens(case, Default::default()).unwrap();
+    let (_, errors) = analyze(iter);
+    assert_eq!(errors, vec![]);
+}

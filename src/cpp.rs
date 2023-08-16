@@ -287,13 +287,9 @@ pub fn analyze(iter: AstIterator) -> (Functions, Vec<Error>) {
     (state.functions(), errors)
 }
 
-fn to_value(expr: Expr, errors: &mut Vec<Error>, is_negative: bool) -> Option<Spanned<Value>> {
+fn to_value(expr: Expr, errors: &mut Vec<Error>) -> Option<Spanned<Value>> {
     match expr {
-        Expr::Number(number) => Some(
-            number
-                .map(|x| x * (1.0 - 2.0 * is_negative as i32 as f32))
-                .map(Value::Number),
-        ),
+        Expr::Number(number) => Some(number.map(Value::Number)),
         Expr::Boolean(value) => Some(value.map(Value::Boolean)),
         Expr::String(string) => Some(string.map(|x| Value::String(x.to_string()))),
         Expr::GameType(string) => Some(string.map(Value::GameType)),
@@ -301,7 +297,7 @@ fn to_value(expr: Expr, errors: &mut Vec<Error>, is_negative: bool) -> Option<Sp
             Value::Array(
                 x.into_iter()
                     .filter(|e| !matches!(e, Expr::Token(_))) // todo: improve to parse "," correctly
-                    .filter_map(|expr| to_value(expr, errors, true))
+                    .filter_map(|expr| to_value(expr, errors))
                     .collect(),
             )
         })),
@@ -337,39 +333,6 @@ fn to_value(expr: Expr, errors: &mut Vec<Error>, is_negative: bool) -> Option<Sp
             None
         }
     }
-}
-
-fn process_value(
-    span: Span,
-    expr: &mut VecDeque<Expr>,
-    errors: &mut Vec<Error>,
-) -> Option<Spanned<Value>> {
-    let Some(mut value) = expr.pop_front() else {
-        errors.push(Error {
-            inner: "assignment requires a right side".to_string(),
-            span,
-        });
-        return None
-    };
-
-    let mut is_negative = false;
-    if let Expr::Token(token) = &value {
-        if matches(Some(token), "-") {
-            value = match expr.pop_front() {
-                Some(e) => e,
-                None => {
-                    errors.push(Error {
-                        inner: "assignment requires a right side".to_string(),
-                        span,
-                    });
-                    return None;
-                }
-            };
-            is_negative = true
-        }
-    };
-
-    to_value(value, errors, is_negative)
 }
 
 fn process_body(
@@ -427,6 +390,49 @@ fn skip_until(expr: &mut VecDeque<Expr>, tokens: [&str; 2]) {
     }
 }
 
+fn update_token(token: &Expr, content: &mut String, span: &mut Option<Span>) {
+    use std::fmt::Write;
+    let mut update_span = |new: Span| {
+        *span = Some(match span {
+            None => new,
+            Some((min, max)) => (*min, *max + (new.1 - new.0)),
+        })
+    };
+
+    match token {
+        Expr::Number(a) => {
+            let _ = write!(content, "{}", a.inner);
+            update_span(a.span);
+        }
+        Expr::Boolean(a) => {
+            let _ = write!(content, "{}", a.inner);
+            update_span(a.span);
+        }
+        Expr::Token(a) | Expr::String(a) | Expr::GameType(a) => {
+            let _ = write!(content, "{}", a.inner);
+            update_span(a.span);
+        }
+        Expr::Code(a) => {
+            for token in &a.inner {
+                update_token(token, content, span)
+            }
+        }
+        Expr::Array(_) => {}
+        Expr::Expr(_) => {}
+        Expr::Nil(_) => {}
+    };
+}
+
+fn concatenate(tokens: VecDeque<Expr>) -> Spanned<Value> {
+    let mut content = String::new();
+    let mut span = Option::<(usize, usize)>::None;
+
+    for token in tokens {
+        update_token(&token, &mut content, &mut span)
+    }
+    Spanned::new(Value::String(content), span.unwrap_or_default())
+}
+
 fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<Error>) {
     let first = expr.pop_front();
 
@@ -461,8 +467,32 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
             expr.pop_front(); // "="
         };
 
-        let Some(value) = process_value(name.span, expr, errors) else {
-            return
+        let mut tokens = VecDeque::new();
+        while !expr.is_empty() {
+            if let Some(Expr::Token(first)) = expr.front() {
+                if first.inner.as_ref() == ";" || first.inner.as_ref() == "class" {
+                    break;
+                }
+            }
+            tokens.push_back(expr.pop_front().unwrap());
+        }
+
+        // we need at least one
+        if tokens.is_empty() {
+            errors.push(Error {
+                inner: "assignment requires a right side".to_string(),
+                span: name.span,
+            });
+            return;
+        }
+        let value = if tokens.len() == 1 {
+            let Some(value) = to_value(tokens.pop_back().unwrap(), errors) else {
+                return
+            };
+            value
+        } else {
+            // more than one token, let's interpret it as a string for now
+            concatenate(tokens)
         };
 
         let lhs = state.namespaces.last().unwrap().clone();
