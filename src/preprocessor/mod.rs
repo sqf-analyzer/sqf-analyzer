@@ -36,6 +36,7 @@ pub fn parse(data: &str) -> Result<VecDeque<Ast<'_>>, Error> {
     parser::pairs(data).map(parser::parse)
 }
 
+#[allow(clippy::result_large_err)]
 pub fn tokens(
     data: &str,
     configuration: Configuration,
