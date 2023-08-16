@@ -106,9 +106,7 @@ pub fn analyze(iter: AstIterator) -> (Functions, Vec<Error>) {
     let mut state = State::default();
     state.namespaces.push(Arc::new([]));
 
-    while !expr.is_empty() {
-        process_code(&mut expr, &mut state, &mut errors);
-    }
+    process_code(&mut expr, &mut state, &mut errors);
 
     (state.functions(), errors)
 }
@@ -173,9 +171,7 @@ fn process_body(
         };
         state.namespace.push(name.map(|x| x.to_string()));
         state.namespaces.push(state.namespace.clone().into());
-        while !body.inner.is_empty() {
-            process_code(&mut body.inner, state, errors);
-        }
+        process_code(&mut body.inner, state, errors);
         state.namespace.pop();
     }
 }
@@ -203,17 +199,6 @@ fn process_subclass(
         return
     };
     process_body(name, expr, state, errors)
-}
-
-fn skip_until(expr: &mut VecDeque<Expr>, tokens: [&str; 2]) {
-    while !expr.is_empty() {
-        if let Some(Expr::Token(first)) = expr.front() {
-            if first.inner.as_ref() == tokens[0] || first.inner.as_ref() == tokens[1] {
-                return;
-            }
-        }
-        expr.pop_front();
-    }
 }
 
 fn update_token(token: &Expr, content: &mut String, span: &mut Option<Span>) {
@@ -248,20 +233,18 @@ fn update_token(token: &Expr, content: &mut String, span: &mut Option<Span>) {
     };
 }
 
-fn concatenate(tokens: VecDeque<Expr>) -> Spanned<Value> {
+fn concatenate(tokens: &VecDeque<Expr>) -> Spanned<Value> {
     let mut content = String::new();
     let mut span = Option::<(usize, usize)>::None;
 
     for token in tokens {
-        update_token(&token, &mut content, &mut span)
+        update_token(token, &mut content, &mut span)
     }
     Spanned::new(Value::String(content), span.unwrap_or_default())
 }
 
-fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<Error>) {
-    let first = expr.pop_front();
-
-    let Some(first) = first else  {
+fn process_expr(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<Error>) {
+    let Some(first) = expr.pop_front() else {
         return
     };
 
@@ -292,32 +275,22 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
             expr.pop_front(); // "="
         };
 
-        let mut tokens = VecDeque::new();
-        while !expr.is_empty() {
-            if let Some(Expr::Token(first)) = expr.front() {
-                if first.inner.as_ref() == ";" || first.inner.as_ref() == "class" {
-                    break;
-                }
-            }
-            tokens.push_back(expr.pop_front().unwrap());
-        }
-
         // we need at least one
-        if tokens.is_empty() {
+        if expr.is_empty() {
             errors.push(Error {
                 inner: "assignment requires a right side".to_string(),
                 span: name.span,
             });
             return;
         }
-        let value = if tokens.len() == 1 {
-            let Some(value) = to_value(tokens.pop_back().unwrap(), errors) else {
+        let value = if expr.len() == 1 {
+            let Some(value) = to_value(expr.pop_back().unwrap(), errors) else {
                 return
             };
             value
         } else {
             // more than one token, let's interpret it as a string for now
-            concatenate(tokens)
+            concatenate(expr)
         };
 
         let lhs = state.namespaces.last().unwrap().clone();
@@ -332,7 +305,14 @@ fn process_code(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
             }
         };
     }
-    skip_until(expr, [";", "class"]);
+}
+
+fn process_code(expressions: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<Error>) {
+    for expr in expressions {
+        if let Expr::Expr(expr) = expr {
+            process_expr(&mut expr.inner, state, errors)
+        }
+    }
 }
 
 /// Given a path to a config.cpp or equivalent (e.g. description.ext), it tries to open it and process all functions

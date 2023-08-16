@@ -67,17 +67,24 @@ fn code<I: Iterator<Item = Spanned<Arc<str>>>>(
     iter: &mut Peekable<I>,
     errors: &mut Vec<Error>,
 ) -> VecDeque<Expr> {
-    let mut expressions = Default::default();
     if matches(iter.peek(), "}") {
-        return expressions;
+        return Default::default();
     };
 
+    let mut expressions: VecDeque<Expr> = Default::default();
+    let mut current: VecDeque<Expr> = Default::default();
     while iter.peek().is_some() {
-        let expression = expr(iter, errors);
-        expressions.push_back(expression);
+        current.push_back(expr(iter, errors));
 
         if matches(iter.peek(), ";") {
-            iter.next().unwrap();
+            let last = iter.next().unwrap();
+
+            let start = current.front().map(|x| x.span().0).unwrap_or(0);
+            let end = last.span.1;
+            expressions.push_back(Expr::Expr(Spanned::new(
+                std::mem::take(&mut current),
+                (start, end),
+            )));
         }
         if matches(iter.peek(), "}") {
             break;

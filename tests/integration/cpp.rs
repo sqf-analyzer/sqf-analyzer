@@ -265,7 +265,7 @@ class CfgFunctions
 
     class other
     {
-        tag = "SOME"
+        tag = "SOME";
         class Category
         {
             class myFunction {};
@@ -294,7 +294,7 @@ class CfgFunctions
             ),
             (
                 "SOME_fnc_myFunction".into(),
-                Spanned::new("Category\\fn_myFunction.sqf".into(), (807, 817)),
+                Spanned::new("Category\\fn_myFunction.sqf".into(), (808, 818)),
             ),
         ])
     );
@@ -428,4 +428,33 @@ fn names_no_quotes() {
     let iter = tokens(case, Default::default()).unwrap();
     let (_, errors) = analyze(iter);
     assert_eq!(errors, vec![]);
+}
+
+#[test]
+fn bls() {
+    let case = r#"
+    class CfgFunctions
+    {
+        class TAG
+        {
+            class Category1
+            {
+                class myFunction {
+                    file = "aa";
+                    compile = 1;
+                };
+            };
+        };
+    };
+    "#;
+    let iter = tokens(case, Default::default()).unwrap();
+    let (functions, errors) = analyze(iter);
+    assert_eq!(errors, vec![]);
+    assert_eq!(
+        functions,
+        HashMap::from([(
+            "TAG_fnc_myFunction".into(),
+            Spanned::new("aa".to_string(), (122, 132))
+        )])
+    );
 }
