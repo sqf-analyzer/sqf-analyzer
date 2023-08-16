@@ -160,7 +160,7 @@ fn process_params_variable(param: &Expr, state: &mut State) {
 /// infers the type of a bynary expression by considering all possible options
 fn infer_unary(
     name: &Spanned<Arc<str>>,
-    rhs: Option<Output>,
+    rhs: Option<Type>,
     errors: &mut Vec<Spanned<String>>,
 ) -> Option<InnerType> {
     let lower = name.inner.to_ascii_lowercase();
@@ -181,19 +181,18 @@ fn infer_unary(
         Some(rhs) => {
             let options = options
                 .iter()
-                .filter_map(|(x_rhs, type_)| x_rhs.consistent(rhs.type_()).then_some(type_));
+                .filter_map(|(x_rhs, type_)| x_rhs.consistent(rhs).then_some(type_));
 
             if let Some(first) = take_only(options) {
                 Some(first)
-            } else if rhs.type_() == Type::Anything {
+            } else if rhs == Type::Anything {
                 None
             } else {
                 errors.push(Spanned {
                     span: name.span,
                     inner: format!(
                         "\"{}\" does not support a rhs of type \"{:?}\"",
-                        name.inner,
-                        rhs.type_()
+                        name.inner, rhs
                     ),
                 });
                 None
@@ -455,32 +454,30 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             }
         }
         Expr::Unary(op, rhs) => {
-            match op.inner.as_ref() {
-                "for" => {
-                    if let Expr::String(x) = rhs.as_ref() {
-                        state.types.insert(x.span, Some(Type::Number));
-                    } else {
-                        state.errors.push(Spanned {
-                            inner: "parameter of `for` must be a string".to_string(),
-                            span: rhs.span(),
-                        })
-                    }
+            if op.inner.as_ref().eq_ignore_ascii_case("for") {
+                if let Expr::String(x) = rhs.as_ref() {
+                    state.types.insert(x.span, Some(Type::Number));
+                } else {
+                    state.errors.push(Spanned {
+                        inner: "parameter of `for` must be a string".to_string(),
+                        span: rhs.span(),
+                    })
                 }
-                "params" => {
-                    // store the names of the variables to build the function's signature
-                    if let Expr::Array(x) = rhs.as_ref() {
-                        x.inner
-                            .iter()
-                            .for_each(|x| process_params_variable(x, state))
-                    }
+            } else if op.inner.as_ref().eq_ignore_ascii_case("params") {
+                // store the names of the variables to build the function's signature
+                if let Expr::Array(x) = rhs.as_ref() {
+                    x.inner
+                        .iter()
+                        .for_each(|x| process_params_variable(x, state))
                 }
-                _ => {}
             };
             let rhs_type = infer_type(rhs, state);
-            infer_unary(op, rhs_type, &mut state.errors).map(|(type_, explanation)| {
-                state.explanations.insert(op.span, explanation);
-                type_.into()
-            })
+            infer_unary(op, rhs_type.map(|x| x.type_()), &mut state.errors).map(
+                |(type_, explanation)| {
+                    state.explanations.insert(op.span, explanation);
+                    type_.into()
+                },
+            )
         }
         Expr::Nil(_) => None,
     }
