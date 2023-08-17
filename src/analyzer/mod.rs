@@ -1,10 +1,13 @@
 use std::collections::hash_map::HashMap;
 use std::sync::Arc;
 
+use uncased::UncasedStr;
+
+
 use crate::error::Error;
 use crate::parser::Expr;
 use crate::span::{Span, Spanned};
-use crate::types::*;
+use crate::{types::*, uncased};
 
 mod database;
 mod operators;
@@ -162,7 +165,7 @@ fn infer_unary(
     rhs: Option<Type>,
     errors: &mut Vec<Error>,
 ) -> Option<InnerType> {
-    let Some(options) = UNARY.get(&Ascii::new(&name.inner)) else {
+    let Some(options) = UNARY.get(&UncasedStr::new(&name.inner)) else {
         errors.push(Error::new( 
             format!("No unary operator named \"{}\"", name.inner),
             name.span,
@@ -206,7 +209,7 @@ fn infer_binary(
     span: Span,
     errors: &mut Vec<Error>,
 ) -> Option<InnerType> {
-    let Some(options) = BINARY.get(&Ascii::new(&name.inner)) else {
+    let Some(options) = BINARY.get(&UncasedStr::new(name.inner.as_ref())) else {
         errors.push(Error::new(
             format!("\"{}\" is not a binary operator", name.inner),
             span,
@@ -299,7 +302,7 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
         state.explanations.insert(
             *span,
             UNARY
-                .get(&Ascii::new("private"))
+                .get(&UncasedStr::new("private"))
                 .unwrap()
                 .values()
                 .next()
@@ -373,7 +376,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
         }
         Expr::Nullary(variable) => {
             NULLARY
-                .get(&Ascii::new(&variable.inner))
+                .get(&UncasedStr::new(variable.inner.as_ref()))
                 .cloned()
                 .map(|(type_, explanation)| {
                     state.explanations.insert(variable.span, explanation);
@@ -381,9 +384,9 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 })
         }
         Expr::Variable(variable) => {
-            let name = Ascii::new(&variable.inner);
+            let name = UncasedStr::new(&variable.inner);
 
-            (name == "_this")
+            (name == UncasedStr::new("_this"))
                 .then_some(Type::Anything.into())
                 .or_else(|| {
                     if let Some((origin, type_)) = state.namespace.get(&variable.inner) {
@@ -482,13 +485,13 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Stack {
-    pub variables: HashMap<Arc<str>, (Span, Option<Output>)>,
+    pub variables: HashMap<Arc<UncasedStr>, (Span, Option<Output>)>,
     // None => unknown signature
     pub signature: Option<Vec<Parameter>>,
     pub return_type: Option<Type>,
 }
 
-pub type MissionNamespace = HashMap<Arc<str>, (Origin, Option<Output>)>;
+pub type MissionNamespace = HashMap<Arc<UncasedStr>, (Origin, Option<Output>)>;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Namespace {
@@ -520,22 +523,23 @@ impl From<Type> for Output {
 impl Namespace {
     #[allow(clippy::map_entry)]
     pub fn insert(&mut self, key: Spanned<Arc<str>>, value: Option<Output>, is_private: bool) {
+        let sqf_key = uncased(key.inner.as_ref());
         if is_private {
             self.stack
                 .last_mut()
                 .unwrap()
                 .variables
-                .insert(key.inner, (key.span, value));
+                .insert(sqf_key, (key.span, value));
         } else {
             for stack in self.stack.iter_mut().rev() {
-                if stack.variables.contains_key(&key.inner) {
+                if stack.variables.contains_key(&sqf_key) {
                     // entries API would require cloning, which is more expensive than this lookup
-                    stack.variables.insert(key.inner, (key.span, value));
+                    stack.variables.insert(sqf_key, (key.span, value));
                     return;
                 }
             }
             self.mission
-                .insert(key.inner.clone(), (Origin::File(key.span), value));
+                .insert(sqf_key, (Origin::File(key.span), value));
         }
     }
 
@@ -548,19 +552,20 @@ impl Namespace {
     }
 
     pub fn get(&self, key: &str) -> Option<(Origin, Option<Output>)> {
+        let sqf_key = UncasedStr::new(key);
         for stack in self.stack.iter().rev() {
-            if let Some((span, a)) = stack.variables.get(key) {
+            if let Some((span, a)) = stack.variables.get(sqf_key) {
                 return Some((Origin::File(*span), a.clone()));
             }
         }
-        self.mission.get(key).cloned()
+        self.mission.get(sqf_key).cloned()
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Origin {
     File(Span),
-    External(Arc<str>, Option<Span>),
+    External(Arc<UncasedStr>, Option<Span>),
 }
 
 pub type Types = HashMap<Span, Option<Type>>;
@@ -592,7 +597,7 @@ impl State {
     }
 
     /// Returns the set of all globals established by this state, assuming a function_name
-    pub fn globals(&self, function_name: Arc<str>) -> HashMap<Arc<str>, (Origin, Option<Output>)> {
+    pub fn globals(&self, function_name: Arc<UncasedStr>) -> HashMap<Arc<UncasedStr>, (Origin, Option<Output>)> {
         let globals = &self.namespace.mission;
         let signature = self.signature();
         let return_type = self.return_type();

@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-
 use std::path::{Path, PathBuf};
 
 pub mod analyzer;
@@ -173,4 +171,14 @@ mod tests {
             PathBuf::from("../A3-Antistasi/A3A/addons/core/Includes/script_mod.hpp")
         );
     }
+}
+
+pub use uncased::UncasedStr;
+
+/// converts an &UncasedStr to an Arc<UncasedStr>
+pub fn uncased(v: &str) -> std::sync::Arc<UncasedStr> {
+    // same implementation as https://doc.rust-lang.org/src/alloc/sync.rs.html#2691
+    // waiting for https://github.com/SergioBenitez/uncased/pull/8
+    let arc = std::sync::Arc::<[u8]>::from(v.as_bytes());
+    unsafe { std::sync::Arc::from_raw(std::sync::Arc::into_raw(arc) as *const UncasedStr) }
 }

@@ -7,6 +7,7 @@ use sqf::preprocessor;
 use sqf::preprocessor::Configuration;
 use sqf::span::Span;
 use sqf::types::Type;
+use sqf::uncased;
 
 pub fn parse_analyze_s(case: &str, state: &mut State) {
     let iter = preprocessor::tokens(case, Default::default()).unwrap();
@@ -106,16 +107,16 @@ fn namespace_origin() {
 
     let mut state = State::default();
     state.namespace.mission.insert(
-        "A_fn_a".to_string().into(),
+        uncased("A_fn_a"),
         (
-            Origin::External("A_fn_a".to_string().into(), None),
+            Origin::External(uncased("A_fn_a"), None),
             Some(Type::Code.into()),
         ),
     );
     parse_analyze_s(case, &mut state);
     assert_eq!(
         state.origins,
-        HashMap::from([((5, 11), Origin::External("A_fn_a".to_string().into(), None))])
+        HashMap::from([((5, 11), Origin::External(uncased("A_fn_a"), None))])
     );
 }
 
@@ -124,14 +125,14 @@ fn namespace_origin() {
 fn namespace() {
     let case = "private _a = west; call {private _a = 2}";
 
-    let expected = HashMap::from([("_a".into(), ((8, 10), Some(Type::Side.into())))]);
+    let expected = HashMap::from([(uncased("_a"), ((8, 10), Some(Type::Side.into())))]);
 
     let state = parse_analyze(case);
     assert_eq!(state.namespace.stack[0].variables, expected);
 
     let case = "private _a = west; call {_a = 2}";
 
-    let expected = HashMap::from([("_a".into(), ((25, 27), Some(Type::Number.into())))]);
+    let expected = HashMap::from([(uncased("_a"), ((25, 27), Some(Type::Number.into())))]);
 
     let state = parse_analyze(case);
     assert_eq!(state.namespace.stack[0].variables, expected);
@@ -139,7 +140,7 @@ fn namespace() {
     let case = "call {_a = 2}";
 
     let expected = HashMap::from([(
-        "_a".into(),
+        uncased("_a"),
         (Origin::File((6, 8)), Some(Type::Number.into())),
     )]);
 
@@ -198,9 +199,9 @@ fn infer_example3() {
 
     let mut state = State::default();
     state.namespace.mission.insert(
-        "DICT_fnc__set".to_string().into(),
+        uncased("DICT_fnc__set"),
         (
-            Origin::External("DICT_fnc__set".to_string().into(), None),
+            Origin::External(uncased("DICT_fnc__set"), None),
             Some(Output::Code(
                 Some(vec![
                     Parameter {
@@ -339,7 +340,7 @@ fn return_type() {
         state.namespace.stack[0].variables,
         HashMap::from([
             (
-                "_aa".into(),
+                uncased("_aa"),
                 (
                     (13, 16),
                     Some(Output::Code(
@@ -352,7 +353,7 @@ fn return_type() {
                     ))
                 )
             ),
-            ("_x".into(), ((154, 156), Some(Type::Array.into())))
+            (uncased("_x"), ((154, 156), Some(Type::Array.into())))
         ])
     );
     assert_eq!(state.return_type(), Some(Type::Array));
@@ -366,7 +367,7 @@ fn no_signature() {
     assert_eq!(
         state.namespace.stack[0].variables,
         HashMap::from([(
-            "_aa".into(),
+            uncased("_aa"),
             ((8, 11), Some(Output::Code(None, Some(Type::Anything))))
         ),])
     );
@@ -380,7 +381,7 @@ fn return_type_then() {
 
     assert_eq!(
         state.namespace.stack[0].variables,
-        HashMap::from([("_aa".into(), ((8, 11), None))])
+        HashMap::from([(uncased("_aa"), ((8, 11), None))])
     );
     assert_eq!(state.return_type(), Some(Type::Nothing));
 }
@@ -392,7 +393,7 @@ fn debug() {
 
     assert_eq!(
         state.namespace.stack[0].variables,
-        HashMap::from([("_aa".into(), ((8, 11), Some(Type::Anything.into())))])
+        HashMap::from([(uncased("_aa"), ((8, 11), Some(Type::Anything.into())))])
     );
     assert_eq!(state.return_type(), Some(Type::Nothing));
 }
@@ -403,19 +404,16 @@ fn origin_global() {
 
     let mut state = State::default();
     state.namespace.mission.insert(
-        "a".to_string().into(),
+        uncased("a"),
         (
-            Origin::External("a".to_string().into(), Some((10, 11))),
+            Origin::External(uncased("a"), Some((10, 11))),
             Some(Output::Type(Type::Number)),
         ),
     );
     parse_analyze_s(case, &mut state);
     assert_eq!(
         state.origins,
-        HashMap::from([(
-            (4, 5),
-            Origin::External("a".to_string().into(), Some((10, 11)))
-        )])
+        HashMap::from([((4, 5), Origin::External(uncased("a"), Some((10, 11))))])
     );
 }
 
@@ -427,7 +425,7 @@ fn origin_global_from() {
     assert_eq!(
         state.namespace.mission,
         HashMap::from([(
-            "a".into(),
+            uncased("a"),
             (Origin::File((0, 1)), Some(Type::Number.into()))
         )])
     );

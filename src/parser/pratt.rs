@@ -1,9 +1,7 @@
 /// Inspired by https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 use std::{collections::HashSet, iter::Peekable, sync::Arc};
 
-pub use unicase::Ascii;
-
-use super::Expr;
+use uncased::UncasedStr;
 
 use crate::{
     database,
@@ -13,35 +11,37 @@ use crate::{
     types::Signature,
 };
 
+use super::Expr;
+
 lazy_static::lazy_static! {
 
-    pub static ref BINARY: HashSet<Ascii<&'static str>> = database::BINARY
+    pub static ref BINARY: HashSet<&'static UncasedStr> = database::BINARY
         .iter()
         .filter_map(|x| {
             if let Signature::Binary(_, name, _, _, _) = x {
-                Some(Ascii::new(*name))
+                Some(UncasedStr::new(name))
             } else {
                 None
             }
         })
         .collect::<HashSet<_, _>>();
 
-    pub static ref UNARY: HashSet<Ascii<&'static str>> = database::UNARY
+    pub static ref UNARY: HashSet<&'static UncasedStr> = database::UNARY
         .iter()
         .filter_map(|x| {
             if let Signature::Unary(name, _, _, _) = x {
-                Some(Ascii::new(*name))
+                Some(UncasedStr::new(name))
             } else {
                 None
             }
         })
         .collect::<HashSet<_, _>>();
 
-    pub static ref NULLARY: HashSet<Ascii<&'static str>> = database::NULLARY
+    pub static ref NULLARY: HashSet<&'static UncasedStr> = database::NULLARY
         .iter()
         .filter_map(|x| {
             if let Signature::Nullary(name, _, _) = x {
-                Some(Ascii::new(*name))
+                Some(UncasedStr::new(name))
             } else {
                 None
             }
@@ -51,7 +51,7 @@ lazy_static::lazy_static! {
 
 fn atom_to_expr(token: Spanned<Arc<str>>) -> Expr {
     NULLARY
-        .contains(&Ascii::new(token.inner.as_ref()))
+        .contains(&UncasedStr::new(token.inner.as_ref()))
         .then(|| Expr::Nullary(token.clone()))
         .or_else(|| {
             // number
@@ -268,7 +268,7 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
 }
 
 fn prefix_binding_power(op: &str) -> Option<((), u8)> {
-    if UNARY.contains(&Ascii::new(op)) {
+    if UNARY.contains(&UncasedStr::new(op)) {
         // https://community.bistudio.com/wiki/Operators#Order_of_Precedence
         Some(((), 50))
     } else {
@@ -277,15 +277,19 @@ fn prefix_binding_power(op: &str) -> Option<((), u8)> {
 }
 
 fn infix_binding_power(op: &str) -> Option<(u8, u8)> {
-    if unicase::eq_ascii(op, "or") {
+    if UncasedStr::new(op) == UncasedStr::new("or") {
         return Some((21, 22));
-    } else if unicase::eq_ascii(op, "and") {
+    } else if UncasedStr::new(op) == UncasedStr::new("and") {
         return Some((23, 24));
-    } else if unicase::eq_ascii(op, "else") {
+    } else if UncasedStr::new(op) == UncasedStr::new("else") {
         return Some((29, 30));
-    } else if unicase::eq_ascii(op, "max") || unicase::eq_ascii(op, "min") {
+    } else if UncasedStr::new(op) == UncasedStr::new("max")
+        || UncasedStr::new(op) == UncasedStr::new("min")
+    {
         return Some((31, 32));
-    } else if unicase::eq_ascii(op, "mod") || unicase::eq_ascii(op, "atan2") {
+    } else if UncasedStr::new(op) == UncasedStr::new("mod")
+        || UncasedStr::new(op) == UncasedStr::new("atan2")
+    {
         return Some((33, 34));
     }
 
@@ -303,7 +307,7 @@ fn infix_binding_power(op: &str) -> Option<(u8, u8)> {
         "^" => (34, 35),
         "#" => (36, 37),
         _ => {
-            if !BINARY.contains(&Ascii::new(op)) {
+            if !BINARY.contains(&UncasedStr::new(op)) {
                 return None;
             }
             (27, 28)

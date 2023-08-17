@@ -6,10 +6,12 @@ use crate::{
     error::Error,
     preprocessor::AstIterator,
     span::{Span, Spanned},
+    uncased,
 };
 
 mod parser;
 use parser::*;
+use uncased::UncasedStr;
 
 #[derive(Debug, Clone)]
 enum Value {
@@ -29,7 +31,7 @@ pub struct State {
     assignments: Assignments,
 }
 
-pub type Functions = HashMap<Arc<str>, Spanned<String>>;
+pub type Functions = HashMap<Arc<UncasedStr>, Spanned<String>>;
 
 impl State {
     fn functions(&self) -> Functions {
@@ -63,7 +65,7 @@ impl State {
 
             let maybe_path = self.assignments.get(namespace).and_then(|x| x.get("file"));
 
-            let name = format!("{tag}_fnc_{function_name}");
+            let name = uncased(format!("{tag}_fnc_{function_name}").as_ref());
             let path = if let Some(Spanned {
                 inner: Value::String(path),
                 ..
@@ -94,7 +96,7 @@ impl State {
                     }
                 }
             };
-            r.insert(name.into(), path);
+            r.insert(name, path);
         }
         r
     }

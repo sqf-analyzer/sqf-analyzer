@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use uncased::UncasedStr;
+
 use crate::{
     parser::Expr,
     span::{Span, Spanned},
@@ -142,7 +144,7 @@ pub fn foreach(
         .last_mut()
         .unwrap()
         .variables
-        .remove("_x");
+        .remove(UncasedStr::new("_x"));
 
     if let Some((_, explanation)) = infer_binary(
         lhs.as_ref().map(|x| x.type_()),
