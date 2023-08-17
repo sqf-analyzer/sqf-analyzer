@@ -1,6 +1,7 @@
 use std::collections::hash_map::HashMap;
 
 use tinyvec::{array_vec, ArrayVec};
+pub use unicase::Ascii;
 
 use crate::database;
 use crate::types::{Signature, Type};
@@ -22,11 +23,11 @@ impl From<InnerType> for Output {
     }
 }
 
-fn _build_binary() -> HashMap<&'static str, HashMap<(Type, Type), Types>> {
-    let mut r: HashMap<&'static str, HashMap<(Type, Type), Types>> = Default::default();
+fn _build_binary() -> HashMap<Ascii<&'static str>, HashMap<(Type, Type), Types>> {
+    let mut r: HashMap<Ascii<&'static str>, HashMap<(Type, Type), Types>> = Default::default();
     for s in database::BINARY {
         if let Signature::Binary(lhs, name, rhs, type_, exp_) = s {
-            r.entry(name)
+            r.entry(Ascii::new(name))
                 .and_modify(|e| {
                     e.entry((lhs, rhs))
                         .and_modify(|e| e.push((type_, exp_)))
@@ -40,11 +41,11 @@ fn _build_binary() -> HashMap<&'static str, HashMap<(Type, Type), Types>> {
     r
 }
 
-fn _build_unary() -> HashMap<&'static str, HashMap<Type, Types>> {
-    let mut r: HashMap<&'static str, HashMap<Type, Types>> = Default::default();
+fn _build_unary() -> HashMap<Ascii<&'static str>, HashMap<Type, Types>> {
+    let mut r: HashMap<Ascii<&'static str>, HashMap<Type, Types>> = Default::default();
     for s in database::UNARY {
         if let Signature::Unary(name, rhs, type_, exp_) = s {
-            r.entry(name)
+            r.entry(Ascii::new(name))
                 .and_modify(|e| {
                     e.entry(rhs)
                         .and_modify(|e| e.push((type_, exp_)))
@@ -58,11 +59,11 @@ fn _build_unary() -> HashMap<&'static str, HashMap<Type, Types>> {
     r
 }
 
-fn _build_nullary() -> HashMap<&'static str, InnerType> {
-    let mut r: HashMap<&'static str, InnerType> = Default::default();
+fn _build_nullary() -> HashMap<Ascii<&'static str>, InnerType> {
+    let mut r: HashMap<Ascii<&'static str>, InnerType> = Default::default();
     for s in database::NULLARY {
         if let Signature::Nullary(name, type_, exp_) = s {
-            r.insert(name, (type_, exp_));
+            r.insert(Ascii::new(name), (type_, exp_));
         }
     }
     r
@@ -70,15 +71,15 @@ fn _build_nullary() -> HashMap<&'static str, InnerType> {
 
 lazy_static::lazy_static! {
 
-    pub static ref BINARY: HashMap<&'static str, HashMap<(Type, Type), Types>> = {
+    pub static ref BINARY: HashMap<Ascii<&'static str>, HashMap<(Type, Type), Types>> = {
         _build_binary()
     };
 
-    pub static ref UNARY: HashMap<&'static str, HashMap<Type, Types>> = {
+    pub static ref UNARY: HashMap<Ascii<&'static str>, HashMap<Type, Types>> = {
         _build_unary()
     };
 
-    pub static ref NULLARY: HashMap<&'static str, InnerType> = {
+    pub static ref NULLARY: HashMap<Ascii<&'static str>, InnerType> = {
         _build_nullary()
     };
 }

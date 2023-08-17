@@ -309,6 +309,15 @@ fn return_type_simple() {
 }
 
 #[test]
+fn case_insensitive() {
+    // binary; unary; nullary
+    assert_eq!(
+        parse_analyze("true And false; Call {}; True").errors,
+        vec![]
+    );
+}
+
+#[test]
 fn return_type() {
     let case = r#"
     private _aa = {

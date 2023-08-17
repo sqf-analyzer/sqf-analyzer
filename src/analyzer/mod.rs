@@ -162,9 +162,7 @@ fn infer_unary(
     rhs: Option<Type>,
     errors: &mut Vec<Error>,
 ) -> Option<InnerType> {
-    let lower = name.inner.to_ascii_lowercase();
-
-    let Some(options) = UNARY.get(lower.as_str()) else {
+    let Some(options) = UNARY.get(&Ascii::new(&name.inner)) else {
         errors.push(Error::new( 
             format!("No unary operator named \"{}\"", name.inner),
             name.span,
@@ -208,9 +206,7 @@ fn infer_binary(
     span: Span,
     errors: &mut Vec<Error>,
 ) -> Option<InnerType> {
-    let lower = name.inner.to_ascii_lowercase();
-
-    let Some(options) = BINARY.get(lower.as_str()) else {
+    let Some(options) = BINARY.get(&Ascii::new(&name.inner)) else {
         errors.push(Error::new(
             format!("\"{}\" is not a binary operator", name.inner),
             span,
@@ -303,7 +299,7 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
         state.explanations.insert(
             *span,
             UNARY
-                .get(&"private")
+                .get(&Ascii::new("private"))
                 .unwrap()
                 .values()
                 .next()
@@ -376,9 +372,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             Some(Output::Code(parameters, return_type.map(|x| x.type_())))
         }
         Expr::Nullary(variable) => {
-            let name = variable.inner.to_ascii_lowercase();
             NULLARY
-                .get(name.as_str())
+                .get(&Ascii::new(&variable.inner))
                 .cloned()
                 .map(|(type_, explanation)| {
                     state.explanations.insert(variable.span, explanation);
@@ -386,7 +381,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 })
         }
         Expr::Variable(variable) => {
-            let name = variable.inner.to_ascii_lowercase();
+            let name = Ascii::new(&variable.inner);
 
             (name == "_this")
                 .then_some(Type::Anything.into())

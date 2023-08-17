@@ -11,6 +11,7 @@ walkdir = "2"
 path-clean = "*"
 path-slash = "*"
 tinyvec = "1.6.0"
+unicase = "*"
 
 [[example]]
 name = "sqf-analyzer"

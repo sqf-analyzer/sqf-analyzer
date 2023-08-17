@@ -1,6 +1,8 @@
 /// Inspired by https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 use std::{collections::HashSet, iter::Peekable, sync::Arc};
 
+pub use unicase::Ascii;
+
 use super::Expr;
 
 use crate::{
@@ -13,47 +15,43 @@ use crate::{
 
 lazy_static::lazy_static! {
 
-    pub static ref BINARY: HashSet<&'static str> = database::BINARY
+    pub static ref BINARY: HashSet<Ascii<&'static str>> = database::BINARY
         .iter()
         .filter_map(|x| {
             if let Signature::Binary(_, name, _, _, _) = x {
-                Some(*name)
+                Some(Ascii::new(*name))
             } else {
                 None
             }
         })
         .collect::<HashSet<_, _>>();
 
-    pub static ref UNARY: HashSet<&'static str> = database::UNARY
+    pub static ref UNARY: HashSet<Ascii<&'static str>> = database::UNARY
         .iter()
         .filter_map(|x| {
             if let Signature::Unary(name, _, _, _) = x {
-                Some(*name)
+                Some(Ascii::new(*name))
             } else {
                 None
             }
         })
         .collect::<HashSet<_, _>>();
 
-    pub static ref NULLARY: HashSet<&'static str> = database::NULLARY
+    pub static ref NULLARY: HashSet<Ascii<&'static str>> = database::NULLARY
         .iter()
         .filter_map(|x| {
             if let Signature::Nullary(name, _, _) = x {
-                Some(*name)
+                Some(Ascii::new(*name))
             } else {
                 None
             }
         })
         .collect::<HashSet<_, _>>();
-}
-
-fn to_lower_case(v: &str) -> String {
-    v.to_ascii_lowercase()
 }
 
 fn atom_to_expr(token: Spanned<Arc<str>>) -> Expr {
     NULLARY
-        .contains(to_lower_case(token.inner.as_ref()).as_str())
+        .contains(&Ascii::new(token.inner.as_ref()))
         .then(|| Expr::Nullary(token.clone()))
         .or_else(|| {
             // number
@@ -270,10 +268,7 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
 }
 
 fn prefix_binding_power(op: &str) -> Option<((), u8)> {
-    let op = op.to_owned().to_lowercase();
-    let op = op.as_str();
-
-    if UNARY.contains(op) {
+    if UNARY.contains(&Ascii::new(op)) {
         // https://community.bistudio.com/wiki/Operators#Order_of_Precedence
         Some(((), 50))
     } else {
@@ -282,8 +277,17 @@ fn prefix_binding_power(op: &str) -> Option<((), u8)> {
 }
 
 fn infix_binding_power(op: &str) -> Option<(u8, u8)> {
-    let op = op.to_owned().to_lowercase();
-    let op = op.as_str();
+    if unicase::eq_ascii(op, "or") {
+        return Some((21, 22));
+    } else if unicase::eq_ascii(op, "and") {
+        return Some((23, 24));
+    } else if unicase::eq_ascii(op, "else") {
+        return Some((29, 30));
+    } else if unicase::eq_ascii(op, "max") || unicase::eq_ascii(op, "min") {
+        return Some((31, 32));
+    } else if unicase::eq_ascii(op, "mod") || unicase::eq_ascii(op, "atan2") {
+        return Some((33, 34));
+    }
 
     // https://community.bistudio.com/wiki/Operators#Order_of_Precedence
     let res = match op {
@@ -299,7 +303,7 @@ fn infix_binding_power(op: &str) -> Option<(u8, u8)> {
         "^" => (34, 35),
         "#" => (36, 37),
         _ => {
-            if !BINARY.contains(op) {
+            if !BINARY.contains(&Ascii::new(op)) {
                 return None;
             }
             (27, 28)
