@@ -5,7 +5,7 @@ use crate::span::{Span, Spanned};
 #[derive(Debug, Clone)]
 pub enum Expr {
     String(Spanned<Arc<str>>),
-    Number(Spanned<i64>),
+    Number(Spanned<f64>),
     Nullary(Spanned<Arc<str>>),
     Variable(Spanned<Arc<str>>),
     Unary(Spanned<Arc<str>>, Box<Expr>),

@@ -30,7 +30,7 @@ fn check_infer(case: &str, expected: HashMap<Span, Option<Type>>) {
 
 #[test]
 fn infer_number() {
-    let case = "private _a = 1";
+    let case = "private _a = 1.1";
 
     let expected = HashMap::from([((8, 10), Some(Type::Number))]);
     check_infer(case, expected);

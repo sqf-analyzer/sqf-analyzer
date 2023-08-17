@@ -57,7 +57,7 @@ fn atom_to_expr(token: Spanned<Arc<str>>) -> Expr {
             // number
             token
                 .inner
-                .parse::<i64>()
+                .parse::<f64>()
                 .map(|x| Spanned {
                     inner: x,
                     span: token.span,
@@ -68,7 +68,7 @@ fn atom_to_expr(token: Spanned<Arc<str>>) -> Expr {
         .or_else(|| {
             parse_hexadecimal(&token.inner)
                 .map(|x| Spanned {
-                    inner: x as i64,
+                    inner: x as f64,
                     span: token.span,
                 })
                 .map(Expr::Number)
