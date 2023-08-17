@@ -521,3 +521,11 @@ fn count() {
         HashMap::from([((1, 3), Origin::File((10, 15)))])
     );
 }
+
+#[test]
+fn private_unary() {
+    let case = "private [\"_a\"]; _a = 1";
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(state.namespace.mission.len(), 0);
+}

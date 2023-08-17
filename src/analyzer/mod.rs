@@ -471,7 +471,17 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                         .iter()
                         .for_each(|x| {process_params_variable(x, state, true);})
                 }
-            };
+            } else if op.inner.as_ref().eq_ignore_ascii_case("private") {
+                if let Expr::Array(array) = rhs.as_ref() {
+                    for entry in &array.inner {
+                        if let Expr::String(name) = entry {
+                            state.namespace.insert(name.as_ref().map(|x| uncased(x.as_ref())), None, true)
+                        } else {
+                            state.errors.push(Error::new("argument must be a string".to_string(), entry.span()));
+                        }
+                    }
+                }
+            }
             let rhs_type = infer_type(rhs, state);
             infer_unary(op, rhs_type.map(|x| x.type_()), &mut state.errors).map(
                 |(type_, explanation)| {
