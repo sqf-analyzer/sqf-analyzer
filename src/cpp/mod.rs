@@ -242,6 +242,10 @@ fn process_expr(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
         return
     };
 
+    if let Expr::Code(_) = first {
+        return;
+    };
+
     let Expr::Token(first) = first else {
         errors.push(Error::new( "body expects a token".to_string(), first.span(),));
         return;

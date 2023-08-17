@@ -431,6 +431,14 @@ fn names_no_quotes() {
 }
 
 #[test]
+fn empty_expressions() {
+    let case = r#";;;;"#;
+    let iter = tokens(case, Default::default()).unwrap();
+    let (_, errors) = analyze(iter);
+    assert_eq!(errors, vec![]);
+}
+
+#[test]
 fn bls() {
     let case = r#"
     class CfgFunctions
