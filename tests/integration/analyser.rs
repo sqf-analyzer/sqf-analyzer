@@ -510,3 +510,14 @@ fn params_good() {
         HashMap::from([(uncased("_x"), ((12, 16), Some(Type::Number.into())))])
     );
 }
+
+#[test]
+fn count() {
+    let case = "{_x == 4} count []";
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(
+        state.origins,
+        HashMap::from([((1, 3), Origin::File((10, 15)))])
+    );
+}
