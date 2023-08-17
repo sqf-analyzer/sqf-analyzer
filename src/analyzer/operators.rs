@@ -134,7 +134,7 @@ pub fn foreach(
     state: &mut State,
 ) -> Option<Output> {
     // technically not right as the _x should be assigned to the new future stack of lhs, not here
-    let lhs = infer_with(lhs, op.span, state);
+    let lhs = infer_with(lhs, op.span, &["_x", "_foreachindex"], state);
 
     if let Some((_, explanation)) = infer_binary(
         lhs.as_ref().map(|x| x.type_()),
@@ -246,7 +246,7 @@ pub fn count(
     rhs: &Expr,
     state: &mut State,
 ) -> Option<Output> {
-    let lhs = infer_with(lhs, op.span, state);
+    let lhs = infer_with(lhs, op.span, &["_x"], state);
 
     infer_binary(
         lhs.map(|x| x.type_()),
@@ -269,7 +269,7 @@ pub fn select(
     state: &mut State,
 ) -> Option<Output> {
     let lhs = infer_type(lhs, state);
-    let rhs = infer_with(rhs, op.span, state);
+    let rhs = infer_with(rhs, op.span, &["_x"], state);
 
     infer_binary(
         lhs.map(|x| x.type_()),
@@ -284,19 +284,24 @@ pub fn select(
     })
 }
 
-fn infer_with(expr: &Expr, span: Span, state: &mut State) -> Option<Output> {
-    state.namespace.insert(
-        Spanned::new(uncased("_x"), span),
-        Some(Type::Anything.into()),
-        true,
-    );
+fn infer_with(expr: &Expr, span: Span, vars: &[&str], state: &mut State) -> Option<Output> {
+    for var in vars {
+        state.namespace.insert(
+            Spanned::new(uncased(var), span),
+            Some(Type::Anything.into()),
+            true,
+        );
+    }
+
     let lhs = infer_type(expr, state);
-    state
-        .namespace
-        .stack
-        .last_mut()
-        .unwrap()
-        .variables
-        .remove(UncasedStr::new("_x"));
+    for var in vars {
+        state
+            .namespace
+            .stack
+            .last_mut()
+            .unwrap()
+            .variables
+            .remove(UncasedStr::new(var));
+    }
     lhs
 }

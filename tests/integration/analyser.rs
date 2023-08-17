@@ -436,7 +436,7 @@ fn origin_global_from() {
 fn for_each() {
     let case = r#"
 private _x = 1;
-{"a" + _x} forEach []
+{"a" + _x + _foreachindex} forEach []
 "#;
 
     let state = parse_analyze(case);

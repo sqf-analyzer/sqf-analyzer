@@ -392,7 +392,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                         state.origins.insert(variable.span, origin);
                         type_
                     } else {
-                        if state.settings.error_on_undefined && !variable.inner.starts_with("BIS_") {
+                        // todo: get a db of bis_ functions and corresponding signatures
+                        if state.settings.error_on_undefined && !UncasedStr::new(variable.inner.as_ref()).starts_with("bis_") {
                             state.errors.push(Error::new("Variable not defined".into(), variable.span));
                         };
                         None
@@ -462,6 +463,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             if op.inner.as_ref().eq_ignore_ascii_case("for") {
                 if let Expr::String(x) = rhs.as_ref() {
                     state.types.insert(x.span, Some(Type::Number));
+                    state.namespace.insert(x.as_ref().map(|x| uncased(x.as_ref())), Some(Type::Number.into()), true);
                 } else {
                     state.errors.push(Error::new(
                         "parameter of `for` must be a string".to_string(),
