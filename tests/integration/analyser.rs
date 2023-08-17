@@ -499,3 +499,14 @@ fn for_each_return() {
     assert_eq!(state.errors, vec![]);
     assert_eq!(state.return_type(), Some(Type::Boolean))
 }
+
+#[test]
+fn params_good() {
+    let case = "[1] params [\"_x\"]";
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(
+        state.namespace.stack[0].variables,
+        HashMap::from([(uncased("_x"), ((12, 16), Some(Type::Number.into())))])
+    );
+}

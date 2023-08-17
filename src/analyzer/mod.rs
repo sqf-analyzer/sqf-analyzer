@@ -32,6 +32,7 @@ fn process_param_variable(
     state: &mut State,
     type_: Type,
     has_default: bool,
+    add_to_signature: bool,
 ) {
     if !_is_private(&v.inner) {
         state
@@ -40,19 +41,21 @@ fn process_param_variable(
         return;
     }
 
-    let p = Parameter {
-        name: v.inner.clone(),
-        type_,
-        has_default,
-    };
-    if let Some(s) = state.namespace.stack.last_mut().unwrap().signature.as_mut() {
-        s.push(p)
-    } else {
-        state.namespace.stack.last_mut().unwrap().signature = Some(vec![p])
-    };
+    if add_to_signature {
+        let p = Parameter {
+            name: v.inner.clone(),
+            type_,
+            has_default,
+        };
+        if let Some(s) = state.namespace.stack.last_mut().unwrap().signature.as_mut() {
+            s.push(p)
+        } else {
+            state.namespace.stack.last_mut().unwrap().signature = Some(vec![p])
+        };
+    }
 
     state.namespace.insert(
-        v.clone(),
+        v.as_ref().map(|x| uncased(x.as_ref())),
         Some(type_.into()),
         true,
     );
@@ -88,10 +91,10 @@ fn process_param_types(types: &Expr, state: &mut State) -> Option<Type> {
     }))
 }
 
-fn process_params_variable(param: &Expr, state: &mut State) {
+fn process_params_variable(param: &Expr, state: &mut State, add_to_signature: bool) -> Option<Spanned<Arc<UncasedStr>>> {
     if let Expr::String(v) = &param {
-        process_param_variable(v, state, Type::Anything, false);
-        return;
+        process_param_variable(v, state, Type::Anything, false, add_to_signature);
+        return Some(v.as_ref().map(|x| uncased(x.as_ref())));
     }
 
     let Expr::Array(expr) = param else {
@@ -99,7 +102,7 @@ fn process_params_variable(param: &Expr, state: &mut State) {
             "params' argument must be either a string or array".to_string(),
             param.span(),
         ));
-        return;
+        return None;
     };
 
     let mut iter = expr.inner.iter();
@@ -122,24 +125,24 @@ fn process_params_variable(param: &Expr, state: &mut State) {
             "params' first argument must be a string".to_string(),
             param.span(),
         ));
-        return;
+        return None;
     };
 
     let Some(default) = default else {
-        process_param_variable(name, state, Type::Anything, false);
-        return;
+        process_param_variable(name, state, Type::Anything, false,add_to_signature);
+        return Some(name.as_ref().map(|x| uncased(x.as_ref())));
     };
     let default_type = infer_type(default, state)
         .map(|x| x.type_())
         .unwrap_or(Type::Anything);
 
     let Some(types) = types else {
-        process_param_variable(name, state, default_type, true);
-        return;
+        process_param_variable(name, state, default_type, true, add_to_signature);
+        return Some(name.as_ref().map(|x| uncased(x.as_ref())));
     };
 
     let Some(type_) = process_param_types(types, state) else {
-        return
+        return Some(name.as_ref().map(|x| uncased(x.as_ref())));
     };
 
     if !type_.consistent(default_type) {
@@ -149,7 +152,8 @@ fn process_params_variable(param: &Expr, state: &mut State) {
         ));
     }
 
-    process_param_variable(name, state, type_, true)
+    process_param_variable(name, state, type_, true, add_to_signature);
+    Some(name.as_ref().map(|x| uncased(x.as_ref())))
 }
 
 /// infers the type of a bynary expression by considering all possible options
@@ -324,7 +328,7 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
         };
         (false, variable)
     };
-    let variable = variable.clone().map(|x| x.to_string().into());
+    let variable = variable.as_ref().map(|x| uncased(x.as_ref()));
 
     state
         .types
@@ -409,6 +413,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 operators::remoteexec(expr.span(), lhs, op, rhs, state)
             } else if op.inner.as_ref().eq_ignore_ascii_case("spawn") {
                 operators::spawn(expr.span(), lhs, op, rhs, state)
+            } else if op.inner.as_ref().eq_ignore_ascii_case("params") {
+                operators::params(expr.span(), lhs, op, rhs, state)
             } else {
                 if op.inner.eq_ignore_ascii_case("call") {
                     let rhs = infer_type(rhs, state);
@@ -461,7 +467,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 if let Expr::Array(x) = rhs.as_ref() {
                     x.inner
                         .iter()
-                        .for_each(|x| process_params_variable(x, state))
+                        .for_each(|x| {process_params_variable(x, state, true);})
                 }
             };
             let rhs_type = infer_type(rhs, state);
@@ -515,24 +521,23 @@ impl From<Type> for Output {
 
 impl Namespace {
     #[allow(clippy::map_entry)]
-    pub fn insert(&mut self, key: Spanned<Arc<str>>, value: Option<Output>, is_private: bool) {
-        let sqf_key = uncased(key.inner.as_ref());
+    pub fn insert(&mut self, key: Spanned<Arc<UncasedStr>>, value: Option<Output>, is_private: bool) {
         if is_private {
             self.stack
                 .last_mut()
                 .unwrap()
                 .variables
-                .insert(sqf_key, (key.span, value));
+                .insert(key.inner, (key.span, value));
         } else {
             for stack in self.stack.iter_mut().rev() {
-                if stack.variables.contains_key(&sqf_key) {
+                if stack.variables.contains_key(&key.inner) {
                     // entries API would require cloning, which is more expensive than this lookup
-                    stack.variables.insert(sqf_key, (key.span, value));
+                    stack.variables.insert(key.inner, (key.span, value));
                     return;
                 }
             }
             self.mission
-                .insert(sqf_key, (Origin::File(key.span), value));
+                .insert(key.inner, (Origin::File(key.span), value));
         }
     }
 

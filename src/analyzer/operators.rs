@@ -3,13 +3,15 @@ use std::sync::Arc;
 use uncased::UncasedStr;
 
 use crate::{
+    error::Error,
     parser::Expr,
     span::{Span, Spanned},
     types::Type,
+    uncased,
 };
 
-use super::type_operations::union_stacks;
 use super::{infer_binary, infer_type, process_parameters, union_output, Output, State};
+use super::{process_params_variable, type_operations::union_stacks};
 
 pub fn then(
     span: Span,
@@ -133,7 +135,7 @@ pub fn foreach(
 ) -> Option<Output> {
     // technically not right as the _x should be assigned to the new future stack of lhs, not here
     state.namespace.insert(
-        Spanned::new("_x".into(), op.span),
+        Spanned::new(uncased("_x"), op.span),
         Some(Type::Anything.into()),
         true,
     );
@@ -199,6 +201,47 @@ pub fn spawn(
         lhs.map(|x| x.type_()),
         op,
         rhs.as_ref().map(|x| x.type_()),
+        span,
+        &mut state.errors,
+    )
+    .map(|(type_, explanation)| {
+        state.explanations.insert(op.span, explanation);
+        type_.into()
+    })
+}
+
+pub fn params(
+    span: Span,
+    lhs: &Expr,
+    op: &Spanned<Arc<str>>,
+    rhs: &Expr,
+    state: &mut State,
+) -> Option<Output> {
+    let params = if let Expr::Array(x) = rhs {
+        x.inner
+            .iter()
+            .map(|x| process_params_variable(x, state, false))
+            .collect::<Vec<_>>()
+    } else {
+        state
+            .errors
+            .push(Error::new("params expects an array".to_string(), span));
+        vec![]
+    };
+    // assign to variables
+    if let Expr::Array(x) = lhs {
+        params.iter().zip(x.inner.iter()).for_each(|(variable, x)| {
+            let rhs_type = infer_type(x, state);
+            if let Some(variable) = variable {
+                state.namespace.insert(variable.clone(), rhs_type, true);
+            }
+        });
+    }
+
+    infer_binary(
+        infer_type(lhs, state).map(|x| x.type_()),
+        op,
+        infer_type(rhs, state).map(|x| x.type_()),
         span,
         &mut state.errors,
     )
