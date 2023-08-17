@@ -117,7 +117,7 @@ pub fn update_(
             *state = Some((
                 define.clone(),
                 Default::default(),
-                Spanned::new(MacroState::ParenthesisStart, define.keyword.span),
+                Spanned::new(MacroState::ParenthesisStart, item.span),
             ));
         }
 
