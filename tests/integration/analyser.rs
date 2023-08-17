@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use sqf::analyzer::*;
+use sqf::error::Error;
 use sqf::parser;
 use sqf::preprocessor;
 use sqf::preprocessor::Configuration;
@@ -528,4 +529,18 @@ fn private_unary() {
     let state = parse_analyze(case);
     assert_eq!(state.errors, vec![]);
     assert_eq!(state.namespace.mission.len(), 0);
+}
+
+#[test]
+fn compile() {
+    let case = "call compile preprocessFileLineNumbers \"tests\\integration\\examples\\error.sqf\"";
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![
+        Error {
+            inner: "\"+\" does not support left side of type \"Array\" and right side of type \"Number\"".to_string(),
+            span: (10, 11),
+            origin: Some("tests/integration/examples/error.sqf".into())
+        },
+    ]);
+    assert_eq!(state.namespace.mission.len(), 1);
 }

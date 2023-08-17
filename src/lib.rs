@@ -144,6 +144,7 @@ pub fn check(
 
     let mut state = State {
         settings,
+        path: path.to_owned(),
         ..Default::default()
     };
     state.namespace.mission = mission;

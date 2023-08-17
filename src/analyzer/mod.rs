@@ -1,4 +1,5 @@
 use std::collections::hash_map::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use uncased::UncasedStr;
@@ -9,6 +10,7 @@ use crate::parser::Expr;
 use crate::span::{Span, Spanned};
 use crate::{types::*, uncased};
 
+mod unary;
 mod database;
 mod operators;
 mod type_operations;
@@ -471,6 +473,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                         .iter()
                         .for_each(|x| {process_params_variable(x, state, true);})
                 }
+            } else if op.inner.as_ref().eq_ignore_ascii_case("compile") {
+                unary::compile(rhs, state);
             } else if op.inner.as_ref().eq_ignore_ascii_case("private") {
                 if let Expr::Array(array) = rhs.as_ref() {
                     for entry in &array.inner {
@@ -581,13 +585,14 @@ pub enum Origin {
 pub type Types = HashMap<Span, Option<Type>>;
 pub type Parameters = HashMap<Span, Arc<str>>;
 
-#[derive(Debug, Default, PartialEq, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct Settings {
     pub error_on_undefined: bool,
 }
 
 #[derive(Debug, Default, PartialEq)]
 pub struct State {
+    pub path: PathBuf,
     pub settings: Settings,
     pub types: Types,
     pub parameters: Parameters,
