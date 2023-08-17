@@ -1,5 +1,6 @@
 use sqf::{
     analyzer::{Parameter, State},
+    error::Error,
     span::Spanned,
     types::Type,
 };
@@ -41,10 +42,10 @@ fn basic_error() {
 
     let mut expected = State::default();
     expected.namespace.push_stack();
-    expected.errors.push(Spanned {
-        inner: "Argument must begin with _".to_string(),
-        span: (8, 11),
-    });
+    expected.errors.push(Error::new(
+        "Argument must begin with _".to_string(),
+        (8, 11),
+    ));
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
     expected.explanations.insert(
         (0, 6),
@@ -130,10 +131,11 @@ fn with_default_and_type_invalid_default() {
         Some(Type::Boolean.into()),
         true,
     );
-    expected.errors.push(Spanned {
-        inner: "params' default argument type \"Object\" is inconsistent with expected type \"Boolean\"".to_string(),
-        span: (8, 31),
-    });
+    expected.errors.push(Error::new(
+        "params' default argument type \"Object\" is inconsistent with expected type \"Boolean\""
+            .to_string(),
+        (8, 31),
+    ));
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Boolean,
@@ -212,10 +214,10 @@ fn basic_with_unknown_type() {
         has_default: true,
     }]);
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
-    expected.errors.push(Spanned {
-        inner: "params' third argument's elements must be typed".to_string(),
-        span: (24, 28),
-    });
+    expected.errors.push(Error::new(
+        "params' third argument's elements must be typed".to_string(),
+        (24, 28),
+    ));
     expected.explanations.insert(
         (0, 6),
         "Parses _this param inside a script into array of private variables",
@@ -235,10 +237,10 @@ fn basic_with_invalid_type_param() {
 
     let mut expected = State::default();
     expected.namespace.push_stack();
-    expected.errors.push(Spanned {
-        inner: "params' third argument must be an array".to_string(),
-        span: (24, 25),
-    });
+    expected.errors.push(Error::new(
+        "params' third argument must be an array".to_string(),
+        (24, 25),
+    ));
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
     expected.explanations.insert(
         (0, 6),
@@ -259,10 +261,10 @@ fn basic_with_invalid_param() {
 
     let mut expected = State::default();
     expected.namespace.push_stack();
-    expected.errors.push(Spanned {
-        inner: "params' argument must be either a string or array".to_string(),
-        span: (8, 9),
-    });
+    expected.errors.push(Error::new(
+        "params' argument must be either a string or array".to_string(),
+        (8, 9),
+    ));
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
     expected.explanations.insert(
         (0, 6),
@@ -280,10 +282,10 @@ fn error_too_many_params() {
     let state = parse_analyze(case);
     assert_eq!(
         state.errors,
-        vec![Spanned {
-            inner: "params' arguments only accept up to 4 arguments".to_string(),
-            span: (26, 27),
-        }]
+        vec![Error::new(
+            "params' arguments only accept up to 4 arguments".to_string(),
+            (26, 27),
+        )]
     );
 }
 
@@ -294,10 +296,10 @@ fn basic_with_invalid_param_array() {
     let state = parse_analyze(case);
     assert_eq!(
         state.errors,
-        vec![Spanned {
-            inner: "params' first argument must be a string".to_string(),
-            span: (8, 11),
-        }]
+        vec![Error::new(
+            "params' first argument must be a string".to_string(),
+            (8, 11),
+        )]
     );
 }
 

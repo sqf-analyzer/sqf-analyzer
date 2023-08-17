@@ -27,10 +27,10 @@ fn advance_state(
             macro_state.span.1 += item.span.1 - item.span.0;
         }
         (MacroState::ParenthesisStart, _) => {
-            errors.push(Error {
-                inner: "Macro with arguments is expected to be followed by (".to_string(),
-                span: item.span,
-            });
+            errors.push(Error::new(
+                "Macro with arguments is expected to be followed by (".to_string(),
+                item.span,
+            ));
         }
         (MacroState::Argument(0), ",") => {
             define_state.1.push(Default::default());
@@ -47,13 +47,13 @@ fn advance_state(
             };
         }
         (MacroState::None, _) => {
-            errors.push(Error {
-                inner: format!(
+            errors.push(Error::new(
+                format!(
                     "Token {} un-expected while parsing macro arguments",
                     item.inner.as_ref()
                 ),
-                span: item.span,
-            });
+                item.span,
+            ));
         }
     }
 }

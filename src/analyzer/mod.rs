@@ -32,10 +32,9 @@ fn process_param_variable(
     has_default: bool,
 ) {
     if !_is_private(v) {
-        state.errors.push(Spanned {
-            span,
-            inner: "Argument must begin with _".to_string(),
-        });
+        state
+            .errors
+            .push(Error::new("Argument must begin with _".to_string(), span));
         return;
     }
 
@@ -64,10 +63,10 @@ fn process_param_types(types: &Expr, state: &mut State) -> Option<Type> {
     let (types, span) = if let Expr::Array(expr) = &types {
         (expr, expr.span)
     } else {
-        state.errors.push(Spanned {
-            span: types.span(),
-            inner: "params' third argument must be an array".to_string(),
-        });
+        state.errors.push(Error::new(
+            "params' third argument must be an array".to_string(),
+            types.span(),
+        ));
         return None;
     };
 
@@ -75,10 +74,10 @@ fn process_param_types(types: &Expr, state: &mut State) -> Option<Type> {
         // reduce the list of types to a single type
         let type_ = infer_type(maybe_type, state).map(|x| x.type_());
         let type_ = type_.unwrap_or_else(|| {
-            state.errors.push(Spanned {
+            state.errors.push(Error::new(
+                "params' third argument's elements must be typed".to_string(),
                 span,
-                inner: "params' third argument's elements must be typed".to_string(),
-            });
+            ));
             Type::Anything
         });
         match acc {
@@ -97,10 +96,10 @@ fn process_params_variable(param: &Expr, state: &mut State) {
     }
 
     let Expr::Array(expr) = param else {
-        state.errors.push(Spanned {
-            span: param.span(),
-            inner: "params' argument must be either a string or array".to_string(),
-        });
+        state.errors.push(Error::new(
+            "params' argument must be either a string or array".to_string(),
+            param.span(),
+        ));
         return;
     };
 
@@ -110,10 +109,10 @@ fn process_params_variable(param: &Expr, state: &mut State) {
     let types = iter.next();
     let _counts = iter.next();
     for remaining in iter {
-        state.errors.push(Spanned {
-            span: remaining.span(),
-            inner: "params' arguments only accept up to 4 arguments".to_string(),
-        })
+        state.errors.push(Error::new(
+            "params' arguments only accept up to 4 arguments".to_string(),
+            remaining.span(),
+        ))
     }
 
     let (name, name_span) = if let Some(Expr::String(Spanned {
@@ -123,10 +122,10 @@ fn process_params_variable(param: &Expr, state: &mut State) {
     {
         (name, *name_span)
     } else {
-        state.errors.push(Spanned {
-            span: param.span(),
-            inner: "params' first argument must be a string".to_string(),
-        });
+        state.errors.push(Error::new(
+            "params' first argument must be a string".to_string(),
+            param.span(),
+        ));
         return;
     };
 
@@ -148,10 +147,10 @@ fn process_params_variable(param: &Expr, state: &mut State) {
     };
 
     if !type_.consistent(default_type) {
-        state.errors.push(Spanned {
-            span: param.span(),
-            inner: format!("params' default argument type \"{:?}\" is inconsistent with expected type \"{:?}\"", default_type, type_),
-        });
+        state.errors.push(Error::new(
+            format!("params' default argument type \"{:?}\" is inconsistent with expected type \"{:?}\"", default_type, type_),
+            param.span(),
+        ));
     }
 
     process_param_variable(name, name_span, state, type_, true)
@@ -161,15 +160,15 @@ fn process_params_variable(param: &Expr, state: &mut State) {
 fn infer_unary(
     name: &Spanned<Arc<str>>,
     rhs: Option<Type>,
-    errors: &mut Vec<Spanned<String>>,
+    errors: &mut Vec<Error>,
 ) -> Option<InnerType> {
     let lower = name.inner.to_ascii_lowercase();
 
     let Some(options) = UNARY.get(lower.as_str()) else {
-        errors.push(Spanned {
-            span: name.span,
-            inner: format!("No unary operator named \"{}\"", name.inner),
-        });
+        errors.push(Error::new( 
+            format!("No unary operator named \"{}\"", name.inner),
+            name.span,
+        ));
         return None;
     };
 
@@ -188,13 +187,13 @@ fn infer_unary(
             } else if rhs == Type::Anything {
                 None
             } else {
-                errors.push(Spanned {
-                    span: name.span,
-                    inner: format!(
+                errors.push(Error::new(
+                    format!(
                         "\"{}\" does not support a rhs of type \"{:?}\"",
                         name.inner, rhs
                     ),
-                });
+                    name.span,
+                ));
                 None
             }
         }
@@ -207,15 +206,15 @@ fn infer_binary(
     name: &Spanned<Arc<str>>,
     rhs: Option<Type>,
     span: Span,
-    errors: &mut Vec<Spanned<String>>,
+    errors: &mut Vec<Error>,
 ) -> Option<InnerType> {
     let lower = name.inner.to_ascii_lowercase();
 
     let Some(options) = BINARY.get(lower.as_str()) else {
-        errors.push(Spanned {
+        errors.push(Error::new(
+            format!("\"{}\" is not a binary operator", name.inner),
             span,
-            inner: format!("\"{}\" is not a binary operator", name.inner),
-        });
+        ));
         return None;
     };
 
@@ -233,13 +232,13 @@ fn infer_binary(
             } else if rhs == Type::Anything {
                 None
             } else {
-                errors.push(Spanned {
-                    span: name.span,
-                    inner: format!(
+                errors.push(Error::new(
+                    format!(
                         "\"{}\" does not support a rhs of type \"{:?}\"",
                         name.inner, rhs
                     ),
-                });
+                    name.span,
+                ));
                 None
             }
         }
@@ -251,13 +250,13 @@ fn infer_binary(
                 Some(first)
             } else {
                 if lhs != Type::Anything {
-                    errors.push(Spanned {
-                        span: name.span,
-                        inner: format!(
+                    errors.push(Error::new(
+                        format!(
                             "\"{}\" does not support a left side of type \"{:?}\"",
                             name.inner, lhs
                         ),
-                    });
+                        name.span,
+                    ));
                 }
                 None
             }
@@ -269,13 +268,13 @@ fn infer_binary(
             if let Some(first) = take_only(options) {
                 Some(first)
             } else {
-                errors.push(Spanned {
-                    span: name.span,
-                    inner: format!(
+                errors.push(Error::new(
+                    format!(
                         "\"{}\" does not support left side of type \"{:?}\" and right side of type \"{:?}\"",
                         name.inner, lhs, rhs
                     ),
-                });
+                    name.span,
+                ));
                 None
             }
         }
@@ -295,10 +294,10 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
     let (is_private, variable) = if let Expr::Unary(Spanned { inner, span }, variable) = lhs {
         // private a = ...
         if inner.as_ref() != "private" {
-            state.errors.push(Error {
-                inner: "assigment can only have variables in left side".to_string(),
-                span: variable.span(),
-            });
+            state.errors.push(Error::new(
+                "assigment can only have variables in left side".to_string(),
+                variable.span(),
+            ));
             return;
         }
         state.explanations.insert(
@@ -315,20 +314,20 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
         );
 
         let Expr::Variable(variable) = variable.as_ref() else {
-            state.errors.push(Error {
-                inner: "assigment can only have variables in left side".to_string(),
-                span: variable.span(),
-            });
+            state.errors.push(Error::new(
+                "assigment can only have variables in left side".to_string(),
+                variable.span(),
+            ));
             return;
         };
         (true, variable)
     } else {
         // a = ...
         let Expr::Variable(variable) = lhs else {
-            state.errors.push(Error {
-                inner: "assigment can only have variables in left side".to_string(),
-                span: lhs.span(),
-            });
+            state.errors.push(Error::new(
+                "assigment can only have variables in left side".to_string(),
+                lhs.span(),
+            ));
             return
         };
         (false, variable)
@@ -343,14 +342,14 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
 
 fn process_parameters(lhs: &Spanned<Vec<Expr>>, parameters: &[Parameter], state: &mut State) {
     if lhs.inner.len() > parameters.len() {
-        state.errors.push(Error {
-            inner: format!(
+        state.errors.push(Error::new(
+            format!(
                 "Function expects {} parameters, but received {}",
                 parameters.len(),
                 lhs.inner.len()
             ),
-            span: lhs.span,
-        })
+            lhs.span,
+        ))
     }
     state.parameters.extend(
         lhs.inner
@@ -458,10 +457,10 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 if let Expr::String(x) = rhs.as_ref() {
                     state.types.insert(x.span, Some(Type::Number));
                 } else {
-                    state.errors.push(Spanned {
-                        inner: "parameter of `for` must be a string".to_string(),
-                        span: rhs.span(),
-                    })
+                    state.errors.push(Error::new(
+                        "parameter of `for` must be a string".to_string(),
+                        rhs.span(),
+                    ))
                 }
             } else if op.inner.as_ref().eq_ignore_ascii_case("params") {
                 // store the names of the variables to build the function's signature

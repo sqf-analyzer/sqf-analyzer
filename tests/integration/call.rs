@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use sqf::{
     analyzer::{Origin, Output, Parameter, State},
-    span::Spanned,
+    error::Error,
     types::Type,
 };
 
@@ -15,10 +15,10 @@ fn call_len_args() {
     let state = parse_analyze(case);
     assert_eq!(
         state.errors,
-        vec![Spanned {
-            inner: "Function expects 1 parameters, but received 2".to_string(),
-            span: (30, 36)
-        }]
+        vec![Error::new(
+            "Function expects 1 parameters, but received 2".to_string(),
+            (30, 36)
+        )]
     );
 }
 

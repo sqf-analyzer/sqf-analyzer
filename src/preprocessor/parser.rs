@@ -174,10 +174,7 @@ impl From<pest::error::Error<Rule>> for Error {
             pest::error::ErrorVariant::CustomError { message } => message,
         };
 
-        Spanned {
-            span,
-            inner: message,
-        }
+        Error::new(message, span)
     }
 }
 

@@ -139,21 +139,18 @@ fn to_value(expr: Expr, errors: &mut Vec<Error>) -> Option<Spanned<Value>> {
                     return None;
                 }
             }
-            errors.push(Error {
-                inner: format!(
+            errors.push(Error::new(
+                format!(
                     "Unexpected assignment to \"{}\" (undefined macro?)",
                     a.inner.as_ref()
                 ),
-                span: a.span,
-            });
+                a.span,
+            ));
             None
         }
         Expr::Expr(_) => None,
         _ => {
-            errors.push(Error {
-                inner: "Unexpected token".to_string(),
-                span: expr.span(),
-            });
+            errors.push(Error::new("Unexpected token".to_string(), expr.span()));
             None
         }
     }
@@ -192,10 +189,7 @@ fn process_subclass(
     }
     expr.pop_front();
     let Some(Expr::Token(name)) = expr.pop_front() else {
-        errors.push(Error {
-            inner: "subclass requires a name".to_string(),
-            span: name.span,
-        });
+        errors.push(Error::new( "subclass requires a name".to_string(), name.span,));
         return
     };
     process_body(name, expr, state, errors)
@@ -249,20 +243,14 @@ fn process_expr(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
     };
 
     let Expr::Token(first) = first else {
-        errors.push(Error {
-            inner: "body expects a token".to_string(),
-            span: first.span(),
-        });
+        errors.push(Error::new( "body expects a token".to_string(), first.span(),));
         return;
     };
 
     if first.inner.as_ref() == "class" {
         let name = expr.pop_front();
         let Some(Expr::Token(name)) = name else {
-            errors.push(Error {
-                inner: "class requires a name".to_string(),
-                span: first.span,
-            });
+            errors.push(Error::new( "class requires a name".to_string(), first.span,));
             return
         };
         process_subclass(name, expr, state, errors);
@@ -277,10 +265,10 @@ fn process_expr(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
 
         // we need at least one
         if expr.is_empty() {
-            errors.push(Error {
-                inner: "assignment requires a right side".to_string(),
-                span: name.span,
-            });
+            errors.push(Error::new(
+                "assignment requires a right side".to_string(),
+                name.span,
+            ));
             return;
         }
         let value = if expr.len() == 1 {

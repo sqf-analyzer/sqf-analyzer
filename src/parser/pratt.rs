@@ -174,10 +174,7 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
 ) -> Expr {
     let mut lhs = match iter.next() {
         None => {
-            errors.push(Error {
-                inner: "Un-expected end of file".to_string(),
-                span: (0, 0),
-            });
+            errors.push(Error::new("Un-expected end of file".to_string(), (0, 0)));
             return Expr::Nil((0, 0));
         }
         Some(Spanned { inner, span }) => match inner.as_ref() {
@@ -185,10 +182,7 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
                 let lhs = expr_bp(iter, 0, errors);
 
                 if !matches(iter.next().as_ref(), ")") {
-                    errors.push(Error {
-                        inner: "\"(\" is not closed".to_string(),
-                        span,
-                    })
+                    errors.push(Error::new("\"(\" is not closed".to_string(), span))
                 }
 
                 lhs
@@ -198,10 +192,7 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
 
                 let last = iter.next();
                 if !matches(last.as_ref(), "}") {
-                    errors.push(Error {
-                        inner: "\"{\" is not closed".to_string(),
-                        span,
-                    })
+                    errors.push(Error::new("\"{\" is not closed".to_string(), span))
                 }
                 let start = span.0;
                 let end = last.map(|x| x.span.1).unwrap_or(start);
@@ -216,10 +207,7 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
 
                 let last = iter.next();
                 if !matches(last.as_ref(), "]") {
-                    errors.push(Error {
-                        inner: "\"[\" is not closed".to_string(),
-                        span,
-                    })
+                    errors.push(Error::new("\"[\" is not closed".to_string(), span))
                 }
                 let start = span.0;
                 let end = last.map(|x| x.span.1).unwrap_or(start);
@@ -263,14 +251,13 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
         } else if matches!(op.inner.as_ref(), "}" | "]" | ")") {
         } else {
             let error = match (op.inner.as_ref(), &lhs) {
-                ("(", Expr::Variable(v)) => Error {
-                    inner: format!("Macro \"{}\" undefined", v.inner.as_ref()),
-                    span: v.span,
-                },
-                _ => Error {
-                    inner: format!("\"{}\" is not a valid binary operator", op.inner),
-                    span: op.span,
-                },
+                ("(", Expr::Variable(v)) => {
+                    Error::new(format!("Macro \"{}\" undefined", v.inner.as_ref()), v.span)
+                }
+                _ => Error::new(
+                    format!("\"{}\" is not a valid binary operator", op.inner),
+                    op.span,
+                ),
             };
             errors.push(error);
             iter.next();

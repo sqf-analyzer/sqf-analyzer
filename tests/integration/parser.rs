@@ -1,4 +1,4 @@
-use sqf::{error::Error, parser::parse, preprocessor::tokens, span::Spanned};
+use sqf::{error::Error, parser::parse, preprocessor::tokens};
 
 fn check_parse(cases: &[&str]) {
     for case in cases {
@@ -142,19 +142,16 @@ fn expr_negative() {
     let cases = ["ormat [\"\", _arguments];", "_a cal [\"\", _arguments];"];
     let expected = [
         vec![
-            Spanned {
-                span: (6, 7),
-                inner: "\"[\" is not a valid binary operator".to_string(),
-            },
-            Spanned {
-                span: (11, 21),
-                inner: "\"_arguments\" is not a valid binary operator".to_string(),
-            },
+            Error::new("\"[\" is not a valid binary operator".to_string(), (6, 7)),
+            Error::new(
+                "\"_arguments\" is not a valid binary operator".to_string(),
+                (11, 21),
+            ),
         ],
-        vec![Spanned {
-            span: (3, 6),
-            inner: "\"cal\" is not a valid binary operator".to_string(),
-        }],
+        vec![Error::new(
+            "\"cal\" is not a valid binary operator".to_string(),
+            (3, 6),
+        )],
     ];
 
     for (case, expected) in cases.iter().zip(expected.iter()) {
@@ -218,62 +215,41 @@ fn errors() {
     let case = vec![
         (
             "[",
-            vec![Error {
-                inner: "\"[\" is not closed".to_string(),
-                span: (0, 1),
-            }],
+            vec![Error::new("\"[\" is not closed".to_string(), (0, 1))],
         ),
         (
             "{",
-            vec![Error {
-                inner: "\"{\" is not closed".to_string(),
-                span: (0, 1),
-            }],
+            vec![Error::new("\"{\" is not closed".to_string(), (0, 1))],
         ),
         (
             "(",
             vec![
-                Error {
-                    inner: "Un-expected end of file".to_string(),
-                    span: (0, 0),
-                },
-                Error {
-                    inner: "\"(\" is not closed".to_string(),
-                    span: (0, 1),
-                },
+                Error::new("Un-expected end of file".to_string(), (0, 0)),
+                Error::new("\"(\" is not closed".to_string(), (0, 1)),
             ],
         ),
         (
             "private a = \"_a",
-            vec![Error {
-                inner: "\"_a\" is not a valid binary operator".to_string(),
-                span: (13, 15),
-            }],
+            vec![Error::new(
+                "\"_a\" is not a valid binary operator".to_string(),
+                (13, 15),
+            )],
         ),
         (
             "ormat [\"\", _arguments]",
             vec![
-                Error {
-                    inner: "\"[\" is not a valid binary operator".to_string(),
-                    span: (6, 7),
-                },
-                Error {
-                    inner: "\"_arguments\" is not a valid binary operator".to_string(),
-                    span: (11, 21),
-                },
+                Error::new("\"[\" is not a valid binary operator".to_string(), (6, 7)),
+                Error::new(
+                    "\"_arguments\" is not a valid binary operator".to_string(),
+                    (11, 21),
+                ),
             ],
         ),
         (
             r#"A(1, 2)"#,
             vec![
-                Error {
-                    inner: "Macro \"A\" undefined".to_string(),
-                    span: (0, 1),
-                },
-                Error {
-                    inner: "\"2\" is not a valid binary operator".to_string(),
-                    span: (5, 6),
-                },
+                Error::new("Macro \"A\" undefined".to_string(), (0, 1)),
+                Error::new("\"2\" is not a valid binary operator".to_string(), (5, 6)),
             ],
         ),
     ];

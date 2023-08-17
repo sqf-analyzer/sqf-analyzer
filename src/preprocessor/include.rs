@@ -28,15 +28,15 @@ fn parse_file(
         Ok(ast) => ast,
         Err((configuration, e)) => {
             // todo: how do we handle errors in other files? Error may need a lift to track files
-            let error = Error {
-                inner: format!(
+            let error = Error::new(
+                format!(
                     "Error while parsing file \"{}\" at position {:?}: {}",
                     configuration.path.display(),
                     e.span,
                     e.inner
                 ),
                 span,
-            };
+            );
             state.configuration.defines = configuration.defines;
             state.configuration.addons = configuration.addons;
             state.errors.push(error);
@@ -62,20 +62,15 @@ pub fn process_include(
     };
 
     let path = get_path(name.inner, &state.configuration)
-        .map_err(|e| {
-            state.errors.push(Error {
-                inner: e,
-                span: name.span,
-            })
-        })
+        .map_err(|e| state.errors.push(Error::new(e, name.span)))
         .ok()?;
 
     match std::fs::read_to_string(path.clone()) {
         Err(_) => {
-            state.errors.push(Error {
-                inner: format!("Cannot read file in path \"{}\"", path.display()),
-                span: name.span,
-            });
+            state.errors.push(Error::new(
+                format!("Cannot read file in path \"{}\"", path.display()),
+                name.span,
+            ));
             None
         }
         Ok(content) => parse_file(name.span, content, state, path),

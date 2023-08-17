@@ -107,10 +107,7 @@ fn expr<I: Iterator<Item = Spanned<Arc<str>>>>(
             let expr = code(iter, errors);
             let last = iter.next();
             if !matches(last.as_ref(), "}") {
-                errors.push(Error {
-                    inner: "\"{\" is not closed".to_string(),
-                    span,
-                })
+                errors.push(Error::new("\"{\" is not closed".to_string(), span))
             }
             let start = span.0;
             let end = last.map(|x| x.span.1).unwrap_or(start);
@@ -123,10 +120,7 @@ fn expr<I: Iterator<Item = Spanned<Arc<str>>>>(
         "[" => {
             let last = iter.next();
             if !matches(last.as_ref(), "]") {
-                errors.push(Error {
-                    inner: "\"[\" is not closed".to_string(),
-                    span,
-                })
+                errors.push(Error::new("\"[\" is not closed".to_string(), span))
             }
             let start = span.0;
             let end = last.map(|x| x.span.1).unwrap_or(start);
@@ -137,10 +131,7 @@ fn expr<I: Iterator<Item = Spanned<Arc<str>>>>(
             let expr = expression(iter, errors);
             let last = iter.next();
             if !matches(last.as_ref(), ")") {
-                errors.push(Error {
-                    inner: "\"(\" is not closed".to_string(),
-                    span,
-                })
+                errors.push(Error::new("\"(\" is not closed".to_string(), span))
             }
             let start = span.0;
             let end = last.map(|x| x.span.1).unwrap_or(start);

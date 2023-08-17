@@ -132,9 +132,8 @@ fn find_path(path: &Path) -> Option<PathBuf> {
 }
 
 pub fn check(path: &std::path::Path, mission: MissionNamespace) -> Result<State, error::Error> {
-    let case = std::fs::read_to_string(path).map_err(|_| error::Error {
-        inner: format!("file \"{}\" not available", path.display()),
-        span: (1, 1),
+    let case = std::fs::read_to_string(path).map_err(|_| {
+        error::Error::new(format!("file \"{}\" not available", path.display()), (1, 1))
     })?;
     let iter =
         preprocessor::tokens(&case, Configuration::with_path(path.to_owned())).map_err(|x| x.1)?;
