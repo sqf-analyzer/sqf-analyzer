@@ -28,21 +28,20 @@ fn _is_private(v: &str) -> bool {
 }
 
 fn process_param_variable(
-    v: &Arc<str>,
-    span: Span,
+    v: &Spanned<Arc<str>>,
     state: &mut State,
     type_: Type,
     has_default: bool,
 ) {
-    if !_is_private(v) {
+    if !_is_private(&v.inner) {
         state
             .errors
-            .push(Error::new("Argument must begin with _".to_string(), span));
+            .push(Error::new("Argument must begin with _".to_string(), v.span));
         return;
     }
 
     let p = Parameter {
-        name: v.clone(),
+        name: v.inner.clone(),
         type_,
         has_default,
     };
@@ -53,10 +52,7 @@ fn process_param_variable(
     };
 
     state.namespace.insert(
-        Spanned {
-            inner: v.clone(),
-            span,
-        },
+        v.clone(),
         Some(type_.into()),
         true,
     );
@@ -94,7 +90,7 @@ fn process_param_types(types: &Expr, state: &mut State) -> Option<Type> {
 
 fn process_params_variable(param: &Expr, state: &mut State) {
     if let Expr::String(v) = &param {
-        process_param_variable(&v.inner, param.span(), state, Type::Anything, false);
+        process_param_variable(v, state, Type::Anything, false);
         return;
     }
 
@@ -118,12 +114,9 @@ fn process_params_variable(param: &Expr, state: &mut State) {
         ))
     }
 
-    let (name, name_span) = if let Some(Expr::String(Spanned {
-        inner: name,
-        span: name_span,
-    })) = name
+    let name = if let Some(Expr::String(name)) = name
     {
-        (name, *name_span)
+        name
     } else {
         state.errors.push(Error::new(
             "params' first argument must be a string".to_string(),
@@ -133,7 +126,7 @@ fn process_params_variable(param: &Expr, state: &mut State) {
     };
 
     let Some(default) = default else {
-        process_param_variable(name, name_span, state, Type::Anything, false);
+        process_param_variable(name, state, Type::Anything, false);
         return;
     };
     let default_type = infer_type(default, state)
@@ -141,7 +134,7 @@ fn process_params_variable(param: &Expr, state: &mut State) {
         .unwrap_or(Type::Anything);
 
     let Some(types) = types else {
-        process_param_variable(name, name_span, state, default_type, true);
+        process_param_variable(name, state, default_type, true);
         return;
     };
 
@@ -156,7 +149,7 @@ fn process_params_variable(param: &Expr, state: &mut State) {
         ));
     }
 
-    process_param_variable(name, name_span, state, type_, true)
+    process_param_variable(name, state, type_, true)
 }
 
 /// infers the type of a bynary expression by considering all possible options
