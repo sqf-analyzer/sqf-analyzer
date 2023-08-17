@@ -9,6 +9,7 @@ use codespan_reporting::term;
 use codespan_reporting::term::termcolor::ColorChoice;
 use codespan_reporting::term::termcolor::StandardStream;
 
+use sqf::analyzer::Settings;
 use sqf::cpp::Functions;
 use sqf::get_path;
 use sqf::preprocessor::Configuration;
@@ -45,7 +46,7 @@ fn main() {
         .get_matches();
 
     if let Some(path) = matches.get_one::<PathBuf>("sqf") {
-        match sqf::check(path, Default::default()) {
+        match sqf::check(path, Default::default(), Default::default()) {
             Ok(state) => {
                 if !state.errors.is_empty() {
                     print_errors(state.errors, path)
@@ -120,7 +121,7 @@ fn process(addon_path: &Path, functions: &Functions) {
         .filter_map(|(function_name, sqf_path)| {
             let path = get_path(&sqf_path.inner, &configuration).ok()?;
 
-            sqf::check(&path, Default::default())
+            sqf::check(&path, Default::default(), Default::default())
                 .map(|state| (function_name, state))
                 .ok()
         })
@@ -139,7 +140,13 @@ fn process(addon_path: &Path, functions: &Functions) {
             .flat_map(|(function_name, state)| state.globals((*function_name).clone()))
             .collect();
 
-        match sqf::check(&path, mission) {
+        match sqf::check(
+            &path,
+            mission,
+            Settings {
+                error_on_undefined: true,
+            },
+        ) {
             Ok(state) => {
                 if !state.errors.is_empty() {
                     print_errors(state.errors, &path)

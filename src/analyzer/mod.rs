@@ -395,6 +395,9 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                         state.origins.insert(variable.span, origin);
                         type_
                     } else {
+                        if state.settings.error_on_undefined && !variable.inner.starts_with("BIS_") {
+                            state.errors.push(Error::new("Variable not defined".into(), variable.span));
+                        };
                         None
                     }
                 })
@@ -568,8 +571,14 @@ pub enum Origin {
 pub type Types = HashMap<Span, Option<Type>>;
 pub type Parameters = HashMap<Span, Arc<str>>;
 
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
+pub struct Settings {
+    pub error_on_undefined: bool,
+}
+
 #[derive(Debug, Default, PartialEq)]
 pub struct State {
+    pub settings: Settings,
     pub types: Types,
     pub parameters: Parameters,
     pub namespace: Namespace,

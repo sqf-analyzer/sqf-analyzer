@@ -11,7 +11,7 @@ pub mod preprocessor;
 pub mod span;
 pub mod types;
 
-use analyzer::{MissionNamespace, State};
+use analyzer::{MissionNamespace, Settings, State};
 use path_clean::PathClean;
 use path_slash::PathBufExt;
 pub use pest;
@@ -131,7 +131,11 @@ fn find_path(path: &Path) -> Option<PathBuf> {
     None
 }
 
-pub fn check(path: &std::path::Path, mission: MissionNamespace) -> Result<State, error::Error> {
+pub fn check(
+    path: &std::path::Path,
+    mission: MissionNamespace,
+    settings: Settings,
+) -> Result<State, error::Error> {
     let case = std::fs::read_to_string(path).map_err(|_| {
         error::Error::new(format!("file \"{}\" not available", path.display()), (1, 1))
     })?;
@@ -140,7 +144,10 @@ pub fn check(path: &std::path::Path, mission: MissionNamespace) -> Result<State,
 
     let (expr, errors) = parser::parse(iter);
 
-    let mut state = State::default();
+    let mut state = State {
+        settings,
+        ..Default::default()
+    };
     state.namespace.mission = mission;
     analyzer::analyze(&expr, &mut state);
     state.errors.extend(errors);
