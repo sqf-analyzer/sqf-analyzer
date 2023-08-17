@@ -261,6 +261,29 @@ pub fn count(
     })
 }
 
+pub fn select(
+    span: Span,
+    lhs: &Expr,
+    op: &Spanned<Arc<str>>,
+    rhs: &Expr,
+    state: &mut State,
+) -> Option<Output> {
+    let lhs = infer_type(lhs, state);
+    let rhs = infer_with(rhs, op.span, state);
+
+    infer_binary(
+        lhs.map(|x| x.type_()),
+        op,
+        rhs.map(|x| x.type_()),
+        span,
+        &mut state.errors,
+    )
+    .map(|(type_, explanation)| {
+        state.explanations.insert(op.span, explanation);
+        type_.into()
+    })
+}
+
 fn infer_with(expr: &Expr, span: Span, state: &mut State) -> Option<Output> {
     state.namespace.insert(
         Spanned::new(uncased("_x"), span),
