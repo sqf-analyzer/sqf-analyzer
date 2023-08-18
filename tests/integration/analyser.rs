@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::path::Path;
 use std::path::PathBuf;
 
 use sqf::analyzer::*;
 use sqf::error::Error;
+use sqf::error::ErrorType;
 use sqf::parser;
 use sqf::preprocessor;
 use sqf::span::Span;
@@ -70,8 +72,9 @@ fn infer_binary() {
 
     check_infer(case, expected);
 
-    let case = "_a select _i";
-    check_infer(case, HashMap::new());
+    let case = "private _a = [] call {1}";
+    let expected = HashMap::from([((8, 10), Some(Type::Number))]);
+    check_infer(case, expected);
 }
 
 #[test]
@@ -94,7 +97,7 @@ fn infer_nullary() {
 
 #[test]
 fn infer_ok() {
-    let case = "if true exitWith {_result\n};";
+    let case = "if true exitWith {1\n};";
 
     let expected = Default::default();
 
@@ -167,7 +170,25 @@ fn infer_example1() {
         ((430, 434), Some(Type::Number)),
     ]);
 
-    assert_eq!(state.errors, vec![]);
+    assert_eq!(
+        state.errors,
+        vec![
+            Error {
+                type_: ErrorType::UndefinedVariable,
+                span: (532, 542),
+                origin: Some(
+                    Path::new("tests/integration/dictionary/addons/dictionary/fnc__set.sqf").into()
+                )
+            },
+            Error {
+                type_: ErrorType::UndefinedVariable,
+                span: (532, 542),
+                origin: Some(
+                    Path::new("tests/integration/dictionary/addons/dictionary/fnc__set.sqf").into()
+                )
+            }
+        ]
+    );
     assert_eq!(state.types, expected);
     assert_eq!(
         state.signature(),
@@ -250,7 +271,10 @@ fn infer_example2() {
             base_path: directory.clone(),
             ..Default::default()
         };
-        let state = sqf::check(configuration, Default::default(), Default::default()).unwrap();
+        let mut state = sqf::check(configuration, Default::default(), Default::default()).unwrap();
+        state
+            .errors
+            .retain(|e| e.type_ != ErrorType::UndefinedVariable);
         assert_eq!(state.errors, vec![]);
     }
 }
@@ -440,7 +464,7 @@ private _x = 1;
 #[test]
 fn exit_with() {
     let case = r#"
-if _a exitWith {1};
+if true exitWith {1};
 "a";
 "#;
 
@@ -452,7 +476,7 @@ if _a exitWith {1};
 #[test]
 fn else_return_union() {
     let case = r#"
-if _a then {2} else {true}
+if true then {2} else {true}
 "#;
 
     let state = parse_analyze(case);
@@ -463,7 +487,7 @@ if _a then {2} else {true}
 #[test]
 fn then_return() {
     let case = r#"
-if _a then {2}
+if true then {2}
 "#;
 
     let state = parse_analyze(case);

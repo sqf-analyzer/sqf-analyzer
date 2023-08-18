@@ -12,6 +12,7 @@ use codespan_reporting::term::termcolor::StandardStream;
 use sqf::analyzer;
 use sqf::analyzer::Settings;
 use sqf::cpp::Functions;
+use sqf::error::ErrorType;
 use sqf::get_path;
 use sqf::preprocessor;
 use sqf::uncased;
@@ -178,11 +179,7 @@ fn process(addon_path: &Path, functions: &Functions) {
                 .flat_map(|(function_name, state)| state.globals((*function_name).clone()))
                 .collect();
 
-            let settings = Settings {
-                error_on_undefined: true,
-            };
-
-            let state = sqf::check(configuration, mission, settings)
+            let state = sqf::check(configuration, mission, Settings {})
                 .map_err(|e| println!("{}", e.type_.to_string()));
             state.map(|s| s.errors).unwrap_or_default()
         })
@@ -217,8 +214,12 @@ fn print_errors(errors: Vec<Error>, path: &Path) {
         errors
             .into_iter()
             .map(|error| {
-                Label::primary(file_id, error.span.0..error.span.1)
-                    .with_message(error.type_.to_string())
+                if error.type_ == ErrorType::PrivateAssignedToMission {
+                    Label::secondary(file_id, error.span.0..error.span.1)
+                } else {
+                    Label::primary(file_id, error.span.0..error.span.1)
+                }
+                .with_message(error.type_.to_string())
             })
             .collect(),
     )];

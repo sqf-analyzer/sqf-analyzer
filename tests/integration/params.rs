@@ -213,10 +213,16 @@ fn basic_with_unknown_type() {
         has_default: true,
     }]);
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
+    expected
+        .errors
+        .push(Error::new(ErrorType::UndefinedVariable, (25, 27)));
     expected.errors.push(Error::new(
         "params' third argument's elements must be typed".to_string(),
         (24, 28),
     ));
+    expected
+        .errors
+        .push(Error::new(ErrorType::UndefinedVariable, (25, 27)));
     expected.explanations.insert(
         (0, 6),
         "Parses _this param inside a script into array of private variables",

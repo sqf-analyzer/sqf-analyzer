@@ -418,10 +418,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                         state.origins.insert(variable.span, origin);
                         type_
                     } else {
-                        // todo: get a db of bis_ functions and corresponding signatures
-                        if state.settings.error_on_undefined
-                            && !UncasedStr::new(variable.inner.as_ref()).starts_with("bis_")
-                        {
+                        if !UncasedStr::new(variable.inner.as_ref()).starts_with("bis_") {
                             state
                                 .errors
                                 .push(Error::new(ErrorType::UndefinedVariable, variable.span));
@@ -634,9 +631,7 @@ pub type Types = HashMap<Span, Option<Type>>;
 pub type Parameters = HashMap<Span, Arc<str>>;
 
 #[derive(Debug, Default, PartialEq, Clone)]
-pub struct Settings {
-    pub error_on_undefined: bool,
-}
+pub struct Settings {}
 
 #[derive(Debug, Default, PartialEq)]
 pub struct State {
