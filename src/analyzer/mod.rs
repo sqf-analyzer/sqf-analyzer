@@ -624,7 +624,7 @@ impl Namespace {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Origin {
     File(Span),
-    External(Arc<UncasedStr>, Option<Span>),
+    External(Arc<Path>, Option<Span>),
 }
 
 pub type Types = HashMap<Span, Option<Type>>;
@@ -657,7 +657,7 @@ impl State {
     /// Returns the set of all globals established by this state, assuming a function_name
     pub fn globals(
         &self,
-        function_name: Arc<UncasedStr>,
+        function_name: Option<Arc<UncasedStr>>,
     ) -> HashMap<Arc<UncasedStr>, (Origin, Option<Output>)> {
         let globals = &self.namespace.mission;
         let signature = self.signature();
@@ -670,7 +670,7 @@ impl State {
                     Some((
                         variable_name.clone(),
                         (
-                            Origin::External(function_name.clone(), Some(*span)),
+                            Origin::External(self.configuration.file_path.clone(), Some(*span)),
                             output.clone(),
                         ),
                     ))
@@ -678,13 +678,15 @@ impl State {
                     None
                 }
             })
-            .chain(std::iter::once((
-                function_name.clone(),
+            .chain(function_name.into_iter().map(|name| {
                 (
-                    Origin::External(function_name.clone(), None),
-                    Some(Output::Code(signature.cloned(), return_type)),
-                ),
-            )))
+                    name,
+                    (
+                        Origin::External(self.configuration.file_path.clone(), None),
+                        Some(Output::Code(signature.cloned(), return_type)),
+                    ),
+                )
+            }))
             .collect()
     }
 

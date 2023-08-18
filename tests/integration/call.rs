@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use sqf::{
     analyzer::{Origin, Output, Parameter, State},
@@ -43,7 +43,7 @@ fn call_annotate_ext() {
     state.namespace.mission.insert(
         uncased("A_fn_a"),
         (
-            Origin::External(uncased("A_fn_a"), None),
+            Origin::External(PathBuf::from("a").into(), None),
             Some(Output::Code(
                 Some(vec![Parameter {
                     name: "_a".into(),
@@ -61,7 +61,7 @@ fn call_annotate_ext() {
     );
     assert_eq!(
         state.origins,
-        HashMap::from([((22, 28), Origin::External(uncased("A_fn_a"), None))])
+        HashMap::from([((22, 28), Origin::External(PathBuf::from("a").into(), None))])
     );
     assert_eq!(state.parameters, HashMap::from([((14, 15), "_a".into())]));
 }
@@ -82,7 +82,7 @@ fn execute_annotate_ext() {
     state.namespace.mission.insert(
         uncased("A_fn_a"),
         (
-            Origin::External(uncased("A_fn_a"), None),
+            Origin::External(PathBuf::from("a").into(), None),
             Some(Output::Code(
                 Some(vec![Parameter {
                     name: "_a".into(),
@@ -96,7 +96,7 @@ fn execute_annotate_ext() {
     parse_analyze_s(case, &mut state);
     assert_eq!(
         state.origins,
-        HashMap::from([((16, 24), Origin::External(uncased("A_fn_a"), None))])
+        HashMap::from([((16, 24), Origin::External(PathBuf::from("a").into(), None))])
     );
     assert_eq!(state.parameters, HashMap::from([((1, 2), "_a".into())]));
 }

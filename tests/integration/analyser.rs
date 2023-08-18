@@ -112,14 +112,14 @@ fn namespace_origin() {
     state.namespace.mission.insert(
         uncased("A_fn_a"),
         (
-            Origin::External(uncased("A_fn_a"), None),
+            Origin::External(PathBuf::from("a").into(), None),
             Some(Type::Code.into()),
         ),
     );
     parse_analyze_s(case, &mut state);
     assert_eq!(
         state.origins,
-        HashMap::from([((5, 11), Origin::External(uncased("A_fn_a"), None))])
+        HashMap::from([((5, 11), Origin::External(PathBuf::from("a").into(), None))])
     );
 }
 
@@ -219,7 +219,7 @@ fn infer_example3() {
     let mission = HashMap::from([(
         uncased("DICT_fnc__set"),
         (
-            Origin::External(uncased("DICT_fnc__set"), None),
+            Origin::External(PathBuf::from("a").into(), None),
             Some(Output::Code(
                 Some(vec![
                     Parameter {
@@ -425,14 +425,17 @@ fn origin_global() {
     state.namespace.mission.insert(
         uncased("a"),
         (
-            Origin::External(uncased("a"), Some((10, 11))),
+            Origin::External(PathBuf::from("a").into(), Some((10, 11))),
             Some(Output::Type(Type::Number)),
         ),
     );
     parse_analyze_s(case, &mut state);
     assert_eq!(
         state.origins,
-        HashMap::from([((4, 5), Origin::External(uncased("a"), Some((10, 11))))])
+        HashMap::from([(
+            (4, 5),
+            Origin::External(PathBuf::from("a").into(), Some((10, 11)))
+        )])
     );
 }
 

@@ -176,7 +176,7 @@ fn process(addon_path: &Path, functions: &Functions) {
             let mission = states
                 .iter()
                 .filter(|x| x.0.as_ref() != function_name.as_ref())
-                .flat_map(|(function_name, state)| state.globals((*function_name).clone()))
+                .flat_map(|(function_name, state)| state.globals(Some((*function_name).clone())))
                 .collect();
 
             let state = sqf::check(configuration, mission, Settings {})
