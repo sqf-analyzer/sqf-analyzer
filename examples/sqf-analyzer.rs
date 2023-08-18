@@ -9,10 +9,12 @@ use codespan_reporting::term;
 use codespan_reporting::term::termcolor::ColorChoice;
 use codespan_reporting::term::termcolor::StandardStream;
 
+use sqf::analyzer;
 use sqf::analyzer::Settings;
 use sqf::cpp::Functions;
 use sqf::get_path;
-use sqf::preprocessor::Configuration;
+use sqf::preprocessor;
+use sqf::uncased;
 use sqf::{cpp, error::Error};
 
 fn main() {
@@ -46,7 +48,13 @@ fn main() {
         .get_matches();
 
     if let Some(path) = matches.get_one::<PathBuf>("sqf") {
-        match sqf::check(path, Default::default(), Default::default()) {
+        let configuration = analyzer::Configuration {
+            file_path: path.clone().into(),
+            base_path: "".into(),
+            ..Default::default()
+        };
+
+        match sqf::check(configuration, Default::default(), Default::default()) {
             Ok(state) => {
                 if !state.errors.is_empty() {
                     print_errors(state.errors, path)
@@ -60,7 +68,7 @@ fn main() {
 
     if let Some(directory) = matches.get_one::<PathBuf>("mission") {
         let mission_path = directory.join("description.ext");
-        let configuration = Configuration::with_path(mission_path.clone());
+        let configuration = preprocessor::Configuration::with_path(mission_path.clone());
 
         let (functions, errors) = match cpp::analyze_file(configuration) {
             Ok((functions, errors)) => (functions, errors),
@@ -78,7 +86,7 @@ fn main() {
     }
 
     if let Some(path) = matches.get_one::<PathBuf>("config") {
-        let configuration = Configuration::with_path(path.clone());
+        let configuration = preprocessor::Configuration::with_path(path.clone());
 
         let (_, errors) = match cpp::analyze_file(configuration) {
             Ok((functions, errors)) => (functions, errors),
@@ -94,7 +102,7 @@ fn main() {
 
     if let Some(directory) = matches.get_one::<PathBuf>("addon") {
         let addon_path = directory.join("config.cpp");
-        let configuration = Configuration::with_path(addon_path.clone());
+        let configuration = preprocessor::Configuration::with_path(addon_path.clone());
 
         let (functions, errors) = match cpp::analyze_file(configuration) {
             Ok((functions, errors)) => (functions, errors),
@@ -113,49 +121,80 @@ fn main() {
 }
 
 fn process(addon_path: &Path, functions: &Functions) {
-    let configuration = Configuration::with_path(addon_path.to_owned());
+    let bla = uncased("");
 
     // first pass to get the global states
     let states = functions
         .iter()
         .filter_map(|(function_name, sqf_path)| {
-            let path = get_path(&sqf_path.inner, &configuration).ok()?;
+            let path = get_path(&sqf_path.inner, addon_path, &Default::default()).ok()?;
+            let configuration = analyzer::Configuration {
+                file_path: path,
+                base_path: addon_path.to_owned(),
+                ..Default::default()
+            };
 
-            sqf::check(&path, Default::default(), Default::default())
+            sqf::check(configuration, Default::default(), Default::default())
                 .map(|state| (function_name, state))
                 .ok()
         })
+        .chain(
+            [(&bla, "init.sqf")]
+                .into_iter()
+                .filter_map(|(function_name, file)| {
+                    let mut directory = addon_path.to_owned();
+                    directory.pop();
+                    let path = directory.join(file);
+                    let configuration = analyzer::Configuration {
+                        file_path: path.into(),
+                        base_path: addon_path.to_owned(),
+                        ..Default::default()
+                    };
+
+                    sqf::check(configuration, Default::default(), Default::default())
+                        .map(|state| (function_name, state))
+                        .ok()
+                }),
+        )
         .collect::<HashMap<_, _>>();
 
     // second pass to get errors
-    for (function_name, path) in functions {
-        let Ok(path) = get_path(&path.inner, &configuration) else {
-            println!("Could not find path \"{}\" of function declared in addon", path.inner);
-            continue
-        };
+    let errors = functions
+        .iter()
+        .flat_map(|(function_name, path)| {
+            let Ok(path) = get_path(&path.inner, addon_path, &Default::default()) else {
+                println!("Could not find path \"{}\" of function declared in addon", path.inner);
+                return vec![]
+            };
+            let configuration = analyzer::Configuration {
+                file_path: path,
+                base_path: addon_path.to_owned(),
+                ..Default::default()
+            };
 
-        let mission = states
-            .iter()
-            .filter(|x| x.0.as_ref() != function_name.as_ref())
-            .flat_map(|(function_name, state)| state.globals((*function_name).clone()))
-            .collect();
+            let mission = states
+                .iter()
+                .filter(|x| x.0.as_ref() != function_name.as_ref())
+                .flat_map(|(function_name, state)| state.globals((*function_name).clone()))
+                .collect();
 
-        match sqf::check(
-            &path,
-            mission,
-            Settings {
-                error_on_undefined: true,
-            },
-        ) {
-            Ok(state) => {
-                if !state.errors.is_empty() {
-                    print_errors(state.errors, &path)
-                }
-            }
-            Err(e) => {
-                println!("{}", e.inner);
-            }
-        }
+            let settings = Settings {
+                error_on_undefined: false,
+            };
+
+            let state =
+                sqf::check(configuration, mission, settings).map_err(|e| println!("{}", e.inner));
+            state.map(|s| s.errors).unwrap_or_default()
+        })
+        .fold(HashMap::<_, Vec<_>>::default(), |mut acc, error| {
+            acc.entry(error.origin.clone().unwrap())
+                .or_default()
+                .push(error);
+            acc
+        });
+
+    for (file_path, errors) in errors {
+        print_errors(errors, &file_path)
     }
 }
 

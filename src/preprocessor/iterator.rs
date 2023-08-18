@@ -1,5 +1,5 @@
 use std::collections::{HashMap, VecDeque};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::error::Error;
@@ -20,17 +20,28 @@ pub(super) type Arguments = Vec<VecDeque<Spanned<Arc<str>>>>;
 
 pub(super) type DefineState = (Define, Arguments, Spanned<MacroState>);
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Configuration {
     pub defines: Defines,
-    pub path: PathBuf,
+    /// Path of the file (e.g. ../description.txt or ../bla.sqf)
+    pub path: Arc<Path>,
     pub addons: HashMap<Arc<str>, PathBuf>, // e.g. x/cba -> /../cba
+}
+
+impl Default for Configuration {
+    fn default() -> Self {
+        Self {
+            path: PathBuf::default().into(),
+            defines: Default::default(),
+            addons: Default::default(),
+        }
+    }
 }
 
 impl Configuration {
     pub fn with_path(path: PathBuf) -> Self {
         Configuration {
-            path,
+            path: path.into(),
             ..Default::default()
         }
     }

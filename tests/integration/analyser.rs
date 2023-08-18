@@ -5,7 +5,6 @@ use sqf::analyzer::*;
 use sqf::error::Error;
 use sqf::parser;
 use sqf::preprocessor;
-use sqf::preprocessor::Configuration;
 use sqf::span::Span;
 use sqf::types::Type;
 use sqf::uncased;
@@ -151,9 +150,14 @@ fn namespace() {
 
 #[test]
 fn infer_example1() {
-    use std::fs;
-    let path: PathBuf = "tests/integration/dictionary/addons/dictionary/fnc__set.sqf".into();
-    let case = fs::read_to_string(path.clone()).unwrap();
+    let configuration = Configuration {
+        file_path: PathBuf::from("tests/integration/dictionary/addons/dictionary/fnc__set.sqf")
+            .into(),
+        base_path: "./tests/integration/examples".into(),
+        ..Default::default()
+    };
+
+    let state = sqf::check(configuration, Default::default(), Default::default()).unwrap();
 
     let expected = HashMap::from([
         ((274, 285), Some(Type::Anything)),
@@ -163,12 +167,6 @@ fn infer_example1() {
         ((430, 434), Some(Type::Number)),
     ]);
 
-    let iter = preprocessor::tokens(&case, Configuration::with_path(path)).unwrap();
-    let (expr, errors) = parser::parse(iter);
-    assert_eq!(errors, vec![]);
-
-    let mut state = State::default();
-    analyze(&expr, &mut state);
     assert_eq!(state.errors, vec![]);
     assert_eq!(state.types, expected);
     assert_eq!(
@@ -190,16 +188,14 @@ fn infer_example1() {
 
 #[test]
 fn infer_example3() {
-    use std::fs;
-    let path: PathBuf = "tests/integration/dictionary/addons/dictionary/fnc_set.sqf".into();
-    let case = fs::read_to_string(path.clone()).unwrap();
+    let configuration = Configuration {
+        file_path: PathBuf::from("tests/integration/dictionary/addons/dictionary/fnc_set.sqf")
+            .into(),
+        base_path: "./tests/integration/examples".into(),
+        ..Default::default()
+    };
 
-    let iter = preprocessor::tokens(&case, Configuration::with_path(path)).unwrap();
-    let (expr, errors) = parser::parse(iter);
-    assert_eq!(errors, vec![]);
-
-    let mut state = State::default();
-    state.namespace.mission.insert(
+    let mission = HashMap::from([(
         uncased("DICT_fnc__set"),
         (
             Origin::External(uncased("DICT_fnc__set"), None),
@@ -219,9 +215,9 @@ fn infer_example3() {
                 Some(Type::Boolean),
             )),
         ),
-    );
+    )]);
+    let state = sqf::check(configuration, mission, Default::default()).unwrap();
 
-    analyze(&expr, &mut state);
     assert_eq!(state.errors, vec![]);
     assert_eq!(
         state.parameters,
@@ -238,7 +234,7 @@ fn infer_example2() {
     use std::path::PathBuf;
     let directory: PathBuf = "tests/integration/dictionary/addons/dictionary/".into();
 
-    let paths = fs::read_dir(directory).unwrap();
+    let paths = fs::read_dir(&directory).unwrap();
     for path in paths {
         let path = path.unwrap().path();
         if path.extension().is_none() {
@@ -248,15 +244,13 @@ fn infer_example2() {
         if !extension.contains("sqf") {
             continue;
         }
-        println!("{path:?}");
-        let case = fs::read_to_string(path.clone()).unwrap();
 
-        let iter = preprocessor::tokens(&case, Configuration::with_path(path.clone())).unwrap();
-        let (expr, errors) = parser::parse(iter);
-        assert_eq!(errors, vec![]);
-
-        let mut state = Default::default();
-        analyze(&expr, &mut state);
+        let configuration = Configuration {
+            file_path: path.into(),
+            base_path: directory.clone(),
+            ..Default::default()
+        };
+        let state = sqf::check(configuration, Default::default(), Default::default()).unwrap();
         assert_eq!(state.errors, vec![]);
     }
 }
@@ -541,14 +535,31 @@ fn select_a() {
 
 #[test]
 fn compile() {
-    let case = "call compile preprocessFileLineNumbers \"tests\\integration\\examples\\error.sqf\"";
-    let state = parse_analyze(case);
+    let case = "call compile preprocessFileLineNumbers \"error.sqf\"";
+
+    let configuration = Configuration {
+        file_path: PathBuf::from("./tests/integration/examples/bla.txt").into(),
+        base_path: "./tests/integration/examples/config.cpp".into(),
+        ..Default::default()
+    };
+
+    let mut state = State {
+        configuration,
+        ..Default::default()
+    };
+    parse_analyze_s(case, &mut state);
+
     assert_eq!(state.errors, vec![
         Error {
             inner: "\"+\" does not support left side of type \"Array\" and right side of type \"Number\"".to_string(),
             span: (10, 11),
-            origin: Some("tests/integration/examples/error.sqf".into())
+            origin: Some(PathBuf::from("tests/integration/examples/error.sqf").into())
+        },
+        Error {
+            inner: "\"+\" does not support left side of type \"Number\" and right side of type \"Array\"".to_string(),
+            span: (9, 10),
+            origin: Some(PathBuf::from("tests/integration/examples/other.sqf").into())
         },
     ]);
-    assert_eq!(state.namespace.mission.len(), 1);
+    assert_eq!(state.namespace.mission.len(), 2); // a and b
 }

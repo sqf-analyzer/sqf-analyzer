@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::Path, sync::Arc};
 
 use crate::span::Span;
 
@@ -6,7 +6,7 @@ use crate::span::Span;
 pub struct Error {
     pub inner: String,
     pub span: Span,
-    pub origin: Option<PathBuf>,
+    pub origin: Option<Arc<Path>>,
 }
 
 impl Error {

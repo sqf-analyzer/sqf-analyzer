@@ -1,4 +1,8 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 pub mod analyzer;
 pub mod cpp;
@@ -9,11 +13,10 @@ pub mod preprocessor;
 pub mod span;
 pub mod types;
 
-use analyzer::{MissionNamespace, Settings, State};
+use analyzer::{Configuration, MissionNamespace, Settings, State};
 use path_clean::PathClean;
 use path_slash::PathBufExt;
 pub use pest;
-use preprocessor::Configuration;
 use walkdir::WalkDir;
 
 fn find_pboprefix(mut directory: PathBuf) -> Option<String> {
@@ -32,28 +35,29 @@ fn find_pboprefix(mut directory: PathBuf) -> Option<String> {
 
 /// Given a name taken from a file representing a path, together with the path of the file
 /// it was taken from, tries to reconstruct the absolute path of the file
-pub fn get_path(name: &str, configuration: &Configuration) -> Result<PathBuf, String> {
+pub fn get_path(
+    name: &str,
+    base_path: &Path,
+    addons: &HashMap<Arc<str>, PathBuf>,
+) -> Result<Arc<Path>, String> {
     // Note: path.is_absolute() requires the drive on windows, while Arma 3 absolute is without drive
     let is_absolute = name.starts_with('\\') | name.starts_with('/');
     let path = PathBuf::from_slash(name.replace('\\', "/"));
 
-    let mut directory = configuration.path.clone();
+    let mut directory = base_path.to_owned();
     directory.pop();
 
     if !is_absolute {
         directory.push(path);
         directory = directory.clean();
-        Ok(find_path(&directory).unwrap_or(directory))
+        Ok(find_path(&directory).unwrap_or_else(|| directory.into()))
     } else {
         // e.g. x/cba -> /../cba
         let project_root = if let Some((prefix, directory)) =
-            configuration
-                .addons
-                .iter()
-                .find_map(|(prefix, addon_path)| {
-                    path.starts_with(prefix.as_ref())
-                        .then_some((prefix, addon_path))
-                }) {
+            addons.iter().find_map(|(prefix, addon_path)| {
+                path.starts_with(prefix.as_ref())
+                    .then_some((prefix, addon_path))
+            }) {
             let relative_path = path.strip_prefix(prefix.as_ref()).unwrap();
             directory.join(relative_path)
         } else {
@@ -81,7 +85,7 @@ pub fn get_path(name: &str, configuration: &Configuration) -> Result<PathBuf, St
             project_root
         };
 
-        Ok(find_path(&project_root).unwrap_or(project_root))
+        Ok(find_path(&project_root).unwrap_or_else(|| project_root.into()))
     }
 }
 
@@ -110,7 +114,7 @@ fn compute_project_root(mut path: PathBuf, pbo_prefix: String) -> (PathBuf, Path
 
 /// Projects the original path into an absolute, case-insensitive path
 /// by transversing the fs and identify the correct path.
-fn find_path(path: &Path) -> Option<PathBuf> {
+fn find_path(path: &Path) -> Option<Arc<Path>> {
     // find the case-insensitive path that results in `path`
     let name = path.as_os_str().to_str()?;
 
@@ -123,33 +127,47 @@ fn find_path(path: &Path) -> Option<PathBuf> {
                 .eq_ignore_ascii_case(name)
                 .then_some(dir.path().to_owned())
         }) {
-            return Some(matc);
+            return Some(matc.into());
         }
     }
     None
 }
 
 pub fn check(
-    path: &std::path::Path,
+    configuration: Configuration,
     mission: MissionNamespace,
     settings: Settings,
 ) -> Result<State, error::Error> {
-    let case = std::fs::read_to_string(path).map_err(|_| {
-        error::Error::new(format!("file \"{}\" not available", path.display()), (1, 1))
+    let text = std::fs::read_to_string(&configuration.file_path).map_err(|e| {
+        error::Error::new(
+            format!(
+                "file \"{}\" not available: {e}",
+                &configuration.file_path.display()
+            ),
+            (1, 1),
+        )
     })?;
-    let iter =
-        preprocessor::tokens(&case, Configuration::with_path(path.to_owned())).map_err(|x| x.1)?;
+    let conf = preprocessor::Configuration {
+        path: configuration.file_path.clone(),
+        addons: configuration.addons.clone(),
+        ..Default::default()
+    };
+    let iter = preprocessor::tokens(&text, conf).map_err(|x| x.1)?;
 
     let (expr, errors) = parser::parse(iter);
 
     let mut state = State {
         settings,
-        path: path.to_owned(),
+        configuration,
         ..Default::default()
     };
     state.namespace.mission = mission;
     analyzer::analyze(&expr, &mut state);
     state.errors.extend(errors);
+    state.errors.iter_mut().for_each(|error| {
+        error.origin = std::mem::take(&mut error.origin)
+            .or_else(|| Some(state.configuration.file_path.clone()));
+    });
     Ok(state)
 }
 

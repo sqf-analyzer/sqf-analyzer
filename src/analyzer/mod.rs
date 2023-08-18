@@ -1,5 +1,5 @@
 use std::collections::hash_map::HashMap;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::sync::Arc;
 
 use uncased::UncasedStr;
@@ -16,6 +16,22 @@ mod operators;
 mod type_operations;
 pub use database::*;
 use type_operations::*;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Configuration {
+    /// Path of the file
+    pub file_path: Arc<Path>,
+    /// Path of the mission or addon
+    pub base_path: PathBuf,
+    /// path to the addons (e.g. x/cba -> /../cba)
+    pub addons: HashMap<Arc<str>, PathBuf>,
+}
+
+impl Default for Configuration {
+    fn default() -> Self {
+        Self { file_path: PathBuf::default().into(), base_path: Default::default(), addons: Default::default() }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parameter {
@@ -596,7 +612,7 @@ pub struct Settings {
 
 #[derive(Debug, Default, PartialEq)]
 pub struct State {
-    pub path: PathBuf,
+    pub configuration: Configuration,
     pub settings: Settings,
     pub types: Types,
     pub parameters: Parameters,

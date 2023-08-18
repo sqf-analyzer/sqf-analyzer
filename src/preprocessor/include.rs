@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 
 use crate::error::Error;
@@ -13,7 +13,7 @@ fn parse_file(
     span: Span,
     content: String,
     state: &mut State,
-    path: PathBuf,
+    path: Arc<Path>,
 ) -> Option<VecDeque<Spanned<Arc<str>>>> {
     // parse into VecDeque<Spanned<String>> due to no lifetime management
     let defines = std::mem::take(&mut state.configuration.defines);
@@ -61,9 +61,13 @@ pub fn process_include(
         return None;
     };
 
-    let path = get_path(name.inner, &state.configuration)
-        .map_err(|e| state.errors.push(Error::new(e, name.span)))
-        .ok()?;
+    let path = get_path(
+        name.inner,
+        &state.configuration.path,
+        &state.configuration.addons,
+    )
+    .map_err(|e| state.errors.push(Error::new(e, name.span)))
+    .ok()?;
 
     match std::fs::read_to_string(path.clone()) {
         Err(_) => {

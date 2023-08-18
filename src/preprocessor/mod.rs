@@ -32,16 +32,16 @@ impl<'a> From<Pair<'a, parser::Rule>> for Spanned<Arc<str>> {
     }
 }
 
-pub fn parse(data: &str) -> Result<VecDeque<Ast<'_>>, Error> {
-    parser::pairs(data).map(parser::parse)
+pub fn parse(text: &str) -> Result<VecDeque<Ast<'_>>, Error> {
+    parser::pairs(text).map(parser::parse)
 }
 
 #[allow(clippy::result_large_err)]
 pub fn tokens(
-    data: &str,
+    text: &str,
     configuration: Configuration,
 ) -> Result<AstIterator, (Configuration, Error)> {
-    match parse(data) {
+    match parse(text) {
         Ok(ast) => Ok(AstIterator::new(ast, configuration)),
         Err(e) => Err((configuration, e)),
     }
