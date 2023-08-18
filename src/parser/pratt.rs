@@ -5,7 +5,7 @@ use uncased::UncasedStr;
 
 use crate::{
     database,
-    error::Error,
+    error::{Error, ErrorType},
     preprocessor::{parse_hexadecimal, AstIterator},
     span::Spanned,
     types::Signature,
@@ -172,7 +172,8 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
 ) -> Expr {
     let mut lhs = match iter.next() {
         None => {
-            errors.push(Error::new("Un-expected end of file".to_string(), (0, 0)));
+            // todo: get the correct span
+            errors.push(Error::new(ErrorType::UnexpectedEndOfFile, (0, 0)));
             return Expr::Nil((0, 0));
         }
         Some(Spanned { inner, span }) => match inner.as_ref() {
@@ -180,7 +181,7 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
                 let lhs = expr_bp(iter, 0, errors);
 
                 if !matches(iter.next().as_ref(), ")") {
-                    errors.push(Error::new("\"(\" is not closed".to_string(), span))
+                    errors.push(Error::new(ErrorType::UnclosedParenthesis, span))
                 }
 
                 lhs
@@ -190,7 +191,7 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
 
                 let last = iter.next();
                 if !matches(last.as_ref(), "}") {
-                    errors.push(Error::new("\"{\" is not closed".to_string(), span))
+                    errors.push(Error::new(ErrorType::UnclosedParenthesis, span))
                 }
                 let start = span.0;
                 let end = last.map(|x| x.span.1).unwrap_or(start);
@@ -205,7 +206,7 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
 
                 let last = iter.next();
                 if !matches(last.as_ref(), "]") {
-                    errors.push(Error::new("\"[\" is not closed".to_string(), span))
+                    errors.push(Error::new(ErrorType::UnclosedParenthesis, span))
                 }
                 let start = span.0;
                 let end = last.map(|x| x.span.1).unwrap_or(start);
@@ -249,11 +250,14 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
         } else if matches!(op.inner.as_ref(), "}" | "]" | ")") {
         } else {
             let error = match (op.inner.as_ref(), &lhs) {
-                ("(", Expr::Variable(v)) => {
-                    Error::new(format!("Macro \"{}\" undefined", v.inner.as_ref()), v.span)
-                }
+                ("(", Expr::Variable(v)) => Error::new(
+                    ErrorType::Other(format!("Macro \"{}\" undefined", v.inner.as_ref()).into()),
+                    v.span,
+                ),
                 _ => Error::new(
-                    format!("\"{}\" is not a valid binary operator", op.inner),
+                    ErrorType::Other(
+                        format!("\"{}\" is not a valid binary operator", op.inner).into(),
+                    ),
                     op.span,
                 ),
             };

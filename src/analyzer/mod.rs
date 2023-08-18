@@ -1,19 +1,18 @@
 use std::collections::hash_map::HashMap;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use uncased::UncasedStr;
 
-
-use crate::error::Error;
+use crate::error::{Error, ErrorType};
 use crate::parser::Expr;
 use crate::span::{Span, Spanned};
 use crate::{types::*, uncased};
 
-mod unary;
 mod database;
 mod operators;
 mod type_operations;
+mod unary;
 pub use database::*;
 use type_operations::*;
 
@@ -29,7 +28,11 @@ pub struct Configuration {
 
 impl Default for Configuration {
     fn default() -> Self {
-        Self { file_path: PathBuf::default().into(), base_path: Default::default(), addons: Default::default() }
+        Self {
+            file_path: PathBuf::default().into(),
+            base_path: Default::default(),
+            addons: Default::default(),
+        }
     }
 }
 
@@ -55,7 +58,7 @@ fn process_param_variable(
     if !_is_private(&v.inner) {
         state
             .errors
-            .push(Error::new("Argument must begin with _".to_string(), v.span));
+            .push(Error::new(ErrorType::GlobalVariableParam, v.span));
         return;
     }
 
@@ -84,7 +87,7 @@ fn process_param_types(types: &Expr, state: &mut State) -> Option<Type> {
         (expr, expr.span)
     } else {
         state.errors.push(Error::new(
-            "params' third argument must be an array".to_string(),
+            ErrorType::ExpectedType(Type::Array),
             types.span(),
         ));
         return None;
@@ -109,7 +112,11 @@ fn process_param_types(types: &Expr, state: &mut State) -> Option<Type> {
     }))
 }
 
-fn process_params_variable(param: &Expr, state: &mut State, add_to_signature: bool) -> Option<Spanned<Arc<UncasedStr>>> {
+fn process_params_variable(
+    param: &Expr,
+    state: &mut State,
+    add_to_signature: bool,
+) -> Option<Spanned<Arc<UncasedStr>>> {
     if let Expr::String(v) = &param {
         process_param_variable(v, state, Type::Anything, false, add_to_signature);
         return Some(v.as_ref().map(|x| uncased(x.as_ref())));
@@ -135,12 +142,11 @@ fn process_params_variable(param: &Expr, state: &mut State, add_to_signature: bo
         ))
     }
 
-    let name = if let Some(Expr::String(name)) = name
-    {
+    let name = if let Some(Expr::String(name)) = name {
         name
     } else {
         state.errors.push(Error::new(
-            "params' first argument must be a string".to_string(),
+            ErrorType::ExpectedType(Type::String),
             param.span(),
         ));
         return None;
@@ -165,7 +171,7 @@ fn process_params_variable(param: &Expr, state: &mut State, add_to_signature: bo
 
     if !type_.consistent(default_type) {
         state.errors.push(Error::new(
-            format!("params' default argument type \"{:?}\" is inconsistent with expected type \"{:?}\"", default_type, type_),
+            ErrorType::IncompatibleParamArgument(default_type, type_),
             param.span(),
         ));
     }
@@ -181,7 +187,7 @@ fn infer_unary(
     errors: &mut Vec<Error>,
 ) -> Option<InnerType> {
     let Some(options) = UNARY.get(&UncasedStr::new(&name.inner)) else {
-        errors.push(Error::new( 
+        errors.push(Error::new(
             format!("No unary operator named \"{}\"", name.inner),
             name.span,
         ));
@@ -204,10 +210,7 @@ fn infer_unary(
                 None
             } else {
                 errors.push(Error::new(
-                    format!(
-                        "\"{}\" does not support a rhs of type \"{:?}\"",
-                        name.inner, rhs
-                    ),
+                    ErrorType::InvalidType(name.inner.clone(), rhs),
                     name.span,
                 ));
                 None
@@ -307,10 +310,10 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
     let rhs_type = infer_type(rhs, state);
     let (is_private, variable) = if let Expr::Unary(Spanned { inner, span }, variable) = lhs {
         // private a = ...
-        if inner.as_ref() != "private" {
+        if !inner.as_ref().eq_ignore_ascii_case("private") {
             state.errors.push(Error::new(
-                "assigment can only have variables in left side".to_string(),
-                variable.span(),
+                "left side of assignment must be \"private\"".to_string(),
+                *span,
             ));
             return;
         }
@@ -351,17 +354,26 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
     state
         .types
         .insert(variable.span, rhs_type.as_ref().map(|x| x.type_()));
-    state.namespace.insert(variable, rhs_type, is_private);
+
+    let is_internal = variable.inner.starts_with("_");
+    let span = variable.span;
+
+    let in_mission = state.namespace.insert(variable, rhs_type, is_private);
+
+    if in_mission && is_internal {
+        state
+            .errors
+            .push(Error::new(ErrorType::PrivateAssignedToMission, span))
+    }
 }
 
 fn process_parameters(lhs: &Spanned<Vec<Expr>>, parameters: &[Parameter], state: &mut State) {
     if lhs.inner.len() > parameters.len() {
         state.errors.push(Error::new(
-            format!(
-                "Function expects {} parameters, but received {}",
-                parameters.len(),
-                lhs.inner.len()
-            ),
+            ErrorType::InsufficientArguments {
+                expected: parameters.len(),
+                passed: lhs.inner.len(),
+            },
             lhs.span,
         ))
     }
@@ -389,15 +401,13 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             state.namespace.pop_stack();
             Some(Output::Code(parameters, return_type.map(|x| x.type_())))
         }
-        Expr::Nullary(variable) => {
-            NULLARY
-                .get(&UncasedStr::new(variable.inner.as_ref()))
-                .cloned()
-                .map(|(type_, explanation)| {
-                    state.explanations.insert(variable.span, explanation);
-                    type_.into()
-                })
-        }
+        Expr::Nullary(variable) => NULLARY
+            .get(&UncasedStr::new(variable.inner.as_ref()))
+            .cloned()
+            .map(|(type_, explanation)| {
+                state.explanations.insert(variable.span, explanation);
+                type_.into()
+            }),
         Expr::Variable(variable) => {
             let name = UncasedStr::new(&variable.inner);
 
@@ -409,8 +419,12 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                         type_
                     } else {
                         // todo: get a db of bis_ functions and corresponding signatures
-                        if state.settings.error_on_undefined && !UncasedStr::new(variable.inner.as_ref()).starts_with("bis_") {
-                            state.errors.push(Error::new("Variable not defined".into(), variable.span));
+                        if state.settings.error_on_undefined
+                            && !UncasedStr::new(variable.inner.as_ref()).starts_with("bis_")
+                        {
+                            state
+                                .errors
+                                .push(Error::new(ErrorType::UndefinedVariable, variable.span));
                         };
                         None
                     }
@@ -479,19 +493,18 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             if op.inner.as_ref().eq_ignore_ascii_case("for") {
                 if let Expr::String(x) = rhs.as_ref() {
                     state.types.insert(x.span, Some(Type::Number));
-                    state.namespace.insert(x.as_ref().map(|x| uncased(x.as_ref())), Some(Type::Number.into()), true);
-                } else {
-                    state.errors.push(Error::new(
-                        "parameter of `for` must be a string".to_string(),
-                        rhs.span(),
-                    ))
+                    state.namespace.insert(
+                        x.as_ref().map(|x| uncased(x.as_ref())),
+                        Some(Type::Number.into()),
+                        true,
+                    );
                 }
             } else if op.inner.as_ref().eq_ignore_ascii_case("params") {
                 // store the names of the variables to build the function's signature
                 if let Expr::Array(x) = rhs.as_ref() {
-                    x.inner
-                        .iter()
-                        .for_each(|x| {process_params_variable(x, state, true);})
+                    x.inner.iter().for_each(|x| {
+                        process_params_variable(x, state, true);
+                    })
                 }
             } else if op.inner.as_ref().eq_ignore_ascii_case("compile") {
                 unary::compile(rhs, state);
@@ -499,9 +512,16 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 if let Expr::Array(array) = rhs.as_ref() {
                     for entry in &array.inner {
                         if let Expr::String(name) = entry {
-                            state.namespace.insert(name.as_ref().map(|x| uncased(x.as_ref())), None, true)
+                            state.namespace.insert(
+                                name.as_ref().map(|x| uncased(x.as_ref())),
+                                None,
+                                true,
+                            );
                         } else {
-                            state.errors.push(Error::new("argument must be a string".to_string(), entry.span()));
+                            state.errors.push(Error::new(
+                                ErrorType::ExpectedType(Type::String),
+                                entry.span(),
+                            ));
                         }
                     }
                 }
@@ -556,24 +576,32 @@ impl From<Type> for Output {
 }
 
 impl Namespace {
+    /// Returns whether the variable was inserted to the mission namespace
     #[allow(clippy::map_entry)]
-    pub fn insert(&mut self, key: Spanned<Arc<UncasedStr>>, value: Option<Output>, is_private: bool) {
+    pub fn insert(
+        &mut self,
+        key: Spanned<Arc<UncasedStr>>,
+        value: Option<Output>,
+        is_private: bool,
+    ) -> bool {
         if is_private {
             self.stack
                 .last_mut()
                 .unwrap()
                 .variables
                 .insert(key.inner, (key.span, value));
+            false
         } else {
             for stack in self.stack.iter_mut().rev() {
                 if stack.variables.contains_key(&key.inner) {
                     // entries API would require cloning, which is more expensive than this lookup
                     stack.variables.insert(key.inner, (key.span, value));
-                    return;
+                    return false;
                 }
             }
             self.mission
                 .insert(key.inner, (Origin::File(key.span), value));
+            true
         }
     }
 
@@ -632,7 +660,10 @@ impl State {
     }
 
     /// Returns the set of all globals established by this state, assuming a function_name
-    pub fn globals(&self, function_name: Arc<UncasedStr>) -> HashMap<Arc<UncasedStr>, (Origin, Option<Output>)> {
+    pub fn globals(
+        &self,
+        function_name: Arc<UncasedStr>,
+    ) -> HashMap<Arc<UncasedStr>, (Origin, Option<Output>)> {
         let globals = &self.namespace.mission;
         let signature = self.signature();
         let return_type = self.return_type();

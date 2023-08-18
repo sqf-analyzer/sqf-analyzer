@@ -3,7 +3,7 @@ use std::sync::Arc;
 use uncased::UncasedStr;
 
 use crate::{
-    error::Error,
+    error::{Error, ErrorType},
     parser::Expr,
     span::{Span, Spanned},
     types::Type,
@@ -213,7 +213,7 @@ pub fn params(
     } else {
         state
             .errors
-            .push(Error::new("params expects an array".to_string(), span));
+            .push(Error::new(ErrorType::ExpectedType(Type::Array), span));
         vec![]
     };
     // assign to variables

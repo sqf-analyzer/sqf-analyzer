@@ -4,13 +4,12 @@ use std::sync::Arc;
 
 use crate::error::Error;
 use crate::get_path;
-use crate::span::{Span, Spanned};
+use crate::span::Spanned;
 
 use super::iterator::State;
 use super::*;
 
 fn parse_file(
-    span: Span,
     content: String,
     state: &mut State,
     path: Arc<Path>,
@@ -26,17 +25,8 @@ fn parse_file(
 
     let mut ast = match tokens(&content, configuration) {
         Ok(ast) => ast,
-        Err((configuration, e)) => {
-            // todo: how do we handle errors in other files? Error may need a lift to track files
-            let error = Error::new(
-                format!(
-                    "Error while parsing file \"{}\" at position {:?}: {}",
-                    configuration.path.display(),
-                    e.span,
-                    e.inner
-                ),
-                span,
-            );
+        Err((configuration, mut error)) => {
+            error.origin = Some(configuration.path.clone());
             state.configuration.defines = configuration.defines;
             state.configuration.addons = configuration.addons;
             state.errors.push(error);
@@ -77,6 +67,6 @@ pub fn process_include(
             ));
             None
         }
-        Ok(content) => parse_file(name.span, content, state, path),
+        Ok(content) => parse_file(content, state, path),
     }
 }

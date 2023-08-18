@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use sqf::{
     analyzer::{Origin, Output, Parameter, State},
-    error::Error,
+    error::{Error, ErrorType},
     types::Type,
     uncased,
 };
@@ -17,7 +17,10 @@ fn call_len_args() {
     assert_eq!(
         state.errors,
         vec![Error::new(
-            "Function expects 1 parameters, but received 2".to_string(),
+            ErrorType::InsufficientArguments {
+                expected: 1,
+                passed: 2
+            },
             (30, 36)
         )]
     );

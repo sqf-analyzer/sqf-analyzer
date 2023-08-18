@@ -1,4 +1,8 @@
-use sqf::{error::Error, parser::parse, preprocessor::tokens};
+use sqf::{
+    error::{Error, ErrorType},
+    parser::parse,
+    preprocessor::tokens,
+};
 
 fn check_parse(cases: &[&str]) {
     for case in cases {
@@ -215,17 +219,17 @@ fn errors() {
     let case = vec![
         (
             "[",
-            vec![Error::new("\"[\" is not closed".to_string(), (0, 1))],
+            vec![Error::new(ErrorType::UnclosedParenthesis, (0, 1))],
         ),
         (
             "{",
-            vec![Error::new("\"{\" is not closed".to_string(), (0, 1))],
+            vec![Error::new(ErrorType::UnclosedParenthesis, (0, 1))],
         ),
         (
             "(",
             vec![
-                Error::new("Un-expected end of file".to_string(), (0, 0)),
-                Error::new("\"(\" is not closed".to_string(), (0, 1)),
+                Error::new(ErrorType::UnexpectedEndOfFile, (0, 0)),
+                Error::new(ErrorType::UnclosedParenthesis, (0, 1)),
             ],
         ),
         (

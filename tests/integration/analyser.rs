@@ -551,12 +551,12 @@ fn compile() {
 
     assert_eq!(state.errors, vec![
         Error {
-            inner: "\"+\" does not support left side of type \"Array\" and right side of type \"Number\"".to_string(),
+            type_: "\"+\" does not support left side of type \"Array\" and right side of type \"Number\"".to_string().into(),
             span: (10, 11),
             origin: Some(PathBuf::from("tests/integration/examples/error.sqf").into())
         },
         Error {
-            inner: "\"+\" does not support left side of type \"Number\" and right side of type \"Array\"".to_string(),
+            type_: "\"+\" does not support left side of type \"Number\" and right side of type \"Array\"".to_string().into(),
             span: (9, 10),
             origin: Some(PathBuf::from("tests/integration/examples/other.sqf").into())
         },

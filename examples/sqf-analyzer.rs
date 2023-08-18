@@ -61,7 +61,7 @@ fn main() {
                 }
             }
             Err(e) => {
-                println!("{}", e.inner);
+                println!("{}", e.type_.to_string());
             }
         }
     }
@@ -179,11 +179,11 @@ fn process(addon_path: &Path, functions: &Functions) {
                 .collect();
 
             let settings = Settings {
-                error_on_undefined: false,
+                error_on_undefined: true,
             };
 
-            let state =
-                sqf::check(configuration, mission, settings).map_err(|e| println!("{}", e.inner));
+            let state = sqf::check(configuration, mission, settings)
+                .map_err(|e| println!("{}", e.type_.to_string()));
             state.map(|s| s.errors).unwrap_or_default()
         })
         .fold(HashMap::<_, Vec<_>>::default(), |mut acc, error| {
@@ -217,7 +217,8 @@ fn print_errors(errors: Vec<Error>, path: &Path) {
         errors
             .into_iter()
             .map(|error| {
-                Label::primary(file_id, error.span.0..error.span.1).with_message(error.inner)
+                Label::primary(file_id, error.span.0..error.span.1)
+                    .with_message(error.type_.to_string())
             })
             .collect(),
     )];

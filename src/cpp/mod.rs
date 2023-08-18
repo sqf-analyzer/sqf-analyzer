@@ -316,8 +316,6 @@ pub fn analyze_file(configuration: Configuration) -> Result<(Functions, Vec<Erro
         return Err(format!("File \"{}\" not found", configuration.path.display()))
     };
 
-    // it is an addon, parse the config.cpp to fetch list of functions
-
-    let iter = preprocessor::tokens(&content, configuration).map_err(|e| e.1.inner)?;
+    let iter = preprocessor::tokens(&content, configuration).map_err(|e| e.1.type_.to_string())?;
     Ok(analyze(iter))
 }

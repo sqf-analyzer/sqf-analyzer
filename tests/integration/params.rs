@@ -1,6 +1,6 @@
 use sqf::{
     analyzer::{Parameter, State},
-    error::Error,
+    error::{Error, ErrorType},
     span::Spanned,
     types::Type,
     uncased,
@@ -43,10 +43,9 @@ fn basic_error() {
 
     let mut expected = State::default();
     expected.namespace.push_stack();
-    expected.errors.push(Error::new(
-        "Argument must begin with _".to_string(),
-        (8, 11),
-    ));
+    expected
+        .errors
+        .push(Error::new(ErrorType::GlobalVariableParam, (8, 11)));
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
     expected.explanations.insert(
         (0, 6),
@@ -133,8 +132,7 @@ fn with_default_and_type_invalid_default() {
         true,
     );
     expected.errors.push(Error::new(
-        "params' default argument type \"Object\" is inconsistent with expected type \"Boolean\""
-            .to_string(),
+        ErrorType::IncompatibleParamArgument(Type::Object, Type::Boolean),
         (8, 31),
     ));
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
@@ -238,10 +236,9 @@ fn basic_with_invalid_type_param() {
 
     let mut expected = State::default();
     expected.namespace.push_stack();
-    expected.errors.push(Error::new(
-        "params' third argument must be an array".to_string(),
-        (24, 25),
-    ));
+    expected
+        .errors
+        .push(Error::new(ErrorType::ExpectedType(Type::Array), (24, 25)));
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);
     expected.explanations.insert(
         (0, 6),
@@ -297,10 +294,7 @@ fn basic_with_invalid_param_array() {
     let state = parse_analyze(case);
     assert_eq!(
         state.errors,
-        vec![Error::new(
-            "params' first argument must be a string".to_string(),
-            (8, 11),
-        )]
+        vec![Error::new(ErrorType::ExpectedType(Type::String), (8, 11),)]
     );
 }
 

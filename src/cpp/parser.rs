@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::iter::Peekable;
 use std::sync::Arc;
 
+use crate::error::ErrorType;
 use crate::preprocessor::parse_hexadecimal;
 use crate::{
     error::Error,
@@ -107,7 +108,7 @@ fn expr<I: Iterator<Item = Spanned<Arc<str>>>>(
             let expr = code(iter, errors);
             let last = iter.next();
             if !matches(last.as_ref(), "}") {
-                errors.push(Error::new("\"{\" is not closed".to_string(), span))
+                errors.push(Error::new(ErrorType::UnclosedParenthesis, span))
             }
             let start = span.0;
             let end = last.map(|x| x.span.1).unwrap_or(start);
@@ -120,7 +121,7 @@ fn expr<I: Iterator<Item = Spanned<Arc<str>>>>(
         "[" => {
             let last = iter.next();
             if !matches(last.as_ref(), "]") {
-                errors.push(Error::new("\"[\" is not closed".to_string(), span))
+                errors.push(Error::new(ErrorType::UnclosedParenthesis, span))
             }
             let start = span.0;
             let end = last.map(|x| x.span.1).unwrap_or(start);
@@ -131,7 +132,7 @@ fn expr<I: Iterator<Item = Spanned<Arc<str>>>>(
             let expr = expression(iter, errors);
             let last = iter.next();
             if !matches(last.as_ref(), ")") {
-                errors.push(Error::new("\"(\" is not closed".to_string(), span))
+                errors.push(Error::new(ErrorType::UnclosedParenthesis, span))
             }
             let start = span.0;
             let end = last.map(|x| x.span.1).unwrap_or(start);
