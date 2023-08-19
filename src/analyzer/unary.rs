@@ -21,6 +21,9 @@ pub fn compile(rhs: &Expr, state: &mut State) {
 
 pub fn compile_(rhs: &Expr, state: &mut State) {
     let Expr::String(path_str) = rhs else {return};
+    if path_str.inner.starts_with("\\A3") || path_str.inner.starts_with("\\a3") {
+        return;
+    };
 
     let file_path = match get_path(
         path_str.inner.as_ref(),
