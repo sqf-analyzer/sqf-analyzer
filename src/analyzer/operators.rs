@@ -10,7 +10,9 @@ use crate::{
     uncased,
 };
 
-use super::{infer_binary, infer_type, process_parameters, union_output, Output, State};
+use super::{
+    infer_binary, infer_type, process_parameters, unary::compile_, union_output, Output, State,
+};
 use super::{process_params_variable, type_operations::union_stacks};
 
 pub fn then(
@@ -275,6 +277,31 @@ pub fn select(
         lhs.map(|x| x.type_()),
         op,
         rhs.map(|x| x.type_()),
+        span,
+        &mut state.errors,
+    )
+    .map(|(type_, explanation)| {
+        state.explanations.insert(op.span, explanation);
+        type_.into()
+    })
+}
+
+pub fn exec_vm(
+    span: Span,
+    lhs: &Expr,
+    op: &Spanned<Arc<str>>,
+    rhs: &Expr,
+    state: &mut State,
+) -> Option<Output> {
+    // todo: verify that the arguments are valid for this function
+    let lhs = infer_type(lhs, state);
+
+    compile_(rhs, state);
+
+    infer_binary(
+        lhs.map(|x| x.type_()),
+        op,
+        infer_type(rhs, state).map(|x| x.type_()),
         span,
         &mut state.errors,
     )

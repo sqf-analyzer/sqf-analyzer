@@ -431,6 +431,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             if op.inner.as_ref() == "=" {
                 infer_assign(lhs, rhs, state);
                 Some(Type::Nothing.into())
+            } else if op.inner.as_ref().eq_ignore_ascii_case("execVM") {
+                operators::exec_vm(expr.span(), lhs, op, rhs, state)
             } else if op.inner.as_ref().eq_ignore_ascii_case("then") {
                 operators::then(expr.span(), lhs, op, rhs, state)
             } else if op.inner.as_ref().eq_ignore_ascii_case("foreach") {
@@ -505,6 +507,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 }
             } else if op.inner.as_ref().eq_ignore_ascii_case("compile") {
                 unary::compile(rhs, state);
+            } else if op.inner.as_ref().eq_ignore_ascii_case("execVM") {
+                unary::exec_vm(rhs, state);
             } else if op.inner.as_ref().eq_ignore_ascii_case("private") {
                 if let Expr::Array(array) = rhs.as_ref() {
                     for entry in &array.inner {

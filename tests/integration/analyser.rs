@@ -590,3 +590,29 @@ fn compile() {
     ]);
     assert_eq!(state.namespace.mission.len(), 2); // a and b
 }
+
+#[test]
+fn exec_vm() {
+    let case = "execVM \"other.sqf\"";
+
+    let configuration = Configuration {
+        file_path: PathBuf::from("./tests/integration/examples/error.txt").into(),
+        base_path: "./tests/integration/examples/description.cpp".into(),
+        ..Default::default()
+    };
+
+    let mut state = State {
+        configuration,
+        ..Default::default()
+    };
+    parse_analyze_s(case, &mut state);
+
+    assert_eq!(state.errors, vec![
+        Error {
+            type_: "\"+\" does not support left side of type \"Number\" and right side of type \"Array\"".to_string().into(),
+            span: (9, 10),
+            origin: Some(PathBuf::from("tests/integration/examples/other.sqf").into())
+        },
+    ]);
+    assert_eq!(state.namespace.mission.len(), 1); // b
+}

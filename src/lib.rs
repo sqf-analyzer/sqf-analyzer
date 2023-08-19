@@ -171,6 +171,18 @@ pub fn check(
     Ok(state)
 }
 
+/// Set of filenames that are by default handled by the engine
+pub const MISSION_INIT_SCRIPTS: [&str; 8] = [
+    "init.sqf",
+    "initPlayerLocal.sqf",
+    "initPlayerServer.sqf",
+    "onPlayerKilled.sqf",
+    "onPlayerRespawn.sqf",
+    "initServer.sqf",
+    "initPlayerServer.sqf",
+    "initPlayerLocal.sqf",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
