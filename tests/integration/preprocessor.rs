@@ -561,14 +561,12 @@ fn define_other() {
 }
 
 #[test]
-fn debug() {
+fn concat_with_space_before() {
     let case = r#"
-#ifndef STRING_MACROS_GUARD
-#define STRING_MACROS_GUARD
-#define ECSTRING(a) a
-#endif
+    #define TRIPLES(var1,var2,var3) ##var1##_##var2##_##var3
+    #define FNC_UI_PREFIX(prefix,func) class TRIPLES(UI,prefix,func)
 
-ECSTRING(common)
-"#;
-    assert(case, vec!["common"]);
+    FNC_UI_PREFIX(a,b)
+    "#;
+    assert(case, vec!["class", "UI_a_b"]);
 }

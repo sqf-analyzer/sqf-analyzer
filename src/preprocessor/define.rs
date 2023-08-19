@@ -68,6 +68,7 @@ pub fn update(state: &mut State, item: &Spanned<Arc<str>>) -> bool {
         &mut state.stack,
     );
     concat(&mut state.stack);
+    state.stack.retain(|x| x.inner.as_ref() != " ");
     consumed
 }
 
@@ -130,7 +131,7 @@ pub fn update_(
 fn concat(tokens: &mut VecDeque<Spanned<Arc<str>>>) {
     if tokens.iter().any(|x| x.inner.as_ref() == "##") {
         // join tokens in pairs
-        let mut merged = VecDeque::new();
+        let mut merged: VecDeque<Spanned<Arc<str>>> = VecDeque::new();
         let mut next_merges = false;
         for token in tokens.iter_mut() {
             if token.inner.as_ref() == "##" {
@@ -138,7 +139,11 @@ fn concat(tokens: &mut VecDeque<Spanned<Arc<str>>>) {
             } else if next_merges {
                 if let Some(previous) = merged.back_mut() {
                     let Spanned { inner, .. } = previous;
-                    *inner = format!("{}{}", inner, token.inner).into();
+                    *inner = if inner.as_ref() == " " {
+                        format!("{}", token.inner).into()
+                    } else {
+                        format!("{}{}", inner, token.inner).into()
+                    };
                 } else {
                     merged.push_back(token.clone())
                 }
