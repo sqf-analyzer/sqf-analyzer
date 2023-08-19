@@ -50,7 +50,11 @@ pub fn compile_(rhs: &Expr, state: &mut State) {
             state.namespace.mission = file_state.namespace.mission;
             state.errors.extend(file_state.errors);
         }
-        Err(e) => state.errors.push(e),
+        Err(mut e) => {
+            e.span = path_str.span;
+            e.origin = Some(state.configuration.file_path.clone());
+            state.errors.push(e)
+        }
     }
 }
 
