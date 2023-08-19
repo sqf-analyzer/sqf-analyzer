@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use clap::{arg, value_parser, Command};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -10,12 +11,14 @@ use codespan_reporting::term::termcolor::ColorChoice;
 use codespan_reporting::term::termcolor::StandardStream;
 
 use sqf::analyzer;
+use sqf::analyzer::MissionNamespace;
 use sqf::analyzer::Settings;
 use sqf::cpp::Functions;
 use sqf::error::ErrorType;
 use sqf::get_path;
 use sqf::preprocessor;
-use sqf::uncased;
+use sqf::UncasedStr;
+use sqf::MISSION_INIT_SCRIPTS;
 use sqf::{cpp, error::Error};
 
 fn main() {
@@ -121,65 +124,80 @@ fn main() {
     }
 }
 
-fn process(addon_path: &Path, functions: &Functions) {
-    let bla = uncased("");
+enum Either {
+    Original(String),
+    Path(Arc<Path>),
+}
 
-    // first pass to get the global states
-    let states = functions
-        .iter()
-        .filter_map(|(function_name, sqf_path)| {
-            let path = get_path(&sqf_path.inner, addon_path, &Default::default()).ok()?;
+fn process(addon_path: &Path, functions: &Functions) {
+    let functions = functions.iter().map(|(function_name, sqf_path)| {
+        let path = get_path(&sqf_path.inner, addon_path, &Default::default()).ok();
+        (
+            Some(function_name.clone()),
+            path.map(Either::Path)
+                .unwrap_or(Either::Original(sqf_path.inner.clone())),
+        )
+    });
+    // iterator over default files analyze
+    let defaults = MISSION_INIT_SCRIPTS.into_iter().map(|file| {
+        let mut directory = addon_path.to_owned();
+        directory.pop();
+        let path: Arc<Path> = directory.join(file).into();
+        (None::<Arc<UncasedStr>>, Either::Path(path))
+    });
+
+    // iterator over all relevant files to analyze
+    let files = functions.chain(defaults);
+
+    // vector of all (path, states)
+    let states = files
+        .clone()
+        .filter_map(|(function_name, path)| {
+            let path = match path {
+                Either::Original(_) => {
+                    return None;
+                }
+                Either::Path(path) => path,
+            };
             let configuration = analyzer::Configuration {
-                file_path: path,
+                file_path: path.clone(),
                 base_path: addon_path.to_owned(),
                 ..Default::default()
             };
 
+            // todo: add origins from functions that we know it is of type "Code"
             sqf::check(configuration, Default::default(), Default::default())
-                .map(|state| (function_name, state))
+                .map(|state| (path, (function_name, state)))
                 .ok()
         })
-        .chain(
-            [(&bla, "init.sqf")]
-                .into_iter()
-                .filter_map(|(function_name, file)| {
-                    let mut directory = addon_path.to_owned();
-                    directory.pop();
-                    let path = directory.join(file);
-                    let configuration = analyzer::Configuration {
-                        file_path: path.into(),
-                        base_path: addon_path.to_owned(),
-                        ..Default::default()
-                    };
+        .collect::<Vec<_>>();
 
-                    sqf::check(configuration, Default::default(), Default::default())
-                        .map(|state| (function_name, state))
-                        .ok()
-                }),
-        )
-        .collect::<HashMap<_, _>>();
+    let mission: MissionNamespace = states
+        .iter()
+        .flat_map(|(_, (function_name, state))| state.globals(function_name.clone()))
+        .collect();
 
     // second pass to get errors
-    let errors = functions
-        .iter()
-        .flat_map(|(function_name, path)| {
-            let Ok(path) = get_path(&path.inner, addon_path, &Default::default()) else {
-                println!("Could not find path \"{}\" of function declared in addon", path.inner);
-                return vec![]
+    let errors = files
+        .flat_map(|(_, path)| {
+            let path = match path {
+                Either::Original(original) => {
+                    println!(
+                        "Could not find path \"{}\" of function declared in addon",
+                        original
+                    );
+                    return vec![];
+                }
+                Either::Path(path) => path,
             };
+
             let configuration = analyzer::Configuration {
                 file_path: path,
                 base_path: addon_path.to_owned(),
                 ..Default::default()
             };
 
-            let mission = states
-                .iter()
-                .filter(|x| x.0.as_ref() != function_name.as_ref())
-                .flat_map(|(function_name, state)| state.globals(Some((*function_name).clone())))
-                .collect();
-
-            let state = sqf::check(configuration, mission, Settings {})
+            let state = sqf::check(configuration, mission.clone(), Settings {})
                 .map_err(|e| println!("{}", e.type_.to_string()));
             state.map(|s| s.errors).unwrap_or_default()
         })
