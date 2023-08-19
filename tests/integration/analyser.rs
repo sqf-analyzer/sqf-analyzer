@@ -406,7 +406,7 @@ fn return_type_then() {
 }
 
 #[test]
-fn debug() {
+fn private_assign_type() {
     let case = r#"private _aa = _a select [1]"#;
     let state = parse_analyze(case);
 
@@ -615,4 +615,39 @@ fn exec_vm() {
         },
     ]);
     assert_eq!(state.namespace.mission.len(), 1); // b
+}
+
+#[test]
+fn binary_exec_vm() {
+    let case = "[] execVM \"other.sqf\"";
+
+    let configuration = Configuration {
+        file_path: PathBuf::from("./tests/integration/examples/error.txt").into(),
+        base_path: "./tests/integration/examples/description.cpp".into(),
+        ..Default::default()
+    };
+
+    let mut state = State {
+        configuration,
+        ..Default::default()
+    };
+    parse_analyze_s(case, &mut state);
+
+    assert_eq!(state.errors, vec![
+        Error {
+            type_: "\"+\" does not support left side of type \"Number\" and right side of type \"Array\"".to_string().into(),
+            span: (9, 10),
+            origin: Some(PathBuf::from("tests/integration/examples/other.sqf").into())
+        },
+    ]);
+    assert_eq!(state.namespace.mission.len(), 1); // b
+}
+
+#[test]
+fn debug() {
+    let case = "params [\"_a\"]; a = 1; true";
+    let state = parse_analyze(case);
+    state.globals(Some(uncased("f")));
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(state.return_type(), Some(Type::Boolean))
 }

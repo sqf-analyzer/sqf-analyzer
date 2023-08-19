@@ -3,7 +3,6 @@ use std::sync::Arc;
 use uncased::UncasedStr;
 
 use crate::{
-    error::{Error, ErrorType},
     parser::Expr,
     span::{Span, Spanned},
     types::Type,
@@ -213,9 +212,6 @@ pub fn params(
             .map(|x| process_params_variable(x, state, false))
             .collect::<Vec<_>>()
     } else {
-        state
-            .errors
-            .push(Error::new(ErrorType::ExpectedType(Type::Array), span));
         vec![]
     };
     // assign to variables

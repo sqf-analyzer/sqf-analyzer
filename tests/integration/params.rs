@@ -304,6 +304,14 @@ fn basic_with_invalid_param_array() {
     );
 }
 
+#[test]
+fn single_array_arg() {
+    let case = "params [[\"_a\"]]";
+
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+}
+
 /// signatures are correct when used
 #[test]
 fn with_code() {

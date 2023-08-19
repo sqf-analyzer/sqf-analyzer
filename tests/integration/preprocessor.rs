@@ -297,6 +297,11 @@ A(call b)
 }
 
 #[test]
+fn undef() {
+    assert("#define B 1\n#undef B\nB", vec!["B"]);
+}
+
+#[test]
 fn origin_define() {
     let case = r#"#define A _a
 _a = 1;
