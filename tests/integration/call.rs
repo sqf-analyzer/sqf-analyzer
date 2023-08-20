@@ -1,13 +1,13 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use sqf::{
-    analyzer::{Origin, Output, Parameter, State},
+    analyzer::{Output, Parameter, State},
     error::{Error, ErrorType},
     types::Type,
     uncased,
 };
 
-use super::analyser::{parse_analyze, parse_analyze_s};
+use super::analyser::{file, function, parse_analyze, parse_analyze_s};
 
 #[test]
 fn call_len_args() {
@@ -43,7 +43,7 @@ fn call_annotate_ext() {
     state.namespace.mission.insert(
         uncased("A_fn_a"),
         (
-            Origin::External(PathBuf::from("a").into(), None),
+            function(PathBuf::from("a")),
             Some(Output::Code(
                 Some(vec![Parameter {
                     name: "_a".into(),
@@ -57,11 +57,11 @@ fn call_annotate_ext() {
     parse_analyze_s(case, &mut state);
     assert_eq!(
         state.namespace.stack[0].variables,
-        HashMap::from([(uncased("_a"), ((8, 10), Some(Type::Boolean.into())))])
+        HashMap::from([(uncased("_a"), (file(8, 10), Some(Type::Boolean.into())))])
     );
     assert_eq!(
         state.origins,
-        HashMap::from([((22, 28), Origin::External(PathBuf::from("a").into(), None))])
+        HashMap::from([((22, 28), function(PathBuf::from("a")))])
     );
     assert_eq!(state.parameters, HashMap::from([((14, 15), "_a".into())]));
 }
@@ -82,7 +82,7 @@ fn execute_annotate_ext() {
     state.namespace.mission.insert(
         uncased("A_fn_a"),
         (
-            Origin::External(PathBuf::from("a").into(), None),
+            function(PathBuf::from("a")),
             Some(Output::Code(
                 Some(vec![Parameter {
                     name: "_a".into(),
@@ -96,7 +96,7 @@ fn execute_annotate_ext() {
     parse_analyze_s(case, &mut state);
     assert_eq!(
         state.origins,
-        HashMap::from([((16, 24), Origin::External(PathBuf::from("a").into(), None))])
+        HashMap::from([((16, 24), function(PathBuf::from("a")))])
     );
     assert_eq!(state.parameters, HashMap::from([((1, 2), "_a".into())]));
 }

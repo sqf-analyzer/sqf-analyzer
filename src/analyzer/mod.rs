@@ -76,8 +76,9 @@ fn process_param_variable(
     }
 
     state.namespace.insert(
-        v.as_ref().map(|x| uncased(x.as_ref())),
+        uncased(v.inner.as_ref()),
         Some(type_.into()),
+        (v.span, &state.configuration).into(),
         true,
     );
 }
@@ -358,7 +359,12 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
     let is_internal = variable.inner.starts_with("_");
     let span = variable.span;
 
-    let in_mission = state.namespace.insert(variable, rhs_type, is_private);
+    let in_mission = state.namespace.insert(
+        variable.inner,
+        rhs_type,
+        (variable.span, &state.configuration).into(),
+        is_private,
+    );
 
     if in_mission && is_internal {
         state
@@ -493,8 +499,9 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 if let Expr::String(x) = rhs.as_ref() {
                     state.types.insert(x.span, Some(Type::Number));
                     state.namespace.insert(
-                        x.as_ref().map(|x| uncased(x.as_ref())),
+                        uncased(x.inner.as_ref()),
                         Some(Type::Number.into()),
+                        (x.span, &state.configuration).into(),
                         true,
                     );
                 }
@@ -514,8 +521,9 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                     for entry in &array.inner {
                         if let Expr::String(name) = entry {
                             state.namespace.insert(
-                                name.as_ref().map(|x| uncased(x.as_ref())),
+                                uncased(name.inner.as_ref()),
                                 None,
+                                (name.span, &state.configuration).into(),
                                 true,
                             );
                         } else {
@@ -541,7 +549,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Stack {
-    pub variables: HashMap<Arc<UncasedStr>, (Span, Option<Output>)>,
+    pub variables: HashMap<Arc<UncasedStr>, (Origin, Option<Output>)>,
     // None => unknown signature
     pub signature: Option<Vec<Parameter>>,
     pub return_type: Option<Type>,
@@ -581,8 +589,9 @@ impl Namespace {
     #[allow(clippy::map_entry)]
     pub fn insert(
         &mut self,
-        key: Spanned<Arc<UncasedStr>>,
+        key: Arc<UncasedStr>,
         value: Option<Output>,
+        origin: Origin,
         is_private: bool,
     ) -> bool {
         if is_private {
@@ -590,18 +599,17 @@ impl Namespace {
                 .last_mut()
                 .unwrap()
                 .variables
-                .insert(key.inner, (key.span, value));
+                .insert(key, (origin, value));
             false
         } else {
             for stack in self.stack.iter_mut().rev() {
-                if stack.variables.contains_key(&key.inner) {
+                if stack.variables.contains_key(&key) {
                     // entries API would require cloning, which is more expensive than this lookup
-                    stack.variables.insert(key.inner, (key.span, value));
+                    stack.variables.insert(key, (origin, value));
                     return false;
                 }
             }
-            self.mission
-                .insert(key.inner, (Origin::File(key.span), value));
+            self.mission.insert(key, (origin, value));
             true
         }
     }
@@ -617,8 +625,8 @@ impl Namespace {
     pub fn get(&self, key: &str) -> Option<(Origin, Option<Output>)> {
         let sqf_key = UncasedStr::new(key);
         for stack in self.stack.iter().rev() {
-            if let Some((span, a)) = stack.variables.get(sqf_key) {
-                return Some((Origin::File(*span), a.clone()));
+            if let Some((origin, a)) = stack.variables.get(sqf_key) {
+                return Some((origin.clone(), a.clone()));
             }
         }
         self.mission.get(sqf_key).cloned()
@@ -626,9 +634,12 @@ impl Namespace {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Origin {
-    File(Span),
-    External(Arc<Path>, Option<Span>),
+pub struct Origin(pub Arc<Path>, pub Option<Span>);
+
+impl From<(Span, &Configuration)> for Origin {
+    fn from(value: (Span, &Configuration)) -> Self {
+        Self(value.1.file_path.clone(), Some(value.0))
+    }
 }
 
 pub type Types = HashMap<Span, Option<Type>>;
@@ -669,24 +680,14 @@ impl State {
         //signature
         globals
             .iter()
-            .filter_map(|(variable_name, (origin, output))| {
-                if let Origin::File(span) = origin {
-                    Some((
-                        variable_name.clone(),
-                        (
-                            Origin::External(self.configuration.file_path.clone(), Some(*span)),
-                            output.clone(),
-                        ),
-                    ))
-                } else {
-                    None
-                }
+            .map(|(variable_name, (origin, output))| {
+                (variable_name.clone(), (origin.clone(), output.clone()))
             })
             .chain(function_name.into_iter().map(|name| {
                 (
                     name,
                     (
-                        Origin::External(self.configuration.file_path.clone(), None),
+                        Origin(self.configuration.file_path.clone(), None),
                         Some(Output::Code(signature.cloned(), return_type)),
                     ),
                 )

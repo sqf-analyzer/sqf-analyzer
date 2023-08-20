@@ -219,7 +219,12 @@ pub fn params(
         params.iter().zip(x.inner.iter()).for_each(|(variable, x)| {
             let rhs_type = infer_type(x, state);
             if let Some(variable) = variable {
-                state.namespace.insert(variable.clone(), rhs_type, true);
+                state.namespace.insert(
+                    variable.inner.clone(),
+                    rhs_type,
+                    (variable.span, &state.configuration).into(),
+                    true,
+                );
             }
         });
     }
@@ -310,8 +315,9 @@ pub fn exec_vm(
 fn infer_with(expr: &Expr, span: Span, vars: &[&str], state: &mut State) -> Option<Output> {
     for var in vars {
         state.namespace.insert(
-            Spanned::new(uncased(var), span),
+            uncased(var),
             Some(Type::Anything.into()),
+            (span, &state.configuration).into(),
             true,
         );
     }

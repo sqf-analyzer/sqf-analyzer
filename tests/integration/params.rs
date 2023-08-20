@@ -1,12 +1,11 @@
 use sqf::{
     analyzer::{Parameter, State},
     error::{Error, ErrorType},
-    span::Spanned,
     types::Type,
     uncased,
 };
 
-use crate::analyser::parse_analyze;
+use crate::analyser::{file, parse_analyze};
 
 #[test]
 fn basic_no_errors() {
@@ -15,11 +14,9 @@ fn basic_no_errors() {
     let mut expected = State::default();
     expected.namespace.push_stack();
     expected.namespace.insert(
-        Spanned {
-            span: (8, 12),
-            inner: uncased("_a"),
-        },
+        uncased("_a"),
         Some(Type::Anything.into()),
+        file(8, 12),
         true,
     );
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
@@ -62,14 +59,9 @@ fn with_default() {
 
     let mut expected = State::default();
     expected.namespace.push_stack();
-    expected.namespace.insert(
-        Spanned {
-            span: (9, 13),
-            inner: uncased("_a"),
-        },
-        Some(Type::Boolean.into()),
-        true,
-    );
+    expected
+        .namespace
+        .insert(uncased("_a"), Some(Type::Boolean.into()), file(9, 13), true);
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Boolean,
@@ -92,14 +84,9 @@ fn with_default_and_type() {
 
     let mut expected = State::default();
     expected.namespace.push_stack();
-    expected.namespace.insert(
-        Spanned {
-            span: (9, 13),
-            inner: uncased("_a"),
-        },
-        Some(Type::Boolean.into()),
-        true,
-    );
+    expected
+        .namespace
+        .insert(uncased("_a"), Some(Type::Boolean.into()), file(9, 13), true);
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
         type_: Type::Boolean,
@@ -123,14 +110,9 @@ fn with_default_and_type_invalid_default() {
 
     let mut expected = State::default();
     expected.namespace.push_stack();
-    expected.namespace.insert(
-        Spanned {
-            span: (9, 13),
-            inner: uncased("_a"),
-        },
-        Some(Type::Boolean.into()),
-        true,
-    );
+    expected
+        .namespace
+        .insert(uncased("_a"), Some(Type::Boolean.into()), file(9, 13), true);
     expected.errors.push(Error::new(
         ErrorType::IncompatibleParamArgument(Type::Object, Type::Boolean),
         (8, 31),
@@ -162,11 +144,9 @@ fn with_two_types() {
     let mut expected = State::default();
     expected.namespace.push_stack();
     expected.namespace.insert(
-        Spanned {
-            span: (9, 13),
-            inner: uncased("_a"),
-        },
+        uncased("_a"),
         Some(Type::Anything.into()),
+        file(9, 13),
         true,
     );
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
@@ -200,11 +180,9 @@ fn basic_with_unknown_type() {
     let mut expected = State::default();
     expected.namespace.push_stack();
     expected.namespace.insert(
-        Spanned {
-            span: (9, 13),
-            inner: uncased("_a"),
-        },
+        uncased("_a"),
         Some(Type::Anything.into()),
+        file(9, 13),
         true,
     );
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
@@ -320,11 +298,9 @@ fn with_code() {
     let mut expected = State::default();
     expected.namespace.push_stack();
     expected.namespace.insert(
-        Spanned {
-            span: (9, 20),
-            inner: uncased("_callback"),
-        },
+        uncased("_callback"),
         Some(Type::Code.into()),
+        file(9, 20),
         true,
     );
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {

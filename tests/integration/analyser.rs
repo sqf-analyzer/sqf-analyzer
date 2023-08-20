@@ -18,6 +18,18 @@ pub fn parse_analyze_s(case: &str, state: &mut State) {
     analyze(&expr, state);
 }
 
+pub fn file(start: usize, end: usize) -> Origin {
+    Origin(PathBuf::from("").into(), Some((start, end)))
+}
+
+pub fn function(path: PathBuf) -> Origin {
+    Origin(path.into(), None)
+}
+
+pub fn global(path: PathBuf, span: Span) -> Origin {
+    Origin(path.into(), Some(span))
+}
+
 pub fn parse_analyze(case: &str) -> State {
     let mut state = Default::default();
     parse_analyze_s(case, &mut state);
@@ -111,15 +123,12 @@ fn namespace_origin() {
     let mut state = State::default();
     state.namespace.mission.insert(
         uncased("A_fn_a"),
-        (
-            Origin::External(PathBuf::from("a").into(), None),
-            Some(Type::Code.into()),
-        ),
+        (function(PathBuf::from("a")), Some(Type::Code.into())),
     );
     parse_analyze_s(case, &mut state);
     assert_eq!(
         state.origins,
-        HashMap::from([((5, 11), Origin::External(PathBuf::from("a").into(), None))])
+        HashMap::from([((5, 11), function(PathBuf::from("a")))])
     );
 }
 
@@ -128,24 +137,21 @@ fn namespace_origin() {
 fn namespace() {
     let case = "private _a = west; call {private _a = 2}";
 
-    let expected = HashMap::from([(uncased("_a"), ((8, 10), Some(Type::Side.into())))]);
+    let expected = HashMap::from([(uncased("_a"), (file(8, 10), Some(Type::Side.into())))]);
 
     let state = parse_analyze(case);
     assert_eq!(state.namespace.stack[0].variables, expected);
 
     let case = "private _a = west; call {_a = 2}";
 
-    let expected = HashMap::from([(uncased("_a"), ((25, 27), Some(Type::Number.into())))]);
+    let expected = HashMap::from([(uncased("_a"), (file(25, 27), Some(Type::Number.into())))]);
 
     let state = parse_analyze(case);
     assert_eq!(state.namespace.stack[0].variables, expected);
 
     let case = "call {_a = 2}";
 
-    let expected = HashMap::from([(
-        uncased("_a"),
-        (Origin::File((6, 8)), Some(Type::Number.into())),
-    )]);
+    let expected = HashMap::from([(uncased("_a"), (file(6, 8), Some(Type::Number.into())))]);
 
     let state = parse_analyze(case);
     assert_eq!(state.namespace.mission, expected);
@@ -219,7 +225,7 @@ fn infer_example3() {
     let mission = HashMap::from([(
         uncased("DICT_fnc__set"),
         (
-            Origin::External(PathBuf::from("a").into(), None),
+            function(PathBuf::from("a")),
             Some(Output::Code(
                 Some(vec![
                     Parameter {
@@ -361,7 +367,7 @@ fn return_type() {
             (
                 uncased("_aa"),
                 (
-                    (13, 16),
+                    file(13, 16),
                     Some(Output::Code(
                         Some(vec![Parameter {
                             name: "_x".into(),
@@ -372,7 +378,7 @@ fn return_type() {
                     ))
                 )
             ),
-            (uncased("_x"), ((154, 156), Some(Type::Array.into())))
+            (uncased("_x"), (file(154, 156), Some(Type::Array.into())))
         ])
     );
     assert_eq!(state.return_type(), Some(Type::Array));
@@ -387,7 +393,7 @@ fn no_signature() {
         state.namespace.stack[0].variables,
         HashMap::from([(
             uncased("_aa"),
-            ((8, 11), Some(Output::Code(None, Some(Type::Anything))))
+            (file(8, 11), Some(Output::Code(None, Some(Type::Anything))))
         ),])
     );
     assert_eq!(state.return_type(), Some(Type::Nothing));
@@ -400,7 +406,7 @@ fn return_type_then() {
 
     assert_eq!(
         state.namespace.stack[0].variables,
-        HashMap::from([(uncased("_aa"), ((8, 11), None))])
+        HashMap::from([(uncased("_aa"), (file(8, 11), None))])
     );
     assert_eq!(state.return_type(), Some(Type::Nothing));
 }
@@ -412,7 +418,7 @@ fn private_assign_type() {
 
     assert_eq!(
         state.namespace.stack[0].variables,
-        HashMap::from([(uncased("_aa"), ((8, 11), Some(Type::Anything.into())))])
+        HashMap::from([(uncased("_aa"), (file(8, 11), Some(Type::Anything.into())))])
     );
     assert_eq!(state.return_type(), Some(Type::Nothing));
 }
@@ -425,17 +431,14 @@ fn origin_global() {
     state.namespace.mission.insert(
         uncased("a"),
         (
-            Origin::External(PathBuf::from("a").into(), Some((10, 11))),
+            global(PathBuf::from("a"), (10, 11)),
             Some(Output::Type(Type::Number)),
         ),
     );
     parse_analyze_s(case, &mut state);
     assert_eq!(
         state.origins,
-        HashMap::from([(
-            (4, 5),
-            Origin::External(PathBuf::from("a").into(), Some((10, 11)))
-        )])
+        HashMap::from([((4, 5), global(PathBuf::from("a"), (10, 11)))])
     );
 }
 
@@ -446,10 +449,7 @@ fn origin_global_from() {
     let state = parse_analyze(case);
     assert_eq!(
         state.namespace.mission,
-        HashMap::from([(
-            uncased("a"),
-            (Origin::File((0, 1)), Some(Type::Number.into()))
-        )])
+        HashMap::from([(uncased("a"), (file(0, 1), Some(Type::Number.into())))])
     );
 }
 
@@ -529,7 +529,7 @@ fn params_good() {
     assert_eq!(state.errors, vec![]);
     assert_eq!(
         state.namespace.stack[0].variables,
-        HashMap::from([(uncased("_x"), ((12, 16), Some(Type::Number.into())))])
+        HashMap::from([(uncased("_x"), (file(12, 16), Some(Type::Number.into())))])
     );
 }
 
@@ -538,10 +538,7 @@ fn count() {
     let case = "{_x == 4} count []";
     let state = parse_analyze(case);
     assert_eq!(state.errors, vec![]);
-    assert_eq!(
-        state.origins,
-        HashMap::from([((1, 3), Origin::File((10, 15)))])
-    );
+    assert_eq!(state.origins, HashMap::from([((1, 3), file(10, 15))]));
 }
 
 #[test]
@@ -619,7 +616,7 @@ fn exec_vm() {
 
 #[test]
 fn binary_exec_vm() {
-    let case = "[] execVM \"other.sqf\"";
+    let case = "[] execVM \"other.sqf\"; b";
 
     let configuration = Configuration {
         file_path: PathBuf::from("./tests/integration/examples/error.txt").into(),
@@ -641,6 +638,16 @@ fn binary_exec_vm() {
         },
     ]);
     assert_eq!(state.namespace.mission.len(), 1); // b
+    assert_eq!(
+        state.origins,
+        HashMap::from([(
+            (23, 24),
+            global(
+                PathBuf::from("tests/integration/examples/other.sqf"),
+                (0, 1)
+            )
+        )])
+    );
 }
 
 #[test]
