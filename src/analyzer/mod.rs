@@ -457,6 +457,9 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                 operators::count(expr.span(), lhs, op, rhs, state)
             } else if op.inner.as_ref().eq_ignore_ascii_case("select") {
                 operators::select(expr.span(), lhs, op, rhs, state)
+            } else if op.inner.as_ref().eq_ignore_ascii_case("apply") {
+                // apply behaves like select
+                operators::select(expr.span(), lhs, op, rhs, state)
             } else {
                 if op.inner.eq_ignore_ascii_case("call") {
                     let rhs = infer_type(rhs, state);
