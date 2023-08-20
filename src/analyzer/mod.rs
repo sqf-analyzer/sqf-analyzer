@@ -533,6 +533,13 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                             ));
                         }
                     }
+                } else if let Expr::String(name) = rhs.as_ref() {
+                    state.namespace.insert(
+                        uncased(name.inner.as_ref()),
+                        None,
+                        (name.span, &state.configuration).into(),
+                        true,
+                    );
                 }
             }
             let rhs_type = infer_type(rhs, state);

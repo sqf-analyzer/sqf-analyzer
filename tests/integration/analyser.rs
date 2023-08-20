@@ -550,6 +550,13 @@ fn private_unary() {
 }
 
 #[test]
+fn private_string() {
+    let case = "private \"_a\"; _a = 1";
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+}
+
+#[test]
 fn select_a() {
     let case = "[1, 2] select {_x == 1}";
     let state = parse_analyze(case);
