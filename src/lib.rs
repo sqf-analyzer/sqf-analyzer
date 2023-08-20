@@ -75,8 +75,9 @@ pub fn get_path(
             let (mut project_root, pbo) = compute_project_root(directory, pbo_prefix);
             let relative_path = path.strip_prefix(&pbo).map_err(|_| {
                 format!(
-                    "The $PBOPREFIX$ has a path \"{}\" that is incompatible with \"{}\"",
+                    "The $PBOPREFIX$ has a path \"{}\" and configuration has prefixes {:?}, but the path \"{}\" is incompatible with all",
                     pbo.display(),
+                    addons.keys().collect::<Vec<_>>(),
                     path.display(),
                 )
             })?;

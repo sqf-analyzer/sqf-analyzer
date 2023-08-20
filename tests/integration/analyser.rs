@@ -649,12 +649,3 @@ fn binary_exec_vm() {
         )])
     );
 }
-
-#[test]
-fn debug() {
-    let case = "params [\"_a\"]; a = 1; true";
-    let state = parse_analyze(case);
-    state.globals(Some(uncased("f")));
-    assert_eq!(state.errors, vec![]);
-    assert_eq!(state.return_type(), Some(Type::Boolean))
-}

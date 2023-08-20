@@ -58,6 +58,6 @@ define_concat =  { "##" }
 space = {" "}
 
 define_arguments =  { "(" ~ " "* ~ (word ~ (" "* ~ "," ~ " "* ~ word)*)? ~ " "* ~ ")" }
-define_term      = _{ define_quoted | define_concat | "\\\n" | base_term | space | "\t" | "\r" }
+define_term      = _{ define_quoted | define_concat | "\\\r\n" | "\\\n" | base_term | space | "\t" | "\r" }
 
 end = _{ ("\r\n" | "\n" | EOI) }

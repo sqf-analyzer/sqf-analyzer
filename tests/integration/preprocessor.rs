@@ -120,6 +120,12 @@ TRACE_3("KEY_PARAM",KEY,NAME,DEF_VALUE)
 }
 
 #[test]
+fn define_carrier_end() {
+    let case = "#define A \\\r\n1";
+    assert(case, vec![]);
+}
+
+#[test]
 fn define_use_with_args() {
     let case = "#define A(B) var##B\n1 + A(1);";
 
