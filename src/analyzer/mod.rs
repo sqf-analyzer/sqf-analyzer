@@ -425,9 +425,10 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                         type_
                     } else {
                         if !UncasedStr::new(variable.inner.as_ref()).starts_with("bis_") {
-                            state
-                                .errors
-                                .push(Error::new(ErrorType::UndefinedVariable, variable.span));
+                            state.errors.push(Error::new(
+                                ErrorType::UndefinedVariable(variable.inner.clone()),
+                                variable.span,
+                            ));
                         };
                         None
                     }

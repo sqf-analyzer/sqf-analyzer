@@ -10,7 +10,7 @@ pub enum ErrorType {
     InvalidType(Arc<str>, Type),
 
     /// an undefined varible has been used
-    UndefinedVariable,
+    UndefinedVariable(Arc<str>),
     /// an underscored variable was assigned to the mission namespace
     PrivateAssignedToMission,
     InsufficientArguments {
@@ -40,7 +40,7 @@ impl ToString for ErrorType {
             ErrorType::InvalidType(expected, got) => {
                 format!("Expected type {expected:?}, but got {got:?}")
             }
-            ErrorType::UndefinedVariable => "undefined variable".to_string(),
+            ErrorType::UndefinedVariable(name) => format!("undefined variable \"{name}\""),
             ErrorType::PrivateAssignedToMission => {
                 "variable with underscore assigned to global space".to_string()
             }

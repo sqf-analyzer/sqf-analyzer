@@ -180,14 +180,14 @@ fn infer_example1() {
         state.errors,
         vec![
             Error {
-                type_: ErrorType::UndefinedVariable,
+                type_: ErrorType::UndefinedVariable("DICT_fnc_get".into()),
                 span: (532, 542),
                 origin: Some(
                     Path::new("tests/integration/dictionary/addons/dictionary/fnc__set.sqf").into()
                 )
             },
             Error {
-                type_: ErrorType::UndefinedVariable,
+                type_: ErrorType::UndefinedVariable("DICT_fnc_get".into()),
                 span: (532, 542),
                 origin: Some(
                     Path::new("tests/integration/dictionary/addons/dictionary/fnc__set.sqf").into()
@@ -280,7 +280,7 @@ fn infer_example2() {
         let mut state = sqf::check(configuration, Default::default(), Default::default()).unwrap();
         state
             .errors
-            .retain(|e| e.type_ != ErrorType::UndefinedVariable);
+            .retain(|e| !matches!(e.type_, ErrorType::UndefinedVariable(_)));
         assert_eq!(state.errors, vec![]);
     }
 }
