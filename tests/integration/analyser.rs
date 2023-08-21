@@ -573,6 +573,14 @@ fn apply_a() {
 }
 
 #[test]
+fn find_if() {
+    let case = "[1, 2] findIf {_x == 1}";
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(state.namespace.mission.len(), 0);
+}
+
+#[test]
 fn compile() {
     let case = "call compile preprocessFileLineNumbers \"error.sqf\"";
 
