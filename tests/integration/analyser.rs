@@ -604,6 +604,37 @@ fn compile() {
 }
 
 #[test]
+fn compile_script() {
+    let case = "compileScript [\"error.sqf\"]";
+
+    let configuration = Configuration {
+        file_path: PathBuf::from("./tests/integration/examples/bla.txt").into(),
+        base_path: "./tests/integration/examples/config.cpp".into(),
+        ..Default::default()
+    };
+
+    let mut state = State {
+        configuration,
+        ..Default::default()
+    };
+    parse_analyze_s(case, &mut state);
+
+    assert_eq!(state.errors, vec![
+        Error {
+            type_: "\"+\" does not support left side of type \"Array\" and right side of type \"Number\"".to_string().into(),
+            span: (10, 11),
+            origin: Some(PathBuf::from("tests/integration/examples/error.sqf").into())
+        },
+        Error {
+            type_: "\"+\" does not support left side of type \"Number\" and right side of type \"Array\"".to_string().into(),
+            span: (9, 10),
+            origin: Some(PathBuf::from("tests/integration/examples/other.sqf").into())
+        },
+    ]);
+    assert_eq!(state.namespace.mission.len(), 2); // a and b
+}
+
+#[test]
 fn exec_vm() {
     let case = "execVM \"other.sqf\"";
 

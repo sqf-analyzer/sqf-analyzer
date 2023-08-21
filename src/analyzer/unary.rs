@@ -20,7 +20,6 @@ pub fn compile(rhs: &Expr, state: &mut State) {
 }
 
 pub fn compile_(rhs: &Expr, state: &mut State) {
-    println!("compile: {rhs:?}");
     let Expr::String(path_str) = rhs else {return};
     if path_str.inner.starts_with("\\A3") || path_str.inner.starts_with("\\a3") {
         return;
@@ -64,4 +63,12 @@ pub fn compile_(rhs: &Expr, state: &mut State) {
 
 pub fn exec_vm(rhs: &Expr, state: &mut State) {
     compile_(rhs, state);
+}
+
+pub fn compile_script(rhs: &Expr, state: &mut State) {
+    if let Expr::Array(items) = &rhs {
+        if let Some(path) = items.inner.first() {
+            compile_(path, state);
+        }
+    }
 }
