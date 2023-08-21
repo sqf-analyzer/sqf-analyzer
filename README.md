@@ -121,3 +121,5 @@ git restore src/database.rs && cargo run --example support_info
 ```
 
 (the git restore is used so that if the generation produces incorrect Rust code, it still fail to run the second time).
+
+NOTE: `handgunmagazine` return type is set to `String`, but it should be `Array`.
