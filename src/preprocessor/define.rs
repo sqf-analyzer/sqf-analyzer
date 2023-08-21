@@ -154,6 +154,32 @@ fn concat(tokens: &mut VecDeque<Spanned<Arc<str>>>) {
         }
         *tokens = merged;
     };
+
+    if tokens.iter().any(|x| x.inner.as_ref() == "'") {
+        // join tokens in pairs
+        let mut merged: VecDeque<Spanned<Arc<str>>> = VecDeque::new();
+        let mut in_quote = false;
+
+        for token in tokens.iter() {
+            if token.inner.as_ref() == "'" && !in_quote {
+                in_quote = true;
+                merged.push_back(token.clone());
+            } else if in_quote {
+                if let Some(previous) = merged.back_mut() {
+                    let Spanned { inner, .. } = previous;
+                    *inner = format!("{}{}", inner, token.inner).into();
+                } else {
+                    merged.push_back(token.clone())
+                }
+                if token.inner.as_ref() == "'" {
+                    in_quote = false;
+                }
+            } else {
+                merged.push_back(token.clone())
+            }
+        }
+        *tokens = merged;
+    }
 }
 
 /// Expands the arguments by evaluating macros inside them and replacing them

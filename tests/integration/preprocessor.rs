@@ -581,3 +581,14 @@ fn concat_with_space_before() {
     "#;
     assert(case, vec!["class", "UI_a_b"]);
 }
+
+#[test]
+fn define_single_quoted() {
+    let case = r#"
+    #define DOUBLES(var1,var2) var1##_##var2
+    #define A(var1) 1 + 'DOUBLES(fnc,var1)' + 1
+
+    A(a)
+    "#;
+    assert(case, vec!["1", "+", "'fnc_a'", "+", "1"]);
+}

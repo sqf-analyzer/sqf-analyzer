@@ -57,7 +57,9 @@ define_quoted = ${ define_quote ~ word }
 define_concat =  { "##" }
 space = {" "}
 
+define_single_quoted = { "'" ~ (!"'" ~ base_term)* ~ "'" }
+single_quote = {"'"}
 define_arguments =  { "(" ~ " "* ~ (word ~ (" "* ~ "," ~ " "* ~ word)*)? ~ " "* ~ ")" }
-define_term      = _{ define_quoted | define_concat | "\\\r\n" | "\\\n" | base_term | space | "\t" | "\r" }
+define_term      = _{ define_quoted | define_concat | single_quote | "\\\r\n" | "\\\n" | base_term | space | "\t" | "\r" }
 
 end = _{ ("\r\n" | "\n" | EOI) }
