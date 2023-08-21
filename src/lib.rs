@@ -148,6 +148,15 @@ pub fn check(
             (1, 1),
         )
     })?;
+    check_content(&text, configuration, mission, settings)
+}
+
+pub fn check_content(
+    text: &str,
+    configuration: Configuration,
+    mission: MissionNamespace,
+    settings: Settings,
+) -> Result<State, error::Error> {
     let conf = preprocessor::Configuration {
         path: configuration.file_path.clone(),
         addons: configuration.addons.clone(),
