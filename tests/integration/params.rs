@@ -59,12 +59,15 @@ fn with_default() {
 
     let mut expected = State::default();
     expected.namespace.push_stack();
-    expected
-        .namespace
-        .insert(uncased("_a"), Some(Type::Boolean.into()), file(9, 13), true);
+    expected.namespace.insert(
+        uncased("_a"),
+        Some(Type::Anything.into()),
+        file(9, 13),
+        true,
+    );
     expected.namespace.stack.last_mut().unwrap().signature = Some(vec![Parameter {
         name: "_a".into(),
-        type_: Type::Boolean,
+        type_: Type::Anything,
         has_default: true,
     }]);
     expected.namespace.stack.last_mut().unwrap().return_type = Some(Type::Boolean);

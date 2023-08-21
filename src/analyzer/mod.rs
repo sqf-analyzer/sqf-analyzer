@@ -157,18 +157,19 @@ fn process_params_variable(
         process_param_variable(name, state, Type::Anything, false,add_to_signature);
         return Some(name.as_ref().map(|x| uncased(x.as_ref())));
     };
-    let default_type = infer_type(default, state)
-        .map(|x| x.type_())
-        .unwrap_or(Type::Anything);
 
     let Some(types) = types else {
-        process_param_variable(name, state, default_type, true, add_to_signature);
+        process_param_variable(name, state, Type::Anything, true, add_to_signature);
         return Some(name.as_ref().map(|x| uncased(x.as_ref())));
     };
 
     let Some(type_) = process_param_types(types, state) else {
         return Some(name.as_ref().map(|x| uncased(x.as_ref())));
     };
+
+    let default_type = infer_type(default, state)
+        .map(|x| x.type_())
+        .unwrap_or(Type::Anything);
 
     if !type_.consistent(default_type) {
         state.errors.push(Error::new(
