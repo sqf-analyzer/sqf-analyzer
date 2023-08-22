@@ -16,13 +16,16 @@ fn call_len_args() {
     let state = parse_analyze(case);
     assert_eq!(
         state.errors,
-        vec![Error::new(
-            ErrorType::InsufficientArguments {
-                expected: 1,
-                passed: 2
-            },
-            (30, 36)
-        )]
+        vec![
+            Error::new(ErrorType::UnusedVariable, (22, 26)),
+            Error::new(
+                ErrorType::InsufficientArguments {
+                    expected: 1,
+                    passed: 2
+                },
+                (30, 36)
+            ),
+        ]
     );
 }
 
@@ -31,7 +34,10 @@ fn call_annotate() {
     let case = r#"private _a = {params ["_a"]}; [1] call _a;"#;
 
     let state = parse_analyze(case);
-    assert_eq!(state.errors, vec![]);
+    assert_eq!(
+        state.errors,
+        vec![Error::new(ErrorType::UnusedVariable, (22, 26))],
+    );
     assert_eq!(state.parameters, HashMap::from([((31, 32), "_a".into())]));
 }
 
@@ -71,7 +77,13 @@ fn used_default_arg() {
     let case = r#"private _a = {params ["_a", ["_b", []]]}; [1] call _a;"#;
 
     let state = parse_analyze(case);
-    assert_eq!(state.errors, vec![]);
+    assert_eq!(
+        state.errors,
+        vec![
+            Error::new(ErrorType::UnusedVariable, (22, 26)),
+            Error::new(ErrorType::UnusedVariable, (29, 33)),
+        ]
+    );
 }
 
 #[test]

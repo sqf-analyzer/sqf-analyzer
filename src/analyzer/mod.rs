@@ -1,4 +1,5 @@
 use std::collections::hash_map::HashMap;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -405,6 +406,14 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             let return_type = infer_expressions(&code.inner, state);
             let parameters =
                 std::mem::take(&mut state.namespace.stack.last_mut().unwrap().signature);
+
+            state.errors.extend(
+                state
+                    .namespace
+                    .unused()
+                    .map(|span| Error::new(ErrorType::UnusedVariable, span)),
+            );
+
             state.namespace.pop_stack();
             Some(Output::Code(parameters, return_type.map(|x| x.type_())))
         }
@@ -531,6 +540,9 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             } else if op.inner.as_ref().eq_ignore_ascii_case("execVM") {
                 unary::exec_vm(rhs, state);
                 None
+            } else if op.inner.as_ref().eq_ignore_ascii_case("isnil") {
+                unary::is_nil(rhs, state);
+                None
             } else if op.inner.as_ref().eq_ignore_ascii_case("compileScript") {
                 unary::compile_script(rhs, state);
                 None
@@ -588,6 +600,7 @@ pub type MissionNamespace = HashMap<Arc<UncasedStr>, (Origin, Option<Output>)>;
 pub struct Namespace {
     pub stack: Vec<Stack>,
     pub mission: MissionNamespace,
+    read: HashSet<Arc<UncasedStr>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -649,18 +662,30 @@ impl Namespace {
         self.stack.pop();
     }
 
-    pub fn get(&self, key: &str) -> Option<(Origin, Option<Output>)> {
+    pub fn get(&mut self, key: &str) -> Option<(Origin, Option<Output>)> {
         let sqf_key = UncasedStr::new(key);
         for stack in self.stack.iter().rev() {
             if let Some((origin, a)) = stack.variables.get(sqf_key) {
+                self.read.insert(uncased(key));
                 return Some((origin.clone(), a.clone()));
             }
         }
         self.mission.get(sqf_key).cloned()
     }
+
+    pub fn unused(&self) -> impl Iterator<Item = Span> + '_ {
+        self.stack
+            .last()
+            .as_ref()
+            .unwrap()
+            .variables
+            .iter()
+            .filter(|(name, (_, _))| !self.read.contains(*name))
+            .filter_map(|(_, (origin, _))| origin.1)
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct Origin(pub Arc<Path>, pub Option<Span>);
 
 impl From<(Span, &Configuration)> for Origin {
@@ -732,6 +757,13 @@ impl State {
 pub fn analyze(program: &[Expr], state: &mut State) {
     state.namespace.push_stack();
     let output = infer_expressions(program, state);
+
+    state.errors.extend(
+        state
+            .namespace
+            .unused()
+            .map(|span| Error::new(ErrorType::UnusedVariable, span)),
+    );
 
     state.update_return(output.map(|x| x.type_()));
 }

@@ -80,3 +80,9 @@ pub fn call(rhs: &Option<Output>) -> Option<Output> {
         None
     }
 }
+
+pub fn is_nil(rhs: &Expr, state: &mut State) {
+    if let Expr::String(rhs) = rhs {
+        state.namespace.get(&rhs.inner);
+    }
+}

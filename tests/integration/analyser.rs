@@ -16,6 +16,7 @@ pub fn parse_analyze_s(case: &str, state: &mut State) {
     let (expr, errors) = parser::parse(iter);
     assert_eq!(errors, vec![]);
     analyze(&expr, state);
+    state.errors.sort_unstable_by_key(|x| x.span)
 }
 
 pub fn file(start: usize, end: usize) -> Origin {
@@ -37,7 +38,10 @@ pub fn parse_analyze(case: &str) -> State {
 }
 
 fn check_infer(case: &str, expected: HashMap<Span, Option<Type>>) {
-    let result = parse_analyze(case);
+    let mut result = parse_analyze(case);
+    result
+        .errors
+        .retain(|e| e.type_ != ErrorType::UnusedVariable);
     assert_eq!(result.errors, vec![]);
     assert_eq!(result.types, expected);
 }
@@ -278,9 +282,12 @@ fn infer_example2() {
             ..Default::default()
         };
         let mut state = sqf::check(configuration, Default::default(), Default::default()).unwrap();
-        state
-            .errors
-            .retain(|e| !matches!(e.type_, ErrorType::UndefinedVariable(_)));
+        state.errors.retain(|e| {
+            !matches!(
+                e.type_,
+                ErrorType::UndefinedVariable(_) | ErrorType::UnusedVariable
+            )
+        });
         assert_eq!(state.errors, vec![]);
     }
 }
@@ -526,7 +533,10 @@ fn for_each_return() {
 fn params_good() {
     let case = "[1] params [\"_x\"]";
     let state = parse_analyze(case);
-    assert_eq!(state.errors, vec![]);
+    assert_eq!(
+        state.errors,
+        vec![Error::new(ErrorType::UnusedVariable, (12, 16))]
+    );
     assert_eq!(
         state.namespace.stack[0].variables,
         HashMap::from([(uncased("_x"), (file(12, 16), Some(Type::Number.into())))])
@@ -545,7 +555,10 @@ fn count() {
 fn private_unary() {
     let case = "private [\"_a\"]; _a = 1";
     let state = parse_analyze(case);
-    assert_eq!(state.errors, vec![]);
+    assert_eq!(
+        state.errors,
+        vec![Error::new(ErrorType::UnusedVariable, (16, 18))]
+    );
     assert_eq!(state.namespace.mission.len(), 0);
 }
 
@@ -553,7 +566,10 @@ fn private_unary() {
 fn private_string() {
     let case = "private \"_a\"; _a = 1";
     let state = parse_analyze(case);
-    assert_eq!(state.errors, vec![]);
+    assert_eq!(
+        state.errors,
+        vec![Error::new(ErrorType::UnusedVariable, (14, 16))]
+    );
 }
 
 #[test]
@@ -598,14 +614,14 @@ fn compile() {
 
     assert_eq!(state.errors, vec![
         Error {
-            type_: "\"+\" does not support left side of type \"Array\" and right side of type \"Number\"".to_string().into(),
-            span: (10, 11),
-            origin: Some(PathBuf::from("tests/integration/examples/error.sqf").into())
-        },
-        Error {
             type_: "\"+\" does not support left side of type \"Number\" and right side of type \"Array\"".to_string().into(),
             span: (9, 10),
             origin: Some(PathBuf::from("tests/integration/examples/other.sqf").into())
+        },
+        Error {
+            type_: "\"+\" does not support left side of type \"Array\" and right side of type \"Number\"".to_string().into(),
+            span: (10, 11),
+            origin: Some(PathBuf::from("tests/integration/examples/error.sqf").into())
         },
     ]);
     assert_eq!(state.namespace.mission.len(), 2); // a and b
@@ -629,14 +645,14 @@ fn compile_script() {
 
     assert_eq!(state.errors, vec![
         Error {
-            type_: "\"+\" does not support left side of type \"Array\" and right side of type \"Number\"".to_string().into(),
-            span: (10, 11),
-            origin: Some(PathBuf::from("tests/integration/examples/error.sqf").into())
-        },
-        Error {
             type_: "\"+\" does not support left side of type \"Number\" and right side of type \"Array\"".to_string().into(),
             span: (9, 10),
             origin: Some(PathBuf::from("tests/integration/examples/other.sqf").into())
+        },
+        Error {
+            type_: "\"+\" does not support left side of type \"Array\" and right side of type \"Number\"".to_string().into(),
+            span: (10, 11),
+            origin: Some(PathBuf::from("tests/integration/examples/error.sqf").into())
         },
     ]);
     assert_eq!(state.namespace.mission.len(), 2); // a and b

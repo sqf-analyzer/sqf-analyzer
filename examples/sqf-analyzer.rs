@@ -251,9 +251,11 @@ fn process(
                 .unwrap_or_else(|e| vec![e])
         })
         .fold(HashMap::<_, Vec<_>>::default(), |mut acc, error| {
-            acc.entry(error.origin.clone().unwrap())
-                .or_default()
-                .push(error);
+            if let Some(origin) = &error.origin {
+                acc.entry(origin.clone()).or_default().push(error);
+            } else {
+                println!("{:?}", error);
+            }
             acc
         });
 
@@ -286,24 +288,20 @@ fn print_errors(errors: Vec<Error>, path: &Path) {
 
     let file_id = files.add(path.display().to_string(), content);
 
-    let diagnostics = &[Diagnostic::error().with_labels(
-        errors
-            .into_iter()
-            .map(|error| {
-                if error.type_ == ErrorType::PrivateAssignedToMission {
-                    Label::secondary(file_id, error.span.0..error.span.1)
-                } else {
-                    Label::primary(file_id, error.span.0..error.span.1)
-                }
-                .with_message(error.type_.to_string())
-            })
-            .collect(),
-    )];
+    let diagnostics = errors.into_iter().map(|error| {
+        let d = match error.type_ {
+            ErrorType::PrivateAssignedToMission => Diagnostic::warning(),
+            ErrorType::UnusedVariable => Diagnostic::note(),
+            _ => Diagnostic::bug(),
+        };
+        d.with_labels(vec![Label::primary(file_id, error.span.0..error.span.1)
+            .with_message(error.type_.to_string())])
+    });
 
     let writer = StandardStream::stderr(ColorChoice::Auto);
     let config = codespan_reporting::term::Config::default();
     for diagnostic in diagnostics {
-        term::emit(&mut writer.lock(), &config, &files, diagnostic).unwrap();
+        term::emit(&mut writer.lock(), &config, &files, &diagnostic).unwrap();
     }
 }
 
