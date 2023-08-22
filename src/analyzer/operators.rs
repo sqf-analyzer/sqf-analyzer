@@ -183,7 +183,7 @@ pub fn spawn(
     // spawn has its own namespace as a result of not running sync
     let lhs = infer_type(lhs, state);
     let original = state.namespace.stack.clone();
-    state.namespace.stack.clear();
+    state.namespace.stack = vec![Default::default()];
     let rhs = infer_type(rhs, state);
     state.namespace.stack = original;
     infer_binary(

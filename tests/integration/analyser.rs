@@ -597,6 +597,13 @@ fn find_if() {
 }
 
 #[test]
+fn spawn_error() {
+    let case = "[] spawn (1);";
+    let state = parse_analyze(case);
+    assert_eq!(state.errors.len(), 1);
+}
+
+#[test]
 fn compile() {
     let case = "call compile preprocessFileLineNumbers \"error.sqf\"";
 
