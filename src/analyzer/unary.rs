@@ -2,7 +2,7 @@ use crate::analyzer::Configuration;
 use crate::{check, get_path};
 use crate::{error::Error, parser::Expr};
 
-use super::State;
+use super::{Output, State};
 
 pub fn compile(rhs: &Expr, state: &mut State) {
     // check that the previous call is a preprocessFileLineNumbers, so that we can fetch the file
@@ -70,5 +70,13 @@ pub fn compile_script(rhs: &Expr, state: &mut State) {
         if let Some(path) = items.inner.first() {
             compile_(path, state);
         }
+    }
+}
+
+pub fn call(rhs: &Option<Output>) -> Option<Output> {
+    if let Some(Output::Code(_, type_)) = &rhs {
+        type_.map(Output::Type)
+    } else {
+        None
     }
 }

@@ -199,12 +199,12 @@ fn basic_with_unknown_type() {
         (25, 27),
     ));
     expected.errors.push(Error::new(
-        "params' third argument's elements must be typed".to_string(),
-        (24, 28),
-    ));
-    expected.errors.push(Error::new(
         ErrorType::UndefinedVariable("_b".into()),
         (25, 27),
+    ));
+    expected.errors.push(Error::new(
+        "params' third argument's elements must be typed".to_string(),
+        (24, 28),
     ));
     expected.explanations.insert(
         (0, 6),

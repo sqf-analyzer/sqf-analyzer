@@ -109,3 +109,20 @@ fn spawn_annotate_ext() {
     parse_analyze_s(case, &mut state);
     assert_eq!(state.origins, HashMap::default());
 }
+
+#[test]
+fn typed() {
+    let case = r#"private _a = call {
+        if a then {
+            [[]]
+        } else {
+            [[]]
+        }
+    }"#;
+    let state = parse_analyze(case);
+
+    assert_eq!(
+        state.namespace.stack[0].variables,
+        HashMap::from([(uncased("_a"), (file(8, 10), Some(Type::Array.into())))])
+    );
+}

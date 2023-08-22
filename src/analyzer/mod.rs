@@ -503,7 +503,8 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
             }
         }
         Expr::Unary(op, rhs) => {
-            if op.inner.as_ref().eq_ignore_ascii_case("for") {
+            let rhs_type = infer_type(rhs, state);
+            let output = if op.inner.as_ref().eq_ignore_ascii_case("for") {
                 if let Expr::String(x) = rhs.as_ref() {
                     state.types.insert(x.span, Some(Type::Number));
                     state.namespace.insert(
@@ -513,6 +514,7 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                         true,
                     );
                 }
+                None
             } else if op.inner.as_ref().eq_ignore_ascii_case("params") {
                 // store the names of the variables to build the function's signature
                 if let Expr::Array(x) = rhs.as_ref() {
@@ -520,12 +522,18 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                         process_params_variable(x, state, true);
                     })
                 }
+                None
             } else if op.inner.as_ref().eq_ignore_ascii_case("compile") {
                 unary::compile(rhs, state);
+                None
+            } else if op.inner.as_ref().eq_ignore_ascii_case("call") {
+                unary::call(&rhs_type)
             } else if op.inner.as_ref().eq_ignore_ascii_case("execVM") {
                 unary::exec_vm(rhs, state);
+                None
             } else if op.inner.as_ref().eq_ignore_ascii_case("compileScript") {
                 unary::compile_script(rhs, state);
+                None
             } else if op.inner.as_ref().eq_ignore_ascii_case("private") {
                 if let Expr::Array(array) = rhs.as_ref() {
                     for entry in &array.inner {
@@ -550,13 +558,15 @@ fn infer_type(expr: &Expr, state: &mut State) -> Option<Output> {
                         (name.span, &state.configuration).into(),
                         true,
                     );
-                }
-            }
-            let rhs_type = infer_type(rhs, state);
+                };
+                None
+            } else {
+                None
+            };
             infer_unary(op, rhs_type.map(|x| x.type_()), &mut state.errors).map(
                 |(type_, explanation)| {
                     state.explanations.insert(op.span, explanation);
-                    type_.into()
+                    output.unwrap_or_else(|| type_.into())
                 },
             )
         }
