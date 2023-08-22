@@ -6,22 +6,8 @@ use uncased::UncasedStr;
 use crate::database;
 use crate::types::{Signature, Type};
 
-use super::Output;
-
 pub type InnerType = (Type, &'static str);
 type Types = ArrayVec<[InnerType; 5]>;
-
-impl From<InnerType> for Type {
-    fn from(value: InnerType) -> Self {
-        value.0
-    }
-}
-
-impl From<InnerType> for Output {
-    fn from(value: InnerType) -> Self {
-        value.0.into()
-    }
-}
 
 fn _build_binary() -> HashMap<&'static UncasedStr, HashMap<(Type, Type), Types>> {
     let mut r: HashMap<&'static UncasedStr, HashMap<(Type, Type), Types>> = Default::default();
