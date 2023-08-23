@@ -18,7 +18,12 @@ pub struct AstIterator<'a> {
 
 pub(super) type Arguments = Vec<VecDeque<Spanned<Arc<str>>>>;
 
-pub(super) type DefineState = (Define, Arguments, Spanned<MacroState>);
+#[derive(Debug, Clone)]
+pub struct DefineState {
+    pub define: Define,
+    pub arguments: Arguments,
+    pub state: Spanned<MacroState>,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Configuration {
