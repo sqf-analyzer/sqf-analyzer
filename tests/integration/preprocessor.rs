@@ -592,3 +592,25 @@ fn define_single_quoted() {
     "#;
     assert(case, vec!["1", "+", "'fnc_a'", "+", "1"]);
 }
+
+#[test]
+fn recursive_define() {
+    let case = r#"
+#define LOG_SYS(LEVEL,MESSAGE) [LEVEL, MESSAGE]
+#define ERROR(MESSAGE) LOG_SYS('ERROR',MESSAGE)
+ERROR("no display");
+"#;
+
+    assert(case, vec!["[", "'ERROR'", ",", "\"no display\"", "]", ";"]);
+}
+
+#[test]
+fn recursion_does_not_crash() {
+    let case = r#"
+#define LOG ERROR
+#define ERROR LOG
+ERROR
+"#;
+
+    assert(case, vec!["ERROR"]);
+}

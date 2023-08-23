@@ -1,11 +1,11 @@
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 
 use crate::error::Error;
 use crate::preprocessor::iterator::MacroState;
 use crate::span::Spanned;
 
-use super::iterator::{Arguments, DefineState, State};
+use super::iterator::{Arguments, DefineState, PreprocessorState, State};
 use super::*;
 
 /// returns whether the token is consumed
@@ -75,55 +75,72 @@ pub fn update(state: &mut State, item: &Spanned<Arc<str>>) -> bool {
 /// fills the stack with items based on the state and set of defines
 /// E.g. items ["A", "(", "1", ")"] will result in the stack with the body of macro A with corresponding replacement.
 fn update_(
-    state: &mut Option<DefineState>,
+    preprocessor_state: &mut PreprocessorState,
     errors: &mut Vec<Error>,
     defines: &Defines,
     item: &Spanned<Arc<str>>,
     stack: &mut VecDeque<Spanned<Arc<str>>>,
 ) -> bool {
-    if let Some(def) = state {
+    if let Some(def) = &mut preprocessor_state.define {
         advance_state(def, item, errors);
         if def.state.inner == MacroState::None {
-            let mut define_state = std::mem::take(state).unwrap();
-            let define_name = define_state.define.name.inner.as_ref();
+            let DefineState {
+                mut define,
+                mut arguments,
+                state,
+            } = std::mem::take(&mut preprocessor_state.define).unwrap();
             // expand each of the arguments of the macro with other macro calls
-            for argument in define_state.arguments.iter_mut() {
-                expand_(argument, defines, errors, define_name);
+            for argument in arguments.iter_mut() {
+                expand_(argument, defines, errors, &preprocessor_state.in_recursion);
                 concat(argument);
             }
 
             // replace arguments of define in its body
-            replace(
-                &mut define_state.define.body,
-                &define_state.define.arguments,
-                &define_state.arguments,
-            );
+            replace(&mut define.body, &define.arguments, &arguments);
 
             // expand the body with other macro calls
-            expand_(&mut define_state.define.body, defines, errors, define_name);
+            expand_(
+                &mut define.body,
+                defines,
+                errors,
+                &preprocessor_state.in_recursion,
+            );
 
-            define_state
-                .define
-                .body
-                .iter_mut()
-                .for_each(|x| x.span = define_state.state.span);
+            define.body.iter_mut().for_each(|x| x.span = state.span);
 
-            stack.extend(define_state.define.body);
+            stack.extend(define.body);
+
+            preprocessor_state.in_recursion.remove(&define.name.inner);
         }
         return true; // we consume all tokens until we are done
     };
 
     if let Some(define) = defines.get(item.inner.as_ref()) {
+        if !preprocessor_state
+            .in_recursion
+            .insert(define.name.inner.clone())
+        {
+            stack.push_back(item.clone());
+            return true;
+        }
+
         if define.arguments.is_none() {
             let mut tokens = define.body.clone();
-            expand_(&mut tokens, defines, errors, define.name.inner.as_ref());
+            expand_(
+                &mut tokens,
+                defines,
+                errors,
+                &preprocessor_state.in_recursion,
+            );
 
             tokens.iter_mut().for_each(|x| x.span = item.span);
 
             stack.extend(tokens);
+
+            preprocessor_state.in_recursion.remove(&define.name.inner);
         } else {
             // enter the start of a define
-            *state = Some(DefineState {
+            preprocessor_state.define = Some(DefineState {
                 define: define.clone(),
                 arguments: Default::default(),
                 state: Spanned::new(MacroState::ParenthesisStart, item.span),
@@ -195,18 +212,16 @@ fn expand_(
     tokens: &mut VecDeque<Spanned<Arc<str>>>,
     defines: &Defines,
     errors: &mut Vec<Error>,
-    macro_: &str,
+    in_recursion: &HashSet<Arc<str>>,
 ) {
     let taken_tokens = std::mem::take(tokens);
 
     let mut new_tokens = VecDeque::new();
-    let mut state = None;
+    let mut state = PreprocessorState {
+        define: None,
+        in_recursion: in_recursion.clone(),
+    };
     for token in taken_tokens {
-        if token.inner.as_ref() == macro_ {
-            // avoid direct recurrence
-            new_tokens.push_back(token);
-            continue;
-        }
         if !update_(&mut state, errors, defines, &token, &mut new_tokens) {
             new_tokens.push_back(token)
         }

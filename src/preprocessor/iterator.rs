@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -23,6 +23,12 @@ pub struct DefineState {
     pub define: Define,
     pub arguments: Arguments,
     pub state: Spanned<MacroState>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct PreprocessorState {
+    pub define: Option<DefineState>,
+    pub in_recursion: HashSet<Arc<str>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -55,7 +61,7 @@ impl Configuration {
 #[derive(Debug, Clone)]
 pub struct State {
     pub configuration: Configuration,
-    pub current_macro: Option<DefineState>,
+    pub current_macro: PreprocessorState,
     pub if_results: HashMap<Span, bool>,
     pub stack: VecDeque<Spanned<Arc<str>>>,
     pub errors: Vec<Error>,
@@ -273,7 +279,7 @@ impl<'a> AstIterator<'a> {
             state: State {
                 configuration,
                 if_results: Default::default(),
-                current_macro: None,
+                current_macro: Default::default(),
                 stack: Default::default(),
                 errors: Default::default(),
             },
