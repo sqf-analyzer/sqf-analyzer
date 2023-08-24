@@ -614,3 +614,9 @@ ERROR
 
     assert(case, vec!["ERROR"]);
 }
+
+#[test]
+fn debug() {
+    let case = "#define\tA  \t3";
+    assert(case, vec![]);
+}

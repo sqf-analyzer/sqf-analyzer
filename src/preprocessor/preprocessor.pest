@@ -22,13 +22,13 @@ base_term =  { string | word | number | symbol }
 
 // #include
 include_kw        =  { "#include" }
-include           = ${ include_kw ~ " " ~ include_str ~ " "* ~ (end | COMMENT) }
+include           = ${ include_kw ~ (" " | "\t") ~ include_str ~ (" " | "\t")* ~ (end | COMMENT) }
 include_str_inner = @{ (!("\"" | ">") ~ ANY)* }
 include_str       = _{ ("<" ~ include_str_inner ~ ">") | "\"" ~ include_str_inner ~ "\"" }
 
 // #undef
 undef_kw =  { "#undef" }
-undef    = ${ undef_kw ~ " " ~ word ~ end }
+undef    = ${ undef_kw ~ (" " | "\t") ~ word ~ end }
 
 // #if | #ifdef | #ifndef
 if_ = ${
@@ -43,12 +43,12 @@ ifdef_kw    =  { "#ifdef" | "#ifndef" }
 endif_kw    =  { "#endif" }
 
 // #if
-if_start   = ${ if_keyword ~ " "* ~ base_term* ~ " "* ~ end }
+if_start   = ${ if_keyword ~ (" " | "\t")* ~ base_term* ~ (" " | "\t")* ~ end }
 if_keyword =  { "#if" }
 
 // #define
 define = ${
-    define_kw ~ " " ~ word ~ define_arguments? ~ " "* ~ (COMMENT | define_term)* ~ " "* ~ end
+    define_kw ~ (" " | "\t")+ ~ word ~ define_arguments? ~ " "* ~ (COMMENT | define_term)* ~ (" " | "\t")* ~ end
 }
 
 define_kw     =  { "#define" }
