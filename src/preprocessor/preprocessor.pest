@@ -38,7 +38,7 @@ if_ = ${
 if_term     = _{ (!(endif_kw | else_) ~ term) }
 if_body     =  { (WHITESPACE | COMMENT | if_term)* }
 else_       =  { "#else" }
-ifdef_start = ${ ifdef_kw ~ " "+ ~ word ~ end }
+ifdef_start = ${ ifdef_kw ~ (" " | "\t")+ ~ word ~ end }
 ifdef_kw    =  { "#ifdef" | "#ifndef" }
 endif_kw    =  { "#endif" }
 

@@ -1,20 +1,26 @@
 use std::collections::VecDeque;
 
 use sqf::{
+    error::Error,
     preprocessor::parse,
     preprocessor::{tokens, Ast},
     span::Spanned,
 };
 
-fn assert(case: &str, expected: Vec<&str>) {
+fn collect(case: &str) -> (Vec<String>, Vec<Error>) {
     let mut iter = tokens(case, Default::default()).unwrap();
 
     let r = iter
         .by_ref()
         .map(|x| x.inner.to_string())
         .collect::<Vec<_>>();
-    assert_eq!(iter.state.errors, vec![]);
 
+    (r, iter.state.errors)
+}
+
+fn assert(case: &str, expected: Vec<&str>) {
+    let (r, errors) = collect(case);
+    assert_eq!(errors, vec![]);
     assert_eq!(r, expected);
 }
 
@@ -525,7 +531,9 @@ fn macro_recursion() {
 #define A A
 A
 "#;
-    assert(case, vec!["A"]);
+    let (r, errors) = collect(case);
+    assert_eq!(r, vec!["A"]);
+    assert_eq!(errors.len(), 2);
 }
 
 #[test]
@@ -612,11 +620,29 @@ fn recursion_does_not_crash() {
 ERROR
 "#;
 
-    assert(case, vec!["ERROR"]);
+    let (r, errors) = collect(case);
+    assert_eq!(r, vec!["ERROR"]);
+    assert_eq!(errors.len(), 3);
 }
 
 #[test]
 fn define_with_tabs() {
     let case = "#define\tA  \t3";
     assert(case, vec![]);
+}
+
+#[test]
+fn debug() {
+    let case = r#"
+#define COMPONENT core
+#define PREFIX A
+
+//#include "./script_macros.hpp"
+#define ADDON DOUBLES(PREFIX,COMPONENT)
+#define DOUBLES(var1,var2) ##var1##_##var2
+#define GVAR(var1) DOUBLES(ADDON,var1)
+
+GVAR(a) = false;
+"#;
+    assert(case, vec!["A_core_a", "=", "false", ";"]);
 }

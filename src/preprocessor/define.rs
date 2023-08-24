@@ -13,7 +13,7 @@ fn advance_state(
     define_state: &mut DefineState,
     item: &Spanned<Arc<str>>,
     errors: &mut Vec<Error>,
-) {
+) -> bool {
     let mut macro_state = &mut define_state.state;
     match (macro_state.inner, item.inner.as_ref()) {
         (MacroState::Argument(0), ")") => {
@@ -26,12 +26,7 @@ fn advance_state(
             macro_state.inner = MacroState::Argument(0);
             macro_state.span.1 += item.span.1 - item.span.0;
         }
-        (MacroState::ParenthesisStart, _) => {
-            errors.push(Error::new(
-                "Macro with arguments is expected to be followed by (".to_string(),
-                item.span,
-            ));
-        }
+        (MacroState::ParenthesisStart, _) => return false,
         (MacroState::Argument(0), ",") => {
             define_state.arguments.push(Default::default());
             macro_state.span.1 += item.span.1 - item.span.0;
@@ -56,6 +51,7 @@ fn advance_state(
             ));
         }
     }
+    true
 }
 
 /// Returns whether the token is consumed by this update or not
@@ -82,7 +78,18 @@ fn update_(
     stack: &mut VecDeque<Spanned<Arc<str>>>,
 ) -> bool {
     if let Some(def) = &mut preprocessor_state.define {
-        advance_state(def, item, errors);
+        let matched = advance_state(def, item, errors);
+        if !matched {
+            // the keyword was the same, but there are no parenthesis and thus
+            // it is not a macro call
+            let def = std::mem::take(&mut preprocessor_state.define).unwrap();
+            preprocessor_state
+                .in_recursion
+                .remove(&def.define.name.inner);
+            stack.push_back(def.define.name);
+            stack.push_back(item.clone());
+            return true;
+        }
         if def.state.inner == MacroState::None {
             let DefineState {
                 mut define,
@@ -93,6 +100,18 @@ fn update_(
             for argument in arguments.iter_mut() {
                 expand_(argument, defines, errors, &preprocessor_state.in_recursion);
                 concat(argument);
+            }
+
+            if !preprocessor_state
+                .in_recursion
+                .insert(define.name.inner.clone())
+            {
+                errors.push(Error::new(
+                    format!("Macro {} recurses", define.name.inner),
+                    item.span,
+                ));
+                stack.push_back(item.clone());
+                return true;
             }
 
             // replace arguments of define in its body
@@ -116,15 +135,19 @@ fn update_(
     };
 
     if let Some(define) = defines.get(item.inner.as_ref()) {
-        if !preprocessor_state
-            .in_recursion
-            .insert(define.name.inner.clone())
-        {
-            stack.push_back(item.clone());
-            return true;
-        }
-
         if define.arguments.is_none() {
+            if !preprocessor_state
+                .in_recursion
+                .insert(define.name.inner.clone())
+            {
+                errors.push(Error::new(
+                    format!("Macro {} recurses", define.name.inner),
+                    item.span,
+                ));
+                stack.push_back(item.clone());
+                return true;
+            }
+
             let mut tokens = define.body.clone();
             expand_(
                 &mut tokens,
