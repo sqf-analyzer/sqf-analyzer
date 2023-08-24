@@ -101,7 +101,7 @@ fn code<I: Iterator<Item = Spanned<Arc<str>>>>(
     };
 
     while iter.peek().is_some() {
-        while matches(iter.peek(), ";") {
+        while matches!(iter.peek().map(|x| x.inner.as_ref()), Some(";" | ",")) {
             iter.next().unwrap();
         }
         if matches(iter.peek(), "}") {
@@ -111,7 +111,7 @@ fn code<I: Iterator<Item = Spanned<Arc<str>>>>(
         let expression = expr_bp(iter, 0, errors);
         expressions.push(expression);
 
-        while matches(iter.peek(), ";") {
+        while matches!(iter.peek().map(|x| x.inner.as_ref()), Some(";" | ",")) {
             iter.next().unwrap();
         }
 
@@ -231,7 +231,7 @@ fn expr_bp<I: Iterator<Item = Spanned<Arc<str>>>>(
         let op = match iter.peek() {
             None => break,
             Some(op) => {
-                if op.inner.as_ref() == ";" || op.inner.as_ref() == "," {
+                if matches!(op.inner.as_ref(), ";" | ",") {
                     break;
                 }
                 op.clone()
@@ -299,7 +299,7 @@ fn infix_binding_power(op: &str) -> Option<(u8, u8)> {
 
     // https://community.bistudio.com/wiki/Operators#Order_of_Precedence
     let res = match op {
-        ";" => (1, 2),
+        ";" | "," => (1, 2),
         "=" => (19, 20), // assign op has the least binding power
         "or" | "||" => (21, 22),
         "and" | "&&" => (23, 24),

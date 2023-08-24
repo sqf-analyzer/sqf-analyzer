@@ -604,6 +604,14 @@ fn spawn_error() {
 }
 
 #[test]
+fn coma() {
+    let case = "1, A = 2";
+    let state = parse_analyze(case);
+    assert_eq!(state.errors, vec![]);
+    assert_eq!(state.namespace.mission.len(), 1);
+}
+
+#[test]
 fn compile() {
     let case = "call compile preprocessFileLineNumbers \"error.sqf\"";
 

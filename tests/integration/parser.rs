@@ -145,13 +145,10 @@ fn expr() {
 fn expr_negative() {
     let cases = ["ormat [\"\", _arguments];", "_a cal [\"\", _arguments];"];
     let expected = [
-        vec![
-            Error::new("\"[\" is not a valid binary operator".to_string(), (6, 7)),
-            Error::new(
-                "\"_arguments\" is not a valid binary operator".to_string(),
-                (11, 21),
-            ),
-        ],
+        vec![Error::new(
+            "\"[\" is not a valid binary operator".to_string(),
+            (6, 7),
+        )],
         vec![Error::new(
             "\"cal\" is not a valid binary operator".to_string(),
             (3, 6),
@@ -241,20 +238,14 @@ fn errors() {
         ),
         (
             "ormat [\"\", _arguments]",
-            vec![
-                Error::new("\"[\" is not a valid binary operator".to_string(), (6, 7)),
-                Error::new(
-                    "\"_arguments\" is not a valid binary operator".to_string(),
-                    (11, 21),
-                ),
-            ],
+            vec![Error::new(
+                "\"[\" is not a valid binary operator".to_string(),
+                (6, 7),
+            )],
         ),
         (
             r#"A(1, 2)"#,
-            vec![
-                Error::new("Macro \"A\" undefined".to_string(), (0, 1)),
-                Error::new("\"2\" is not a valid binary operator".to_string(), (5, 6)),
-            ],
+            vec![Error::new("Macro \"A\" undefined".to_string(), (0, 1))],
         ),
     ];
 

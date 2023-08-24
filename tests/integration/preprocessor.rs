@@ -616,7 +616,7 @@ ERROR
 }
 
 #[test]
-fn debug() {
+fn define_with_tabs() {
     let case = "#define\tA  \t3";
     assert(case, vec![]);
 }
