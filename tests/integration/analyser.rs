@@ -644,7 +644,7 @@ fn compile() {
 
 #[test]
 fn compile_script() {
-    let case = "compileScript [\"error.sqf\"]";
+    let case = "A_fnc = compileScript [\"error.sqf\"];\n[] call A_fnc";
 
     let configuration = Configuration {
         file_path: PathBuf::from("./tests/integration/examples/bla.txt").into(),
@@ -670,7 +670,7 @@ fn compile_script() {
             origin: Some(PathBuf::from("tests/integration/examples/error.sqf").into())
         },
     ]);
-    assert_eq!(state.namespace.mission.len(), 2); // a and b
+    assert_eq!(state.namespace.mission.len(), 3); // A_fnc, a and b
 }
 
 #[test]
@@ -725,12 +725,18 @@ fn binary_exec_vm() {
     assert_eq!(state.namespace.mission.len(), 1); // b
     assert_eq!(
         state.origins,
-        HashMap::from([(
-            (23, 24),
-            global(
-                PathBuf::from("tests/integration/examples/other.sqf"),
-                (0, 1)
+        HashMap::from([
+            (
+                (10, 21),
+                function("tests/integration/examples/other.sqf".into()),
+            ),
+            (
+                (23, 24),
+                global(
+                    PathBuf::from("tests/integration/examples/other.sqf"),
+                    (0, 1)
+                )
             )
-        )])
+        ])
     );
 }

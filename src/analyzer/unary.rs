@@ -2,7 +2,7 @@ use crate::analyzer::Configuration;
 use crate::{check, get_path};
 use crate::{error::Error, parser::Expr};
 
-use super::{Output, State};
+use super::{Origin, Output, State};
 
 pub fn compile(rhs: &Expr, state: &mut State) {
     // check that the previous call is a preprocessFileLineNumbers, so that we can fetch the file
@@ -36,6 +36,9 @@ pub fn compile_(rhs: &Expr, state: &mut State) {
             return;
         }
     };
+    state
+        .origins
+        .insert(path_str.span, Origin(file_path.clone(), None));
 
     let configuration = Configuration {
         file_path,
