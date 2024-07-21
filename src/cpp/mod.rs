@@ -183,7 +183,7 @@ fn process_subclass(
 ) {
     let Some(Expr::Token(colon)) = expr.front() else {
         process_body(name, expr, state, errors);
-        return
+        return;
     };
     if colon.inner.as_ref() != ":" {
         process_body(name, expr, state, errors);
@@ -191,8 +191,11 @@ fn process_subclass(
     }
     expr.pop_front();
     let Some(Expr::Token(name)) = expr.pop_front() else {
-        errors.push(Error::new( "subclass requires a name".to_string(), name.span,));
-        return
+        errors.push(Error::new(
+            "subclass requires a name".to_string(),
+            name.span,
+        ));
+        return;
     };
     process_body(name, expr, state, errors)
 }
@@ -241,7 +244,7 @@ fn concatenate(tokens: &VecDeque<Expr>) -> Spanned<Value> {
 
 fn process_expr(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<Error>) {
     let Some(first) = expr.pop_front() else {
-        return
+        return;
     };
 
     if let Expr::Code(_) = first {
@@ -249,15 +252,15 @@ fn process_expr(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
     };
 
     let Expr::Token(first) = first else {
-        errors.push(Error::new( "body expects a token".to_string(), first.span(),));
+        errors.push(Error::new("body expects a token".to_string(), first.span()));
         return;
     };
 
     if first.inner.as_ref() == "class" {
         let name = expr.pop_front();
         let Some(Expr::Token(name)) = name else {
-            errors.push(Error::new( "class requires a name".to_string(), first.span,));
-            return
+            errors.push(Error::new("class requires a name".to_string(), first.span));
+            return;
         };
         process_subclass(name, expr, state, errors);
     } else {
@@ -279,7 +282,7 @@ fn process_expr(expr: &mut VecDeque<Expr>, state: &mut State, errors: &mut Vec<E
         }
         let value = if expr.len() == 1 {
             let Some(value) = to_value(expr.pop_back().unwrap(), errors) else {
-                return
+                return;
             };
             value
         } else {
@@ -313,7 +316,10 @@ fn process_code(expressions: &mut VecDeque<Expr>, state: &mut State, errors: &mu
 /// and errors on it.
 pub fn analyze_file(configuration: Configuration) -> Result<(Functions, Vec<Error>), String> {
     let Ok(content) = std::fs::read_to_string(&configuration.path) else {
-        return Err(format!("File \"{}\" not found", configuration.path.display()))
+        return Err(format!(
+            "File \"{}\" not found",
+            configuration.path.display()
+        ));
     };
 
     let iter = preprocessor::tokens(&content, configuration).map_err(|e| e.1.type_.to_string())?;

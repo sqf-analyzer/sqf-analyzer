@@ -14,7 +14,7 @@ fn advance_state(
     item: &Spanned<Arc<str>>,
     errors: &mut Vec<Error>,
 ) -> bool {
-    let mut macro_state = &mut define_state.state;
+    let macro_state = &mut define_state.state;
     match (macro_state.inner, item.inner.as_ref()) {
         (MacroState::Argument(0), ")") => {
             // end state

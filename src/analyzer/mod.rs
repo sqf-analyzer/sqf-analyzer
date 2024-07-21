@@ -155,7 +155,7 @@ fn process_params_variable(
     };
 
     let Some(default) = default else {
-        process_param_variable(name, state, Type::Anything, false,add_to_signature);
+        process_param_variable(name, state, Type::Anything, false, add_to_signature);
         return Some(name.as_ref().map(|x| uncased(x.as_ref())));
     };
 
@@ -348,7 +348,7 @@ fn infer_assign(lhs: &Expr, rhs: &Expr, state: &mut State) {
                 "assigment can only have variables in left side".to_string(),
                 lhs.span(),
             ));
-            return
+            return;
         };
         (false, variable)
     };

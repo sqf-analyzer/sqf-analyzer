@@ -11,7 +11,7 @@ walkdir = "2"
 path-clean = "*"
 path-slash = "*"
 tinyvec = "1.6.0"
-uncased = { version = "*", default-features = false }
+uncased = { version = "*", default-features = false, features = ["alloc"] }
 
 [[example]]
 name = "sqf-analyzer"

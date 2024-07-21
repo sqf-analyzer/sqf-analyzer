@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -216,10 +218,7 @@ mod tests {
 
 pub use uncased::UncasedStr;
 
-/// converts an &UncasedStr to an Arc<UncasedStr>
+/// converts an &str to an Arc<UncasedStr>
 pub fn uncased(v: &str) -> std::sync::Arc<UncasedStr> {
-    // same implementation as https://doc.rust-lang.org/src/alloc/sync.rs.html#2691
-    // waiting for https://github.com/SergioBenitez/uncased/pull/8
-    let arc = std::sync::Arc::<[u8]>::from(v.as_bytes());
-    unsafe { std::sync::Arc::from_raw(std::sync::Arc::into_raw(arc) as *const UncasedStr) }
+    UncasedStr::new(v).into()
 }
