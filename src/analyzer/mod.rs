@@ -764,3 +764,40 @@ pub fn analyze(program: &[Expr], state: &mut State) {
 
     state.update_return(output.map(|x| x.type_()));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_infer_binary() {
+        let mut errors = vec![];
+        infer_binary(
+            Some(Type::Anything),
+            &Spanned {
+                inner: "aaa".into(),
+                span: (0, 3),
+            },
+            Some(Type::Anything),
+            (0, 4),
+            &mut errors,
+        );
+        assert!(!errors.is_empty());
+    }
+
+    #[test]
+    fn test_infer_binary_rhs_anything() {
+        let mut errors = vec![];
+        infer_binary(
+            None,
+            &Spanned {
+                inner: "call".into(),
+                span: (0, 3),
+            },
+            Some(Type::Anything),
+            (0, 4),
+            &mut errors,
+        );
+        assert!(errors.is_empty());
+    }
+}
