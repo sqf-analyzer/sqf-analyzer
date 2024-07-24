@@ -90,7 +90,10 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Ast<'_> {
             let Some(args_or_body) = define.peek() else {
                 return Ast::Define(Define {
                     keyword,
-                    name, arguments: None, body: Default::default()});
+                    name,
+                    arguments: None,
+                    body: Default::default(),
+                });
             };
             let is_arguments = matches!(args_or_body.as_rule(), Rule::define_arguments);
 

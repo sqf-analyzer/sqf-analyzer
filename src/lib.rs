@@ -164,7 +164,7 @@ pub fn check_content(
         addons: configuration.addons.clone(),
         ..Default::default()
     };
-    let iter = preprocessor::tokens(&text, conf).map_err(|x| x.1)?;
+    let iter = preprocessor::tokens(text, conf).map_err(|x| x.1)?;
 
     let (expr, errors) = parser::parse(iter);
 

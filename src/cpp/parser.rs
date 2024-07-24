@@ -10,6 +10,7 @@ use crate::{
     span::{Span, Spanned},
 };
 
+#[allow(dead_code, clippy::enum_variant_names)]
 #[derive(Clone, Debug)]
 pub enum Expr {
     Number(Spanned<f32>),

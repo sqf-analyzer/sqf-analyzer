@@ -32,29 +32,33 @@ impl From<String> for ErrorType {
     }
 }
 
-impl ToString for ErrorType {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for ErrorType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ErrorType::GlobalVariableParam => "Parameter variable must start with _".to_string(),
-            ErrorType::IncompatibleParamArgument(t1, t2) => {
-                format!("Param has a default of type {t1:?} but expects type {t2:?}")
-            }
+            ErrorType::GlobalVariableParam => f.write_str("Parameter variable must start with _"),
+            ErrorType::IncompatibleParamArgument(t1, t2) => f.write_fmt(format_args!(
+                "Param has a default of type {t1:?} but expects type {t2:?}"
+            )),
             ErrorType::InvalidType(expected, got) => {
-                format!("Expected type {expected:?}, but got {got:?}")
+                f.write_fmt(format_args!("Expected type {expected:?}, but got {got:?}"))
             }
-            ErrorType::UndefinedVariable(name) => format!("undefined variable \"{name}\""),
-            ErrorType::UnusedVariable => "Unused variable".to_string(),
+            ErrorType::UndefinedVariable(name) => {
+                f.write_fmt(format_args!("undefined variable \"{name}\""))
+            }
+            ErrorType::UnusedVariable => f.write_str("Unused variable"),
             ErrorType::PrivateAssignedToMission => {
-                "variable with underscore assigned to global space".to_string()
+                f.write_str("variable with underscore assigned to global space")
             }
-            ErrorType::InsufficientArguments { expected, passed } => {
-                format!("function expected {expected} arguments, but got {passed}")
+            ErrorType::InsufficientArguments { expected, passed } => f.write_fmt(format_args!(
+                "function expected {expected} arguments, but got {passed}"
+            )),
+            ErrorType::InvalidBinaryOperator => f.write_str("invalid binary operator"),
+            ErrorType::ExpectedType(t) => f.write_fmt(format_args!("Expected type {t:?}")),
+            ErrorType::UnexpectedEndOfFile => {
+                f.write_str("unclosed parenthesis before end of file")
             }
-            ErrorType::InvalidBinaryOperator => "invalid binary operator".to_string(),
-            ErrorType::ExpectedType(t) => format!("Expected type {t:?}"),
-            ErrorType::UnexpectedEndOfFile => "unclosed parenthesis before end of file".to_string(),
-            ErrorType::UnclosedParenthesis => "unclosed parenthesis".to_string(),
-            ErrorType::Other(e) => e.to_string(),
+            ErrorType::UnclosedParenthesis => f.write_str("unclosed parenthesis"),
+            ErrorType::Other(e) => f.write_str(e),
         }
     }
 }

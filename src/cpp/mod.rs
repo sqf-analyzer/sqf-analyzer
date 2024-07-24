@@ -13,6 +13,7 @@ mod parser;
 use parser::*;
 use uncased::UncasedStr;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 enum Value {
     Number(f32),

@@ -1,8 +1,9 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
     Boolean,
     String,
     Nothing,
+    #[default]
     Anything,
     Namespace,
     Number,
@@ -27,12 +28,6 @@ pub enum Type {
     While,
     Exception,
     With,
-}
-
-impl Default for Type {
-    fn default() -> Self {
-        Type::Anything
-    }
 }
 
 impl Type {

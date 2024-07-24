@@ -18,7 +18,7 @@ pub fn union_output(lhs: Option<Output>, rhs: Option<Output>) -> Option<Output> 
 
 pub fn union_stacks(lhs: Vec<Stack>, rhs: Vec<Stack>) -> Vec<Stack> {
     lhs.into_iter()
-        .zip(rhs.into_iter())
+        .zip(rhs)
         .map(|(mut lhs, rhs)| {
             for (key, (span, output)) in rhs.variables.into_iter() {
                 lhs.variables

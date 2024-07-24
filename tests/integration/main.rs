@@ -29,7 +29,7 @@ fn check_addon() {
     assert_eq!(e, vec![]);
 
     for (_, function_path) in functions {
-        let Ok(path) = sqf::get_path(&function_path.inner,&path, &Default::default()) else {
+        let Ok(path) = sqf::get_path(&function_path.inner, &path, &Default::default()) else {
             panic!()
         };
 

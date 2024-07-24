@@ -7,7 +7,7 @@ use super::{Origin, Output, State};
 pub fn compile(rhs: &Expr, state: &mut State) {
     // check that the previous call is a preprocessFileLineNumbers, so that we can fetch the file
     let Expr::Unary(process, code) = rhs else {
-        return
+        return;
     };
     if !process
         .inner
@@ -20,7 +20,7 @@ pub fn compile(rhs: &Expr, state: &mut State) {
 }
 
 pub fn compile_(rhs: &Expr, state: &mut State) {
-    let Expr::String(path_str) = rhs else {return};
+    let Expr::String(path_str) = rhs else { return };
     if path_str.inner.starts_with("\\A3") || path_str.inner.starts_with("\\a3") {
         return;
     };

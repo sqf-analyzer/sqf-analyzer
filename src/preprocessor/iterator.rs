@@ -69,8 +69,8 @@ pub struct State {
 
 /// Takes a term from the front, removing the Ast from the deque if it is empty
 /// Returns whether there are more terms and the term
-fn evaluate_terms<'a>(
-    terms: &mut VecDeque<Ast<'a>>,
+fn evaluate_terms(
+    terms: &mut VecDeque<Ast<'_>>,
     state: &mut State,
 ) -> (bool, Option<Spanned<Arc<str>>>) {
     // go to front, take (has_more, item); if not has_more; remove it
@@ -92,9 +92,9 @@ fn evaluate_ifdef(span: Span, result: bool, if_results: &mut HashMap<Span, bool>
 }
 
 #[allow(clippy::needless_bool)]
-fn evaluate_if<'a>(
+fn evaluate_if(
     span: Span,
-    expr: &VecDeque<Ast<'a>>,
+    expr: &VecDeque<Ast<'_>>,
     _defines: &Defines,
     if_results: &mut HashMap<Span, bool>,
 ) -> bool {
@@ -137,7 +137,7 @@ pub enum MacroState {
 /// Examples:
 /// * comment: (false, None)
 /// * token: (false, Some(...))
-fn take_last<'a>(ast: &mut Ast<'a>, state: &mut State) -> (bool, Option<Spanned<Arc<str>>>) {
+fn take_last(ast: &mut Ast<'_>, state: &mut State) -> (bool, Option<Spanned<Arc<str>>>) {
     match ast {
         Ast::Ifndef(IfDefined {
             term, else_, then, ..
@@ -241,7 +241,7 @@ fn ignore_line(
 }
 
 // pulls a new item from terms, evaluating the different functions
-fn next<'a>(terms: &mut VecDeque<Ast<'a>>, state: &mut State) -> Option<Spanned<Arc<str>>> {
+fn next(terms: &mut VecDeque<Ast<'_>>, state: &mut State) -> Option<Spanned<Arc<str>>> {
     // if we have something in the stack, return it
     let (_, item) = pop_stack(&mut state.stack);
     if item.is_some() {

@@ -304,7 +304,7 @@ fn replace(
             if is_quote {
                 new_tokens.push_back(Spanned {
                     inner: quote(tokens),
-                    span: (tokens.get(0).map(|x| x.span).unwrap_or((0, 0))),
+                    span: (tokens.front().map(|x| x.span).unwrap_or((0, 0))),
                 })
             } else {
                 new_tokens.extend(tokens.iter().cloned())
