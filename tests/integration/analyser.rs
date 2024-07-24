@@ -302,6 +302,8 @@ fn errors() {
         "call _a = 1",
         "1 = 1",
         "private 1 = 1",
+        "private 1",
+        "private [1]",
     ];
     for case in cases {
         let state = parse_analyze(case);
