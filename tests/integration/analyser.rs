@@ -463,6 +463,14 @@ fn origin_global_from() {
 }
 
 #[test]
+fn globals() {
+    let case = r#"a = 1"#;
+
+    let state = parse_analyze(case);
+    assert!(!state.globals(Some(uncased("a"))).is_empty());
+}
+
+#[test]
 fn for_each() {
     let case = r#"
 private _x = 1;
