@@ -85,6 +85,10 @@ as well as understanding the origin of the type.
 3. `cargo test`
 4. `cargo tarpaulin --skip-clean --target-dir target/tarpaulin --out Lcov` for code coverage
 
+### Design
+
+![](./content/sqf_analyzer.drawio.png)
+
 Check [src/README.md](./src/README.md) for an overview of the design.
 
 ### How to generate the database

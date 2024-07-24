@@ -2,6 +2,8 @@
 
 ## Passes
 
+![](../content/sqf_analyzer.drawio.png)
+
 This parser is designed using the following passes:
 
 ### 1. Parse preprocessor
@@ -43,7 +45,7 @@ resolving all parenthesis and balancing precedence.
 
 Implemented in [./parser/pratt.rs](./parser/pratt.rs).
 
-### 4. Analyze SQF AST
+### 5. Analyze SQF AST
 
 Receives an `Expr` and produces a `State` describing different of properties of the AST, such as
 
