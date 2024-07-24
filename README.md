@@ -1,3 +1,6 @@
+[![.github/workflows/release.yaml](https://github.com/sqf-analyzer/sqf-analyzer/actions/workflows/release.yaml/badge.svg)](https://github.com/sqf-analyzer/sqf-analyzer/actions/workflows/release.yaml)
+[![codecov](https://codecov.io/github/sqf-analyzer/sqf-analyzer/graph/badge.svg?token=EJV4KH41Z2)](https://codecov.io/github/sqf-analyzer/sqf-analyzer)
+
 # SQF analyzer
 
 This repository contains a Rust library to analyze SQF, a popular programming language to
@@ -10,8 +13,8 @@ See [sql-analyzer-lsp](https://github.com/sqf-analyzer/sql-analyzer-lsp) for its
 ## How to use
 
 ```bash
-cargo run --example sqf-analyzer -- --addon <path to directory with config.cpp>
-cargo run --example sqf-analyzer -- --file <path to sqf file>
+cargo run --bin sqf_analyzer -- --addon <path to directory with config.cpp>
+cargo run --bin sqf_analyzer -- --file <path to sqf file>
 ```
 
 ## Features
