@@ -302,6 +302,8 @@ fn errors() {
         "call _a = 1",
         "1 = 1",
         "private 1 = 1",
+        "private 1",
+        "private [1]",
     ];
     for case in cases {
         let state = parse_analyze(case);
@@ -458,6 +460,14 @@ fn origin_global_from() {
         state.namespace.mission,
         HashMap::from([(uncased("a"), (file(0, 1), Some(Type::Number.into())))])
     );
+}
+
+#[test]
+fn globals() {
+    let case = r#"a = 1"#;
+
+    let state = parse_analyze(case);
+    assert!(!state.globals(Some(uncased("a"))).is_empty());
 }
 
 #[test]
