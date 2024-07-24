@@ -195,6 +195,13 @@ pub const MISSION_INIT_SCRIPTS: [&str; 8] = [
     "initPlayerLocal.sqf",
 ];
 
+pub use uncased::UncasedStr;
+
+/// converts an &str to an Arc<UncasedStr>
+pub fn uncased(v: &str) -> std::sync::Arc<UncasedStr> {
+    UncasedStr::new(v).into()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -214,11 +221,4 @@ mod tests {
             PathBuf::from("../A3-Antistasi/A3A/addons/core/Includes/script_mod.hpp")
         );
     }
-}
-
-pub use uncased::UncasedStr;
-
-/// converts an &str to an Arc<UncasedStr>
-pub fn uncased(v: &str) -> std::sync::Arc<UncasedStr> {
-    UncasedStr::new(v).into()
 }
