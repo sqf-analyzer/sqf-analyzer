@@ -13,12 +13,12 @@ path-slash = "*"
 tinyvec = "1.6.0"
 uncased = { version = "*", default-features = false, features = ["alloc"] }
 
-[[example]]
-name = "sqf-analyzer"
+clap = { version = "*", optional = true }
+codespan-reporting = { version = "*", optional = true }
 
-[dev_dependencies.clap]
-version = "*"
-features = ["cargo"]
+[features]
+bin = ["clap", "codespan-reporting"]
 
-[dev_dependencies.codespan-reporting]
-version = "*"
+[[bin]]
+name = "sqf_analyzer"
+required-features = ["bin"]

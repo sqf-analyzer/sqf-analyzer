@@ -229,14 +229,14 @@ fn process(
             };
             let Ok(text) = std::fs::read_to_string(&path) else {
                 if function_name.is_some() {
-                    let error = Error::new(format!(
-                        "Could not open path \"{}\"",
-                        path.display()
-                    ), (1, 1));
+                    let error = Error::new(
+                        format!("Could not open path \"{}\"", path.display()),
+                        (1, 1),
+                    );
                     return vec![error];
                 }
                 // optional files are not error if not found
-                return vec![]
+                return vec![];
             };
 
             let configuration = analyzer::Configuration {
